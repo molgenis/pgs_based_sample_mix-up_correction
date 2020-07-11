@@ -374,12 +374,14 @@ mergedLRdataFrame <-
 
 lRProducts <- data.frame(mergedLRdataFrame[1:3], likelihoodRatios = apply(mergedLRdataFrame[-1:-3], 1, prod))
 
+print(paste0("Calculated overall AUC: ", calculate.auc(lRProducts$group == "null", lRProducts$likelihoodRatios)))
+
 # zscore.sums$zscore.avg <- zscore.sums$zscore.sum / sqrt(length(zscore.list))
 # zscore.sums$zscore.avg <- zscore.sums$zscore.sum
 
 # Write these Z-scores for later.
-# write.table(zscore.sums, paste0(dirname(filename), "/overall_zscores_corrected.tsv"),
-            # sep="\t", col.names = T, row.names = T, quote = F)
+write.table(lRProducts, paste0(basedir, "/likelihoodRatios.tsv"),
+            sep="\t", col.names = T, row.names = T, quote = F)
 
 ggplot(lRProducts, aes(x=likelihoodRatios, stat(density), fill=group)) +
   geom_histogram(bins = 32, alpha=.5, position="identity") +
