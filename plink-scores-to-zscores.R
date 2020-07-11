@@ -283,7 +283,7 @@ for (file.index in c(1:length(profiles))) {
   
   # Correct for sex
   trait2pgs.sexCorrected <- combined
-  model.geslacht <- lm(actual~crrct.trait, data = combined)
+  model.geslacht <- lm(actual ~ crrct.trait, data = combined)
   trait2pgs.sexCorrected$actual <- resid(model.geslacht)
   
   sex.cor.test.results <- cor.test(trait2pgs.sexCorrected$actual, trait2pgs.sexCorrected$PGS)
@@ -292,7 +292,7 @@ for (file.index in c(1:length(profiles))) {
   
   # Correct for age
   trait2pgs.ageCorrected <- combined
-  model.age <- lm(actual~age_bl1, data = combined)
+  model.age <- lm(actual ~ age_bl1, data = combined)
   trait2pgs.ageCorrected$actual <- resid(model.age)
   
   age.cor.test.results <- cor.test(combined$actual, combined$PGS)
@@ -301,7 +301,7 @@ for (file.index in c(1:length(profiles))) {
   
   # Correct for age and sex
   trait2pgs.corrected <- combined
-  model.complete <- lm(actual ~ age_bl1 + geslacht + age_bl1 * geslacht, data = combined)
+  model.complete <- lm(actual ~ age_bl1 + crrct.trait + age_bl1 * crrct.trait, data = combined)
   trait2pgs.corrected$actual <- resid(model.complete)
   
   # Scale both the actual and estimated traits
@@ -326,7 +326,7 @@ for (file.index in c(1:length(profiles))) {
   colnames(scaledResidualsMatrix) <- trait2pgs.corrected$phenoSampleIds
   rownames(scaledResidualsMatrix) <- trait2pgs.corrected$genoSampleIds
   
-  # # Write these Z-scores for later.
+  # # Write these scaled residuals for later.
   write.table(scaledResidualsMatrix, 
               paste0(dirname(filename), phenotypes[file.index], "_correctedScaledResiduals.tsv"),
               sep="\t", col.names = T, row.names = T, quote = F)
