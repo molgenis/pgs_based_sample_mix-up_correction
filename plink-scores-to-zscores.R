@@ -181,7 +181,7 @@ forceNormal <- function(x) {
 ##############################
 # Run
 ##############################
-args <- parser$parse_args(commandArgs(trailingOnly = TRUE))
+# args <- parser$parse_args(commandArgs(trailingOnly = TRUE))
 args <- parser$parse_args(c("--profiles",
                           "~/pgs_based_mixup_correction/jobs/pgs_output_processing/mapping_old.txt",
                           "--phenotypes_path",
@@ -323,8 +323,8 @@ for (file.index in c(1:length(profiles))) {
     responseDataType = responseDataType)
   
   # Assign the column names and rownames
-  colnames(scaledResidualsMatrix) <- trait2pgs.corrected$phenoSampleIds
-  rownames(scaledResidualsMatrix) <- trait2pgs.corrected$genoSampleIds
+  colnames(scaledResidualsMatrix) <- trait2pgs.corrected$Row.names
+  rownames(scaledResidualsMatrix) <- trait2pgs.corrected$Row.names
   
   # # Write these scaled residuals for later.
   write.table(scaledResidualsMatrix, 
@@ -358,7 +358,7 @@ for (file.index in c(1:length(profiles))) {
     geom_line(aes(y=likelihoodRatios)) +
     xlab("Scaled residuals") + ggtitle(paste0("Scaled residuals for trait '", phenotypes[file.index], "'"))
   
-  ggsave(paste0(dirname(filename), "/hist-corrected.png"), width=8, height=7)
+  ggsave(paste0(dirname(filename), "/scaledResidualsHistogram.png"), width=8, height=7)
 }
 
 basedir <- dirname(dirname(filename))
@@ -385,12 +385,12 @@ ggplot(lRProducts, aes(x=likelihoodRatios, stat(density), fill=group)) +
   geom_histogram(bins = 32, alpha=.5, position="identity") +
   xlab("Likelihood ratios") + ggtitle(paste0("LR overall"))
 
-ggsave(paste0(dirname(filename), "/overall_hist-corrected.png"), width=8, height=7)
+ggsave(paste0(basedir, "/likelihoodRatioHistogram.png"), width=8, height=7)
 
 ggplot(lRProducts, aes(x=group, y=likelihoodRatios)) +
   geom_boxplot() + ggtitle(paste0("Likelihood ratio distributions comparison overall"))
 
-ggsave(paste0(dirname(filename), "/overall_boxplot-corrected.png"), width=8, height=7)
+ggsave(paste0(basedir, "/likelihoodRatioBoxplot.png"), width=8, height=7)
 
 # Pearson correlations
 # pearson.correlations <- pearson.correlations[order(pearson.correlations$pearson.corrected),]
@@ -428,4 +428,4 @@ ggplot(data = res.zscore.correlations.melted, aes(x=Var1, Var2, fill=pearson.cor
   theme_classic() +
   theme(axis.text.x = element_text(angle = 90, hjust = 1))
 
-ggsave(paste0(dirname(filename), "/residual_LR_correlations.png"), width=8, height=7)
+ggsave(paste0(dirname(filename), "/residual_LikelihoodRatioCorrelations.png"), width=8, height=7)
