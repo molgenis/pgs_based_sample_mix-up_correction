@@ -181,11 +181,11 @@ forceNormal <- function(x) {
 ##############################
 # Run
 ##############################
-# args <- parser$parse_args(commandArgs(trailingOnly = TRUE))
-args <- parser$parse_args(c("--profiles",
-                          "~/pgs_based_mixup_correction/jobs/pgs_output_processing/mapping_old.txt",
-                          "--phenotypes_path",
-                          "/home/umcg-rwarmerdam/pgs_based_mixup_correction/data/lldeep/samples/LLDeep_GoNL_samples_V01_20200313.txt"))
+args <- parser$parse_args(commandArgs(trailingOnly = TRUE))
+#args <- parser$parse_args(c("--profiles",
+#                          "~/pgs_based_mixup_correction/jobs/pgs_output_processing/mapping_old.txt",
+#                          "--phenotypes_path",
+#                          "/home/umcg-rwarmerdam/pgs_based_mixup_correction/data/lldeep/samples/LLDeep_GoNL_samples_V01_20200313.txt"))
 
 # Load table containing paths for the plink output 
 # and corresponding phenotype labels.
