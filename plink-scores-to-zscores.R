@@ -243,9 +243,8 @@ for (file.index in c(1:length(profiles))) {
   
   rownames(all.trait) <- all.trait$geno
   
-  responseDataType <- "continuous"
-  # responseDataType <- traitDescriptionsTable$traitDataType[file.index]
-  
+  responseDataType <- traitDescriptionsTable$traitDataType[file.index]
+
   # Read the PLINK polygenic score table.
   all.PGSs <- read.table(
     filename,
