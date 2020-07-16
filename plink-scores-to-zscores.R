@@ -310,7 +310,7 @@ for (file.index in c(1:length(profiles))) {
   colnames(trait2pgs) <- c("actual", "PGS")
   
   initial.cor.test.results <- cor.test(trait2pgs$actual, trait2pgs$PGS)
-  print(paste0("Initial pearson correlation = ", initial.cor.test.results$estimate))
+  print(paste0("Initial R-squared of correlation = ", initial.cor.test.results$estimate ^ 2))
   pearson.correlations[file.index, "pearson.not_corrected"] <- initial.cor.test.results$estimate
   
   # Merge the table of polygenic scores vs actual traits, and the table with a trait to correct for
@@ -355,7 +355,7 @@ for (file.index in c(1:length(profiles))) {
   
   # Output the correlation of the corrected traits
   corrected.cor.test.results <- cor.test(trait2pgs.corrected$actual, trait2pgs.corrected$PGS)
-  print(paste0("Pearson correlation of corrected traits = ", corrected.cor.test.results$estimate))
+  print(paste0("R-squared of corrected traits = ", corrected.cor.test.results$estimate ^ 2))
   pearson.correlations[file.index, "pearson.corrected.both"] <- corrected.cor.test.results$estimate
   
   # Calculate zscore matrix based on polygenic scores and actual phenotypes,
@@ -379,10 +379,10 @@ for (file.index in c(1:length(profiles))) {
     group = scaledResidualsDataFrame$group,
     nBins = 128)
   
-  lRdataFrameList[[file.index]] <- scaledResidualsMelted %>% 
+  lRdataFrameList[[file.index]] <- scaledResidualsDataFrame %>% 
     select(genotypeSamples, phenotypeSamples, group, likelihoodRatios)
   
-  ggplot(scaledResidualsMelted, aes(x=scaledResiduals, stat(density), fill=group)) +
+  ggplot(scaledResidualsDataFrame, aes(x=scaledResiduals, stat(density), fill=group)) +
     geom_histogram(bins = 72, alpha=.5, position="identity") +
     geom_line(aes(y=likelihoodRatios)) +
     xlab("Scaled residuals") + ggtitle(paste0("Scaled residuals for trait '", phenotypes[file.index], "'"))
