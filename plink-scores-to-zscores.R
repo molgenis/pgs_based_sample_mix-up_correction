@@ -31,80 +31,124 @@ parser$add_argument('--sample_coupling_file', required = FALSE,
 # Define functions
 ##############################
 
-# calculate.devianceResiduals <- function(estimate, actual) {
-#   logisticModel <- glm(actual ~ estimate,
-#                        family=binomial(link='logit'))
-# 
-#   print(summary(logisticModel))
-# 
-#   devianceResiduals <- residuals(logisticModel, type = "deviance")
-#   return(devianceResiduals)
-# }
+# Function that takes (a set of) estimates, actual values, confounders, 
+# and a linear model.
 
-devianceFromOlsRegressionLine <- function(estimate, actual, olsModel) {
+# The function predicts actual values from the independent variables 
+# (estimates and confounders) using the given model, 
+# and returns the deviance of these predicted values
+# to the actual values.
+devianceFromOlsRegressionLine <- function(estimate, actual, covariates, olsModel) {
+  # Predict actual values using the given model and the supplied independent variables
   predictedActual <- predict(olsModel, 
-                             list(estimate = estimate), 
+                             cbind(estimate, covariates), 
                              type = "response")
   
+  # Calculate the residual
   deviance <- actual - predictedActual
   return(unname(deviance))
 }
 
-devianceFromLogitRegressionLine <- function(estimate, actual, logitModel) {
+# Function that takes (a set of) estimates, actual values, confounders, 
+# and a logistic regression model.
+
+# The function predicts actual values from the independent variables 
+# (estimates and confounders) using the given model, 
+# and returns the deviance of these predicted values
+# to the actual values.
+devianceFromLogitRegressionLine <- function(estimate, actual, covariates, logitModel) {
+  # Predict actual values using the given model and the supplied independent variables
   predictedActual <- predict(logitModel, 
-                             list(estimate = estimate), 
+                             cbind(estimate, covariates), 
                              type = "response")
   
+  # Calculate the distance between the actual values and the predicted actual values.
   distanceBetweenSigmoidAndActual <- actual - predictedActual
   
+  # Calculate the deviance residuals from the distance between the actual values and
+  # the predicted actual values.
   deviance <- sqrt(2 * -log(1 - abs(distanceBetweenSigmoidAndActual)))
   deviance <- sign(distanceBetweenSigmoidAndActual) * deviance
   
   return(unname(deviance))
 }
 
-# Function for calculating normal residuals
-# calculate.continuousResiduals <- function(estimate, actual) {
-#   return(actual - estimate)
-# }
+
+# Function that takes 
+residualsFunConstructor <- function(estimate, actual, covariates, responseDataType = "continuous") {
+  
+  # Return a linear model in case 'actual', is a continuous data type.
+  if (responseDataType == "continuous") {
+    olsModel <- lm(actual ~ estimate + . + .^2, data = covariates)
+    
+    print("R-squared:")
+    print(summary(olsModel)$r.squared)
+    
+    # Define residualsFun to use the linear regression model.
+    residualsFun <- function(estimate, actual, covariates) {
+      return(devianceFromOlsRegressionLine(estimate = estimate, 
+                                           actual = actual, 
+                                           covariates = covariates, 
+                                           olsModel = olsModel))
+    }
+    return(residualsFun)
+    
+  # Return a logistic model in case 'actual', is a binary data type.
+  } else if (responseDataType == "binary") {
+    logitModel <- glm(actual ~ estimate + . + .^2, family=binomial(link='logit'), data = covariates)
+    
+    # Define residualsFun to use the logistic regression model.
+    residualsFun <- function(estimate, actual, covariates) {
+      return(devianceFromLogitRegressionLine(estimate = estimate, 
+                                             actual = actual, 
+                                             covariates = covariates, 
+                                             logitModel = logitModel))
+    }
+    return(residualsFun)
+  }
+}
+
 
 # Define function for calculating Z-scores that represents what the Java implementation should do.
-calculate.scaledResiduals <- function(estimate, actual, responseDataType = "continuous") {
-  # get regression line.
-  residualsFun <- NULL
-  if (responseDataType == "continuous") {
-    olsModel <- lm(actual ~ estimate)
-    
-    residualsFun <- function(estimate, actual) {
-      return(devianceFromOlsRegressionLine(estimate = estimate, actual = actual, olsModel = olsModel))
-    }
-  } else if (responseDataType == "binary") {
-    logitModel <- glm(actual ~ estimate,family=binomial(link='logit'))
-    
-    residualsFun <- function(estimate, actual) {
-      return(devianceFromLogitRegressionLine(estimate = estimate, actual = actual, logitModel = logitModel))
-    }
-  }
+calculate.scaledResiduals <- function(estimate, actual, covariates, sampleNames = NULL, responseDataType = "continuous") {
+  # Get a function that returns the deviance of an observation to the regression line.
+  # This will either be the 'deviance residuals' from a logistic model when the response data type is binary,
+  # or this will be the regular residuals corresponding to a linear model.
+  residualsFun <- residualsFunConstructor(estimate = estimate,
+                                          actual = actual,
+                                          covariates = covariates,
+                                          responseDataType = responseDataType)
   
   # extract residuals.
-  residuals <- residualsFun(estimate = estimate, actual = actual)
+  residuals <- residualsFun(estimate = estimate, 
+                            actual = actual, 
+                            covariates = covariates)
   
-  # get the mean and standard deviation to express residuals as z-score-like values.
+  # Get the mean and standard deviation to express residuals as z-score-like values.
   residuals.mean <- mean(residuals)
   residuals.sd <- sd(residuals)
   
-  # For every 
-  z.scores.calculated <- as.data.frame(outer(estimate, actual, FUN = function(x, y) {
-    return(abs(residualsFun(estimate = x, actual = y)))# - residuals.mean) / residuals.sd)
-  }))
+  # Create names
+  if (is.null(sampleNames)) {
+    sampleNames <- 1:length(actual)
+  }
   
-  # Rows correspond to the estimates (genotype samples), 
-  # columns correspond to the actual values (phenotype samples)
-  return (z.scores.calculated)
+  actualDataFrame <- as.data.frame(c(list(phenotypeSamples = sampleNames, actual = actual), covariates))
+  estimateDataFrame <- data.frame(genotypeSamples = sampleNames, estimate = estimate)
+  scaledResidualDataFrame <- expand_grid(actualDataFrame, estimateDataFrame)
+  scaledResidualDataFrame$scaledResiduals <- residualsFun(estimate = scaledResidualDataFrame$estimate, 
+                                                         actual = scaledResidualDataFrame$actual, 
+                                                         covariates = scaledResidualDataFrame[colnames(covariates)])
+  
+  scaledResidualDataFrame$scaledResiduals <- (scaledResidualDataFrame$scaledResiduals - residuals.mean) / residuals.sd
+  
+  return(
+    scaledResidualDataFrame %>% 
+    select(actualNames, estimateNames, scaledResiduals))
 }
 
 # Function for converting a matrix of scaled residuals to likelihood ratios
-scaledResidualsToLr <- function(scaledResiduals, group, nBins = 100) {
+scaledResidualsToLr <- function(scaledResiduals, group, nBins = 50) {
 
   nullResiduals <- scaledResiduals[group == "null"]
   alternativeResiduals <- scaledResiduals[group == "alternative"]
@@ -183,7 +227,7 @@ forceNormal <- function(x) {
 ##############################
 # args <- parser$parse_args(commandArgs(trailingOnly = TRUE))
 args <- parser$parse_args(c("--profiles",
-                          "~/pgs_based_mixup_correction/jobs/pgs_output_processing/mapping_old.txt",
+                          "~/pgs_based_mixup_correction/jobs/pgs_output_processing/mapping_with_responseType.txt",
                           "--phenotypes_path",
                           "/home/umcg-rwarmerdam/pgs_based_mixup_correction/data/lldeep/samples/LLDeep_GoNL_samples_V01_20200313.txt"))
 
@@ -281,22 +325,22 @@ for (file.index in c(1:length(profiles))) {
   # trait2pgs.corrected <- combined %>% group_by(crrct.trait) %>% mutate(actual = scale(actual))
   
   # Correct for sex
-  trait2pgs.sexCorrected <- combined
-  model.geslacht <- lm(actual ~ crrct.trait, data = combined)
-  trait2pgs.sexCorrected$actual <- resid(model.geslacht)
-  
-  sex.cor.test.results <- cor.test(trait2pgs.sexCorrected$actual, trait2pgs.sexCorrected$PGS)
-  print(paste0("Sex corrected pearson correlation = ", sex.cor.test.results$estimate))
-  pearson.correlations[file.index, "pearson.corrected.sex"] <- sex.cor.test.results$estimate
+  # trait2pgs.sexCorrected <- combined
+  # model.geslacht <- lm(actual ~ crrct.trait, data = combined)
+  # trait2pgs.sexCorrected$actual <- resid(model.geslacht)
+  # 
+  # sex.cor.test.results <- cor.test(trait2pgs.sexCorrected$actual, trait2pgs.sexCorrected$PGS)
+  # print(paste0("Sex corrected pearson correlation = ", sex.cor.test.results$estimate))
+  # pearson.correlations[file.index, "pearson.corrected.sex"] <- sex.cor.test.results$estimate
   
   # Correct for age
-  trait2pgs.ageCorrected <- combined
-  model.age <- lm(actual ~ age_bl1, data = combined)
-  trait2pgs.ageCorrected$actual <- resid(model.age)
+  # trait2pgs.ageCorrected <- combined
+  # model.age <- lm(actual ~ age_bl1, data = combined)
+  # trait2pgs.ageCorrected$actual <- resid(model.age)
   
-  age.cor.test.results <- cor.test(combined$actual, combined$PGS)
-  print(paste0("Age corrected pearson correlation = ", age.cor.test.results$estimate))
-  pearson.correlations[file.index, "pearson.corrected.age"] <- age.cor.test.results$estimate
+  # age.cor.test.results <- cor.test(combined$actual, combined$PGS)
+  # print(paste0("Age corrected pearson correlation = ", age.cor.test.results$estimate))
+  # pearson.correlations[file.index, "pearson.corrected.age"] <- age.cor.test.results$estimate
   
   # Correct for age and sex
   trait2pgs.corrected <- combined
@@ -316,38 +360,24 @@ for (file.index in c(1:length(profiles))) {
   
   # Calculate zscore matrix based on polygenic scores and actual phenotypes,
   # using the chosen function for calculating residuals.
-  scaledResidualsMatrix <- calculate.scaledResiduals(
-    estimate = trait2pgs.corrected$PGS, 
-    actual = trait2pgs.corrected$actual, 
+  scaledResidualsDataFrame <- calculate.scaledResiduals(
+    estimate = combined$PGS, 
+    actual = combined$actual, 
+    covariates = combined[c("age_bl1", "crrct.trait")],
+    sampleNames = rownames(combined),
     responseDataType = responseDataType)
   
-  # Assign the column names and rownames
-  colnames(scaledResidualsMatrix) <- trait2pgs.corrected$Row.names
-  rownames(scaledResidualsMatrix) <- trait2pgs.corrected$Row.names
+  scaledResidualsDataFrame$group <- "alternative"
   
-  # # Write these scaled residuals for later.
-  write.table(scaledResidualsMatrix, 
-              paste0(dirname(filename), phenotypes[file.index], "_correctedScaledResiduals.tsv"),
-              sep="\t", col.names = T, row.names = T, quote = F)
+  scaledResidualsDataFrame$group[which(
+    scaledResidualsDataFrame$genotypeSamples == scaledResidualsDataFrame$phenotypeSamples)] <- "null"
   
-  # Add column
-  scaledResidualsMatrix$genotypeSamples <- rownames(scaledResidualsMatrix)
-  rownames(scaledResidualsMatrix)<-1:nrow(scaledResidualsMatrix)
+  scaledResidualsDataFrame$group <- factor(scaledResidualsDataFrame$group, c("null", "alternative"))
   
-  # Melt zscores
-  scaledResidualsMelted <- scaledResidualsMatrix %>%
-    pivot_longer(-genotypeSamples, names_to = "phenotypeSamples", values_to = "scaledResiduals")
-  
-  scaledResidualsMelted$group <- "alternative"
-  
-  scaledResidualsMelted$group[which(
-    scaledResidualsMelted$genotypeSamples == scaledResidualsMelted$phenotypeSamples)] <- "null"
-  
-  scaledResidualsMelted$group <- factor(scaledResidualsMelted$group, c("null", "alternative"))
-  
-  scaledResidualsMelted$likelihoodRatios <- scaledResidualsToLr(scaledResidualsMelted$scaledResiduals,
-                                                                group = scaledResidualsMelted$group,
-                                                                nBins = 128)
+  scaledResidualsDataFrame$likelihoodRatios <- scaledResidualsToLr(
+    scaledResidualsDataFrame$scaledResiduals,
+    group = scaledResidualsDataFrame$group,
+    nBins = 128)
   
   lRdataFrameList[[file.index]] <- scaledResidualsMelted %>% 
     select(genotypeSamples, phenotypeSamples, group, likelihoodRatios)
