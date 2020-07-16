@@ -168,7 +168,7 @@ scaledResidualsToLr <- function(scaledResiduals, group, nBins = 50) {
   nullTiles <- ntile(nullResiduals, nBins)
   breaks <- sapply(1:nBins, function(bin) min(nullResiduals[nullTiles == bin]))
   
-  breaks[1] <- -1
+  breaks[1] <- min(scaledResiduals - 1)
   breaks <- c(breaks, max(scaledResiduals) + 1)
   
   alternativeTiles <- cut(alternativeResiduals, breaks = breaks, labels = FALSE)
@@ -226,8 +226,8 @@ forceNormal <- function(x) {
 # Run
 ##############################
 args <- parser$parse_args(commandArgs(trailingOnly = TRUE))
-#args <- parser$parse_args(c("--profiles",
-#                          "~/pgs_based_mixup_correction/jobs/pgs_output_processing/mapping_old.txt",
+# args <- parser$parse_args(c("--profiles",
+#                          "~/pgs_based_mixup_correction/jobs/pgs_output_processing/mapping_with_responseType.txt",
 #                          "--phenotypes_path",
 #                          "/home/umcg-rwarmerdam/pgs_based_mixup_correction/data/lldeep/samples/LLDeep_GoNL_samples_V01_20200313.txt"))
 
@@ -364,7 +364,7 @@ for (file.index in c(1:length(profiles))) {
     estimate = combined$PGS, 
     actual = combined$actual, 
     covariates = combined[c("age_bl1", "crrct.trait")],
-    sampleNames = rownames(combined),
+    sampleNames = combined$Row.names,
     responseDataType = responseDataType)
   
   scaledResidualsDataFrame$group <- "alternative"
