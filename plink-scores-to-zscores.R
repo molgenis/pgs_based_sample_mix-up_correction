@@ -82,7 +82,7 @@ residualsFunConstructor <- function(estimate, actual, covariates, responseDataTy
     olsModel <- lm(actual ~ estimate + . + .^2, data = covariates)
     
     print("R-squared:")
-    print(summary(olsModel)$r.squared)
+    print(summary(olsModel))
     
     # Define residualsFun to use the linear regression model.
     residualsFun <- function(estimate, actual, covariates) {
@@ -144,7 +144,7 @@ calculate.scaledResiduals <- function(estimate, actual, covariates, sampleNames 
   
   return(
     scaledResidualDataFrame %>% 
-    select(actualNames, estimateNames, scaledResiduals))
+    select(phenotypeSamples, genotypeSamples, scaledResiduals))
 }
 
 # Function for converting a matrix of scaled residuals to likelihood ratios
