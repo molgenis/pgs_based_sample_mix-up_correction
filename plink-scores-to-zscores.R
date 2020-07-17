@@ -31,6 +31,50 @@ parser$add_argument('--sample_coupling_file', required = FALSE,
 # Define functions
 ##############################
 
+plotSigmoid <- function(estimate, actual, covariates, logitModel) {
+  
+  covariateLabels <- colnames(covariates)
+  
+  newData <- data.frame(
+    estimate=seq(floor(min(estimate)), ceiling(max(estimate)), 0.05))
+  
+  for (lab in covariateLabels) {
+  
+    if (is.factor(covariates[,lab])) {
+      newData[, lab] <- sample(covariates[, lab], nrow(newData), replace = T)
+    }
+    else {
+      newData[, lab] <- mean(covariates[,lab])
+    }
+  }
+  
+  dat <- data.frame(estimate, actual)
+  
+  h <-  data.frame(estimate, actual) %>% group_by(actual) %>%
+    mutate(breaks = cut(estimate, 
+                        breaks=seq(floor(min(estimate)) - 0.025, ceiling(max(estimate)) + 0.025, 0.05), 
+                        labels=seq(floor(min(estimate)), ceiling(max(estimate)), 0.05), 
+                        include.lowest=TRUE),
+           breaks = as.numeric(as.character(breaks))) %>%
+    group_by(actual, breaks) %>% 
+    summarise(n = n()) %>%
+    mutate(pct = ifelse(actual==0, n/sum(n), 1 - n/sum(n))) 
+  
+  sigmoid <- ggplot() +
+    geom_segment(data=h, size=4, show.legend=FALSE,
+                 aes(x=breaks, xend=breaks, y=actual, yend=pct, colour=factor(actual))) +
+    geom_segment(dat=dat[dat$actual==0,], aes(x=estimate, xend=estimate, y=0, yend=-0.04), size=0.2, colour="grey30") +
+    geom_segment(dat=dat[dat$actual==1,], aes(x=estimate, xend=estimate, y=1, yend=1.04), size=0.2, colour="grey30") +
+    geom_line(data=data.frame(x=seq(floor(min(estimate)), ceiling(max(estimate)), 0.05), 
+                              y=predict(logitModel, 
+                                        newdata=newData,
+                                        type="response")), 
+              aes(x,y), colour="grey50", lwd=1) +
+    theme_bw(base_size=12)
+  
+  ggsave("sigmoid.pdf", plot = sigmoid)
+}
+
 # Function that takes (a set of) estimates, actual values, confounders, 
 # and a linear model.
 
@@ -91,11 +135,16 @@ residualsFunConstructor <- function(estimate, actual, covariates, responseDataTy
                                            covariates = covariates, 
                                            olsModel = olsModel))
     }
+    
     return(residualsFun)
     
   # Return a logistic model in case 'actual', is a binary data type.
   } else if (responseDataType == "binary") {
     logitModel <- glm(actual ~ estimate + . + .^2, family=binomial(link='logit'), data = covariates)
+    
+    print(summary(logitModel))
+    
+    #plotSigmoid(estimate = estimate, actual = actual, covariates = covariates, logitModel = logitModel)
     
     # Define residualsFun to use the logistic regression model.
     residualsFun <- function(estimate, actual, covariates) {
@@ -104,6 +153,7 @@ residualsFunConstructor <- function(estimate, actual, covariates, responseDataTy
                                              covariates = covariates, 
                                              logitModel = logitModel))
     }
+    
     return(residualsFun)
   }
 }
