@@ -77,7 +77,7 @@ if (length(unique(c(sapply(profileDataFrameList, nrow), mergedProfileDataFrame))
 print(head(mergedProfileDataFrame))
 print(str(mergedProfileDataFrame))
 
-profiles <- data.frame(IID = mergedProfileDataFrame[1], 
+profiles <- data.frame(IID = mergedProfileDataFrame[,1], 
                        SCORESUM = apply(mergedProfileDataFrame[,-1], 1, sum))
 
 write.table(profiles, args$out, row.names=F, col.names=T, quote=F, sep="\t")
