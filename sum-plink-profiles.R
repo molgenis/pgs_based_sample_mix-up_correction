@@ -43,10 +43,14 @@ print(sapply(profileDataFrameList, nrow))
 
 mergedProfileDataFrame <- profileDataFrameList %>% reduce(inner_join, by = "IID")
 
-print(nrow(mergedProfileDataFrame))
+if (length(unique(c(sapply(profileDataFrameList, nrow), mergedProfileDataFrame))) == 1) {
+  stop("Profiles do not have exactly the same number of samples! Exiting...")
+}
+
 print(head(mergedProfileDataFrame))
+print(str(mergedProfileDataFrame))
 
 profiles <- data.frame(IID = mergedProfileDataFrame[1], 
-                         SCORESUM = apply(mergedProfileDataFrame[-1], 1, sum))
+                       SCORESUM = apply(mergedProfileDataFrame[-1], 1, sum))
 
 write.table(profiles, args$out, row.names=F, col.names=T, quote=F, sep="\t")
