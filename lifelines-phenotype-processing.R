@@ -18,12 +18,18 @@ library(argparse)
 # Define argument parser
 ##############################
 
+initial.options <- commandArgs(trailingOnly = FALSE)
+file.arg.name <- "--file="
+script.name <- sub(file.arg.name, "", initial.options[grep(file.arg.name, initial.options)])
+script.basename <- dirname(script.name)
+default.phenotype_sources_map <- file.path(script.basename, "phenotype-sources-map.txt")
+
 parser <- ArgumentParser(description='')
 parser$add_argument('--phenotypes_base_path',
                     help='path to directory where tab-separated Lifelines phenotypes are stored')
 
 parser$add_argument('--phenotype_source_map', required = FALSE, 
-                    default = paste0(dirname(sys.frame(1)$ofile), "/phenotype-sources-map.txt"),
+                    default = default.phenotype_sources_map,
                     help=paste0('tab-separated file with header and colomns indicating the phenotype name,',
                                 'the column identifier and the source file.'))
 
