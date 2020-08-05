@@ -1,0 +1,21 @@
+Name	ColumnIdentifier	FileName
+Diastolic blood pressure	DBP	Measurement_Blood_pressure.dat
+Systolic blood pressure	SBP	Measurement_Blood_pressure.dat
+Hematocrit	HT	Laboratory_assessment_Blood.dat
+Hemoglobin	HB	Laboratory_assessment_Blood.dat
+Basophilic Granulocytes	BA	Laboratory_assessment_Blood.dat
+Eosinophil concentration	EO	Laboratory_assessment_Blood.dat
+Cholesterol	CHO	Laboratory_assessment_Blood.dat
+Lymphocytes	LY	Laboratory_assessment_Blood.dat
+Monocytes	MO	Laboratory_assessment_Blood.dat
+LDL Cholesterol	LDC	Laboratory_assessment_Blood.dat
+HbA1c	HBAC	Laboratory_assessment_Blood.dat
+Height	LENGTE	Measurement_Anthropometry.dat
+BMI	BMI	Measurement_Anthropometry.dat
+Erythrocytes	ER	Laboratory_assessment_Blood.dat
+Neutrophil Granulocytes	GR	Laboratory_assessment_Blood.dat
+Thrombocytes	TR	Laboratory_assessment_Blood.dat
+Creatinine	BKR	Laboratory_assessment_Blood.dat
+Triglycerides	TGL	Laboratory_assessment_Blood.dat
+HDL Cholesterol	HDC	Laboratory_assessment_Blood.dat
+Natural hair colour now	HAIR1	Questionnaire_Hair.dat
