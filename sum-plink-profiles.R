@@ -36,6 +36,33 @@ read.plinkProfiles <- function(plinkProfile) {
 
 # Get the arguments
 args <- parser$parse_args(commandArgs(trailingOnly = TRUE))
+# args <- parser$parse_args(c(
+#   "--plink-profiles", 
+#   "/groups/umcg-lifelines/tmp01/projects/ugli_blood_gsa/pgs_based_mixup_correction/output/PRScs/20200803//HbA1c_METAL_European.processed/1.UGLI.pgs.profile",
+#   "/groups/umcg-lifelines/tmp01/projects/ugli_blood_gsa/pgs_based_mixup_correction/output/PRScs/20200803//HbA1c_METAL_European.processed/2.UGLI.pgs.profile",
+#   "/groups/umcg-lifelines/tmp01/projects/ugli_blood_gsa/pgs_based_mixup_correction/output/PRScs/20200803//HbA1c_METAL_European.processed/3.UGLI.pgs.profile",
+#   "/groups/umcg-lifelines/tmp01/projects/ugli_blood_gsa/pgs_based_mixup_correction/output/PRScs/20200803//HbA1c_METAL_European.processed/4.UGLI.pgs.profile",
+#   "/groups/umcg-lifelines/tmp01/projects/ugli_blood_gsa/pgs_based_mixup_correction/output/PRScs/20200803//HbA1c_METAL_European.processed/5.UGLI.pgs.profile",
+#   "/groups/umcg-lifelines/tmp01/projects/ugli_blood_gsa/pgs_based_mixup_correction/output/PRScs/20200803//HbA1c_METAL_European.processed/6.UGLI.pgs.profile",
+#   "/groups/umcg-lifelines/tmp01/projects/ugli_blood_gsa/pgs_based_mixup_correction/output/PRScs/20200803//HbA1c_METAL_European.processed/7.UGLI.pgs.profile",
+#   "/groups/umcg-lifelines/tmp01/projects/ugli_blood_gsa/pgs_based_mixup_correction/output/PRScs/20200803//HbA1c_METAL_European.processed/8.UGLI.pgs.profile",
+#   "/groups/umcg-lifelines/tmp01/projects/ugli_blood_gsa/pgs_based_mixup_correction/output/PRScs/20200803//HbA1c_METAL_European.processed/9.UGLI.pgs.profile",
+#   "/groups/umcg-lifelines/tmp01/projects/ugli_blood_gsa/pgs_based_mixup_correction/output/PRScs/20200803//HbA1c_METAL_European.processed/10.UGLI.pgs.profile",
+#   "/groups/umcg-lifelines/tmp01/projects/ugli_blood_gsa/pgs_based_mixup_correction/output/PRScs/20200803//HbA1c_METAL_European.processed/11.UGLI.pgs.profile",
+#   "/groups/umcg-lifelines/tmp01/projects/ugli_blood_gsa/pgs_based_mixup_correction/output/PRScs/20200803//HbA1c_METAL_European.processed/12.UGLI.pgs.profile",
+#   "/groups/umcg-lifelines/tmp01/projects/ugli_blood_gsa/pgs_based_mixup_correction/output/PRScs/20200803//HbA1c_METAL_European.processed/13.UGLI.pgs.profile",
+#   "/groups/umcg-lifelines/tmp01/projects/ugli_blood_gsa/pgs_based_mixup_correction/output/PRScs/20200803//HbA1c_METAL_European.processed/14.UGLI.pgs.profile",
+#   "/groups/umcg-lifelines/tmp01/projects/ugli_blood_gsa/pgs_based_mixup_correction/output/PRScs/20200803//HbA1c_METAL_European.processed/15.UGLI.pgs.profile",
+#   "/groups/umcg-lifelines/tmp01/projects/ugli_blood_gsa/pgs_based_mixup_correction/output/PRScs/20200803//HbA1c_METAL_European.processed/16.UGLI.pgs.profile",
+#   "/groups/umcg-lifelines/tmp01/projects/ugli_blood_gsa/pgs_based_mixup_correction/output/PRScs/20200803//HbA1c_METAL_European.processed/17.UGLI.pgs.profile",
+#   "/groups/umcg-lifelines/tmp01/projects/ugli_blood_gsa/pgs_based_mixup_correction/output/PRScs/20200803//HbA1c_METAL_European.processed/18.UGLI.pgs.profile",
+#   "/groups/umcg-lifelines/tmp01/projects/ugli_blood_gsa/pgs_based_mixup_correction/output/PRScs/20200803//HbA1c_METAL_European.processed/19.UGLI.pgs.profile",
+#   "/groups/umcg-lifelines/tmp01/projects/ugli_blood_gsa/pgs_based_mixup_correction/output/PRScs/20200803//HbA1c_METAL_European.processed/20.UGLI.pgs.profile",
+#   "/groups/umcg-lifelines/tmp01/projects/ugli_blood_gsa/pgs_based_mixup_correction/output/PRScs/20200803//HbA1c_METAL_European.processed/21.UGLI.pgs.profile",
+#   "/groups/umcg-lifelines/tmp01/projects/ugli_blood_gsa/pgs_based_mixup_correction/output/PRScs/20200803//HbA1c_METAL_European.processed/22.UGLI.pgs.profile",
+#   "--out", 
+#   "/groups/umcg-lifelines/tmp01/projects/ugli_blood_gsa/pgs_based_mixup_correction/output/PRScs/20200803//HbA1c_METAL_European.processed/full.UGLI.pgs.profile"
+#   ))
 
 profileDataFrameList <- lapply(args$plink_profiles, read.plinkProfiles)
 
@@ -51,6 +78,6 @@ print(head(mergedProfileDataFrame))
 print(str(mergedProfileDataFrame))
 
 profiles <- data.frame(IID = mergedProfileDataFrame[1], 
-                       SCORESUM = apply(mergedProfileDataFrame[-1], 1, sum))
+                       SCORESUM = apply(mergedProfileDataFrame[,-1], 1, sum))
 
 write.table(profiles, args$out, row.names=F, col.names=T, quote=F, sep="\t")
