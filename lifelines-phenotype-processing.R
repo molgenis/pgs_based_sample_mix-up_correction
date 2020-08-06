@@ -12,6 +12,7 @@
 # Load libraries
 ##############################
 library(tidyverse)
+library(data.table)
 library(argparse)
 
 ##############################
@@ -51,8 +52,41 @@ parser$add_argument('--out',
 # Define functions
 ##############################
 
-getHeight <- function() {
+getLatestValueFromRawPhenotypeTable <- function(phenotypeSources, phenotypeTables, name) {
+  columnIdentifier <- phenotypeSources$ColumnIdentifier[phenotypeSources$Name == name]
   
+  return(phenotypeTables[[phenotypeSources$FileName[phenotypeSources$Name == name]]] %>%
+           filter(!is.na(get(columnIdentifier))) %>%
+           
+           # Per PSEUDOIDEXT, get the row with the 'latest' ENCOUNTERCODE that is not NA
+           group_by(PSEUDOIDEXT) %>%
+           slice_max(as.numeric(ENCOUNTERCODE)) %>%
+           select(PSEUDOIDEXT, !!columnIdentifier))
+}
+
+# Function for calculating eGFR
+estimateGFR <- function(serum_creatine, age, female, black) {
+  # Get the K constant.
+  K <- if (female) 61.9 else 79.6
+  # Get alpha constant.
+  alpha <- if (female) -0.329 else -0.411
+  
+  # Calculate eGFR with base function.
+  eGFR <- 141 * 
+    (min(serum_creatine / K, 1) ^ alpha) * 
+    (max(serum_creatine / K, 1) ^ -1.209) * 
+    (0.993 ^ age)
+  
+  # Multiply by 1.018 if the individual is a female.
+  if (female) {
+    eGFR <- eGFR * 1.018
+  }
+  
+  # Multiply by 1.159 if the individual is black.
+  if (black) {
+    eGFR <- eGFR * 1.159
+  }
+  return(eGFR)
 }
 
 ##############################
@@ -67,18 +101,41 @@ args <- parser$parse_args(c(
   "--out", "/groups/umcg-lifelines/tmp01/projects/ugli_blood_gsa/pgs_based_mixup_correction/data/lifelines/processed/UGLI.pgs.phenotypes.dat",
   "--phenotype-source-map", "/home/umcg-rwarmerdam/pgs_based_mixup_correction/scripts/r-scripts/pgs_based_sample_mix-up_correction/phenotype-source-map.txt"))
 
+# Load GSA linkage file
+gsaLinkageFile <- fread(args$gsa_linkage_file, sep="\t", header=T)
+
 # Collect required columns
+phenotypeSources <- fread(args$phenotype_source_map, sep="\t", header=T)
+
+# For every unique file, load it, and get the respective columns.
+phenotypeTables <- apply(unique(phenotypeSources[,c("Path", "FileName")]), 2,
+       function(row) {
+         phenotypeDataFrame <- fread(file.path(row$Path, row$FileName))
+         if ("ENCOUNTERCODE" %in% colnames(phenotypeDataFrame)) {
+           phenotypeDataFrame$ENCOUNTERCODE <- factor(phenotypeDataFrame$ENCOUNTERCODE, levels = c("Baseline assessment (1A)", "Second assessment (2A)"))
+         }
+         return(phenotypeDataFrame)
+       }, USE.NAMES = TRUE, simplify = F)
 
 # Height
-
+height <- getLatestValueFromRawPhenotypeTable(phenotypeSources, phenotypeTables, "Height")
 
 # BMI
+BMI <- getLatestValueFromRawPhenotypeTable(phenotypeSources, phenotypeTables, "BMI")
 
 # Diastolic blood pressure
+# DBP <- getLatestValueFromRawPhenotypeTable(phenotypeSources, phenotypeTables, "Diastolic blood pressure")
 
 # Systolic blood pressure
 
 # Estimated GFR
+estimatedGFR <- apply(phenotypes, 1, function(row) {
+  if (is.na(row["geslacht"]) | (row["geslacht"] != "Female" & row["geslacht"] != "Male")) {
+    return(NA)
+  }
+  
+  return(estimateGFR(as.numeric(row["bkr"]), as.numeric(row["age_bl1"]), row["geslacht"] == "Female", FALSE))
+})
 
 # Basophil concentration
 
@@ -102,7 +159,7 @@ args <- parser$parse_args(c(
 
 # Monocyte concentration
 
-# Reticulocyte concentration
+# Erythrocyte concentration
 
 # Neutrophil concentration
 

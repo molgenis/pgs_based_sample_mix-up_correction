@@ -1,21 +1,25 @@
-Name	ColumnIdentifier	FileName
-Diastolic blood pressure	DBP	Measurement_Blood_pressure.dat
-Systolic blood pressure	SBP	Measurement_Blood_pressure.dat
-Hematocrit	HT	Laboratory_assessment_Blood.dat
-Hemoglobin	HB	Laboratory_assessment_Blood.dat
-Basophilic Granulocytes	BA	Laboratory_assessment_Blood.dat
-Eosinophil concentration	EO	Laboratory_assessment_Blood.dat
-Cholesterol	CHO	Laboratory_assessment_Blood.dat
-Lymphocytes	LY	Laboratory_assessment_Blood.dat
-Monocytes	MO	Laboratory_assessment_Blood.dat
-LDL Cholesterol	LDC	Laboratory_assessment_Blood.dat
-HbA1c	HBAC	Laboratory_assessment_Blood.dat
-Height	LENGTE	Measurement_Anthropometry.dat
-BMI	BMI	Measurement_Anthropometry.dat
-Erythrocytes	ER	Laboratory_assessment_Blood.dat
-Neutrophil Granulocytes	GR	Laboratory_assessment_Blood.dat
-Thrombocytes	TR	Laboratory_assessment_Blood.dat
-Creatinine	BKR	Laboratory_assessment_Blood.dat
-Triglycerides	TGL	Laboratory_assessment_Blood.dat
-HDL Cholesterol	HDC	Laboratory_assessment_Blood.dat
-Natural hair colour now	HAIR1	Questionnaire_Hair.dat
+Name	Description	ColumnIdentifier	Path	FileName
+Diastolic blood pressure	Diastolic Blood Pressure adjusted for blood pressure lowering medications use at baseline (T0)	DBPadj.1	/groups/umcg-lifelines/tmp01/releases/pheno_lifelines_restructured/v1	bloodpressure_hypertension/data/labels/Blood_pressure and HTN (T0 and T1).txt
+Systolic blood pressure	Systolic Blood Pressure adjusted for blood pressure lowering medications use at baseline (T0)	SBPadj.1	/groups/umcg-lifelines/tmp01/releases/pheno_lifelines_restructured/v1	bloodpressure_hypertension/data/labels/Blood_pressure and HTN (T0 and T1).txt
+Hematocrit		HT	/groups/umcg-lifelines/tmp01/projects/phenotypes/tab_seperated_labels	Laboratory_assessment_Blood.dat
+Hemoglobin		HB	/groups/umcg-lifelines/tmp01/projects/phenotypes/tab_seperated_labels	Laboratory_assessment_Blood.dat
+Basophilic Granulocytes		BA	/groups/umcg-lifelines/tmp01/projects/phenotypes/tab_seperated_labels	Laboratory_assessment_Blood.dat
+Eosinophil concentration		EO	/groups/umcg-lifelines/tmp01/projects/phenotypes/tab_seperated_labels	Laboratory_assessment_Blood.dat
+Cholesterol		CHO	/groups/umcg-lifelines/tmp01/projects/phenotypes/tab_seperated_labels	Laboratory_assessment_Blood.dat
+Lymphocytes		LY	/groups/umcg-lifelines/tmp01/projects/phenotypes/tab_seperated_labels	Laboratory_assessment_Blood.dat
+Monocytes		MO	/groups/umcg-lifelines/tmp01/projects/phenotypes/tab_seperated_labels	Laboratory_assessment_Blood.dat
+LDL Cholesterol		LDC	/groups/umcg-lifelines/tmp01/projects/phenotypes/tab_seperated_labels	Laboratory_assessment_Blood.dat
+HbA1c		HBAC	/groups/umcg-lifelines/tmp01/projects/phenotypes/tab_seperated_labels	Laboratory_assessment_Blood.dat
+Height		LENGTE	/groups/umcg-lifelines/tmp01/projects/phenotypes/tab_seperated_labels	Measurement_Anthropometry.dat
+BMI		BMI	/groups/umcg-lifelines/tmp01/projects/phenotypes/tab_seperated_labels	Measurement_Anthropometry.dat
+Erythrocytes		ER	/groups/umcg-lifelines/tmp01/projects/phenotypes/tab_seperated_labels	Laboratory_assessment_Blood.dat
+Neutrophil Granulocytes		GR	/groups/umcg-lifelines/tmp01/projects/phenotypes/tab_seperated_labels	Laboratory_assessment_Blood.dat
+Thrombocytes		TR	/groups/umcg-lifelines/tmp01/projects/phenotypes/tab_seperated_labels	Laboratory_assessment_Blood.dat
+Creatinine		BKR	/groups/umcg-lifelines/tmp01/projects/phenotypes/tab_seperated_labels	Laboratory_assessment_Blood.dat
+Triglycerides		TGL	/groups/umcg-lifelines/tmp01/projects/phenotypes/tab_seperated_labels	Laboratory_assessment_Blood.dat
+HDL Cholesterol		HDC	/groups/umcg-lifelines/tmp01/projects/phenotypes/tab_seperated_labels	Laboratory_assessment_Blood.dat
+Sex		GESLACHT	/groups/umcg-lifelines/tmp01/projects/phenotypes/tab_seperated_labels	Participant (Pa_99_G).dat
+Type 1 diabetes		T1D.10Ê	/groups/umcg-lifelines/tmp01/releases/pheno_lifelines_restructured/v1	diabetes/data/labels/diabetes first and second screening_final.txt
+Type 2 diabetes		T2D.10Ê	/groups/umcg-lifelines/tmp01/releases/pheno_lifelines_restructured/v1	diabetes/data/labels/diabetes first and second screening_final.txt
+Asthma		asthma_baseline	/groups/umcg-lifelines/tmp01/releases/pheno_lifelines_restructured/v1	asthma/data/labels/asthma.txt
+Natural hair colour now		HAIR1	/groups/umcg-lifelines/tmp01/projects/phenotypes/tab_seperated_labels	Questionnaire_Hair.dat
