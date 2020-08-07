@@ -12,6 +12,7 @@
 # Load libraries
 ##############################
 library(tidyverse)
+library(readr)
 library(data.table)
 library(argparse)
 
@@ -67,7 +68,9 @@ parser$add_argument('--out',
 
 loadPhenotypeTables <- function(filePath) {
   
-  phenotypeDataFrame <- fread(filePath)
+  phenotypeDataFrame <- fread(
+    text = gsub("(?<!\r)(\n)", "\\n", read_file(filePath), perl = T), 
+    header=T, quote="", sep="\t")
   
   if ("ENCOUNTERCODE" %in% colnames(phenotypeDataFrame)) {
     
@@ -94,7 +97,7 @@ getVmidFromEncountercode <- function(encountercodes) {
     "Second assessment (2A)" = "Second assessment, questionnaire 1"
   )
   
-  return(unname(encounterVmidMap[encountercodes]))
+  return(factor(unname(encounterVmidMap[encountercodes]), levels = VMID_LEVELS))
 }
 
 getCorrectionTable <- function(phenotypeSources, phenotypeTables) {
@@ -171,8 +174,7 @@ getSchizophreniaValues <- function(phenotypeSources, phenotypeTables, correction
   return(phenotypeTables[[phenotypeSources$filePath[phenotypeSources$Name == "Schizophrenia"]]] %>%
            mutate(
              VALUE = case_when(get(columnIdentifier) == "Yes" ~ 1L,
-                               get(columnIdentifier) == "No" ~ 0L,
-                               TRUE ~ NA_integer_)) %>%
+                               TRUE ~ 0L)) %>%
            filter(!is.na(VALUE)) %>%
            inner_join(correctionTable, by = c("PSEUDOIDEXT", "VMID")) %>%
            group_by(PSEUDOIDEXT) %>%
