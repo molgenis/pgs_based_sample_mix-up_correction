@@ -68,9 +68,12 @@ parser$add_argument('--out',
 
 loadPhenotypeTables <- function(filePath) {
   
-  phenotypeDataFrame <- fread(
-    text = gsub("(?<!\r)(\n)", "\\n", read_file(filePath), perl = T), 
-    header=T, quote="", sep="\t")
+  # phenotypeDataFrame <- fread(
+  #   text = gsub("(?<!\r)(\n)", "\\n", read_file(filePath), perl = T), 
+  #   header=T, quote="", sep="\t")
+
+  phenotypeDataFrame <- fread(filePath,
+    header=T, quote="", sep="\t", fill=T)
   
   if ("ENCOUNTERCODE" %in% colnames(phenotypeDataFrame)) {
     

@@ -23,11 +23,11 @@ Type 1 diabetes		T1D.10	/groups/umcg-lifelines/tmp01/releases/pheno_lifelines_re
 Type 2 diabetes		T2D.10	/groups/umcg-lifelines/tmp01/releases/pheno_lifelines_restructured/v1	diabetes/data/labels/diabetes first and second screening_final.txt
 Asthma		asthma_baseline	/groups/umcg-lifelines/tmp01/releases/pheno_lifelines_restructured/v1	asthma/data/labels/asthma.txt
 Natural hair colour now		HAIR1	/groups/umcg-lifelines/tmp01/projects/phenotypes/tab_seperated_labels	Questionnaire_Hair.dat
-Schizophrenia		HEALTH72I9	/groups/umcg-lifelines/tmp01/projects/phenotypes/tab_seperated_labels	Questionnaire_Health_General.dat
-Heart attack		HEALTH19	/groups/umcg-lifelines/tmp01/projects/phenotypes/tab_seperated_labels	Questionnaire_Health.dat
-Since last questionnaire: heart attack		HEALTH100B1	/groups/umcg-lifelines/tmp01/projects/phenotypes/tab_seperated_labels	Questionnaire_Health.dat
-Balloon angioplasty/bypass surgery		HEALTH23	/groups/umcg-lifelines/tmp01/projects/phenotypes/tab_seperated_labels	Questionnaire_Health.dat
-Balloon angioplasty since last questionnaire		HEALTH101M1	/groups/umcg-lifelines/tmp01/projects/phenotypes/tab_seperated_labels	Questionnaire_Health.dat
+Schizophrenia		HEALTH72I9	/groups/umcg-lifelines/tmp01/projects/ugli_blood_gsa/pgs_based_mixup_correction/data/lifelines/phenotypes/v1/tab_separated_labels	Questionnaire_Health_General.cleaned.dat
+Heart attack		HEALTH19	/groups/umcg-lifelines/tmp01/projects/ugli_blood_gsa/pgs_based_mixup_correction/data/lifelines/phenotypes/v1/tab_separated_labels	Questionnaire_Health.cleaned.dat
+Since last questionnaire: heart attack		HEALTH100B1	/groups/umcg-lifelines/tmp01/projects/ugli_blood_gsa/pgs_based_mixup_correction/data/lifelines/phenotypes/v1/tab_separated_labels	Questionnaire_Health.cleaned.dat
+Balloon angioplasty/bypass surgery		HEALTH23	/groups/umcg-lifelines/tmp01/projects/ugli_blood_gsa/pgs_based_mixup_correction/data/lifelines/phenotypes/v1/tab_separated_labels	Questionnaire_Health.cleaned.dat
+Balloon angioplasty since last questionnaire		HEALTH101M1	/groups/umcg-lifelines/tmp01/projects/ugli_blood_gsa/pgs_based_mixup_correction/data/lifelines/phenotypes/v1/tab_separated_labels	Questionnaire_Health.cleaned.dat
 Age 1A1		AGE_1A1	/groups/umcg-lifelines/tmp01/projects/phenotypes/tab_seperated_labels	Participant (Pa_99_G).dat
 Age 1A2		AGE_1A2	/groups/umcg-lifelines/tmp01/projects/phenotypes/tab_seperated_labels	Participant (Pa_99_G).dat
 Age 1A3		AGE_1A3	/groups/umcg-lifelines/tmp01/projects/phenotypes/tab_seperated_labels	Participant (Pa_99_G).dat
