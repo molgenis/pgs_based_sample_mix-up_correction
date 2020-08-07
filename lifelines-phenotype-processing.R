@@ -187,6 +187,50 @@ getSchizophreniaValues <- function(phenotypeSources, phenotypeTables, correction
 
 getCoronaryArteryDiseaseValues <- function(phenotypeSources, phenotypeTables, correctionTable) {
   
+  # Get tables indicating MI, or surgery for every question
+  # Get Baseline MI
+  columnIdentifierMi <- phenotypeSources$ColumnIdentifier[phenotypeSources$Name == "Heart attack"]
+  
+  baselineMi <- phenotypeTables[[phenotypeSources$filePath[phenotypeSources$Name == "Heart attack"]]] %>%
+    mutate(
+      VALUE = case_when(get(columnIdentifierMi) == "Yes" ~ 1L,
+                        get(columnIdentifierMi) == "No" ~ 0L,
+                        TRUE ~ NA_integer_)) %>%
+    filter(!is.na(VALUE)) %>%
+    inner_join(correctionTable, by = c("PSEUDOIDEXT", "VMID"))
+  
+  # Get follow up Mi
+  columnIdentifierMiFollowUp <- phenotypeSources$ColumnIdentifier[phenotypeSources$Name == "Since last questionnaire: heart attack"]
+  
+  followUpMi <- phenotypeTables[[phenotypeSources$filePath[phenotypeSources$Name == "Since last questionnaire: heart attack"]]] %>%
+    mutate(
+      VALUE = case_when(get(columnIdentifierMiFollowUp) == "Yes" ~ 1L,
+                        get(columnIdentifierMiFollowUp) == "No" ~ 0L,
+                        TRUE ~ NA_integer_)) %>%
+    filter(!is.na(VALUE)) %>%
+    inner_join(correctionTable, by = c("PSEUDOIDEXT", "VMID"))
+  
+  # Get baseline intervention
+  columnIdentifierInterventionBaseline <- phenotypeSources$ColumnIdentifier[phenotypeSources$Name == "Balloon angioplasty/bypass surgery"]
+  
+  baselineIntervention <- phenotypeTables[[phenotypeSources$filePath[phenotypeSources$Name == "Balloon angioplasty/bypass surgery"]]] %>%
+    mutate(
+      VALUE = case_when(get(columnIdentifierInterventionBaseline) == "Yes" ~ 1L,
+                        get(columnIdentifierInterventionBaseline) == "No" ~ 0L,
+                        TRUE ~ NA_integer_)) %>%
+    filter(!is.na(VALUE)) %>%
+    inner_join(correctionTable, by = c("PSEUDOIDEXT", "VMID"))
+  
+  columnIdentifierInterventionFollowUp <- phenotypeSources$ColumnIdentifier[phenotypeSources$Name == "Balloon angioplasty since last questionnaire"]
+  
+  FollowUpIntervention <- phenotypeTables[[phenotypeSources$filePath[phenotypeSources$Name == "Balloon angioplasty since last questionnaire"]]] %>%
+    mutate(
+      VALUE = case_when(get(columnIdentifierInterventionFollowUp) == "Yes" ~ 1L,
+                        TRUE ~ NA_integer_)) %>%
+    filter(!is.na(VALUE)) %>%
+    inner_join(correctionTable, by = c("PSEUDOIDEXT", "VMID"))
+  
+  intermediateCad <- bind_rows(list(baselineMi, followUpMi, baselineIntervention, FollowUpIntervention))
 }
 
 getDerivedBinaryValues <- function(phenotypeSources, phenotypeTables, correctionTable, name, encountercode) {
