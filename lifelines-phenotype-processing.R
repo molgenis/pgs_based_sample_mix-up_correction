@@ -89,7 +89,7 @@ loadPhenotypeTables <- function(filePath) {
       levels = VMID_LEVELS)
   }
   
-  return(phenotypeDataFrame)
+  return(phenotypeDataFrame %>% mutate(PSEUDOIDEXT = as.character(PSEUDOIDEXT)))
 }
 
 getVmidFromEncountercode <- function(encountercodes) {
@@ -197,7 +197,8 @@ getCoronaryArteryDiseaseValues <- function(phenotypeSources, phenotypeTables, co
                         get(columnIdentifierMi) == "No" ~ 0L,
                         TRUE ~ NA_integer_)) %>%
     filter(!is.na(VALUE)) %>%
-    inner_join(correctionTable, by = c("PSEUDOIDEXT", "VMID"))
+    inner_join(correctionTable, by = c("PSEUDOIDEXT", "VMID")) %>%
+    select(PSEUDOIDEXT, AGE, SEX, VALUE, VMID)
   
   # Get follow up Mi
   columnIdentifierMiFollowUp <- phenotypeSources$ColumnIdentifier[phenotypeSources$Name == "Since last questionnaire: heart attack"]
@@ -208,7 +209,8 @@ getCoronaryArteryDiseaseValues <- function(phenotypeSources, phenotypeTables, co
                         get(columnIdentifierMiFollowUp) == "No" ~ 0L,
                         TRUE ~ NA_integer_)) %>%
     filter(!is.na(VALUE)) %>%
-    inner_join(correctionTable, by = c("PSEUDOIDEXT", "VMID"))
+    inner_join(correctionTable, by = c("PSEUDOIDEXT", "VMID")) %>%
+    select(PSEUDOIDEXT, AGE, SEX, VALUE, VMID)
   
   # Get baseline intervention
   columnIdentifierInterventionBaseline <- phenotypeSources$ColumnIdentifier[phenotypeSources$Name == "Balloon angioplasty/bypass surgery"]
@@ -219,18 +221,29 @@ getCoronaryArteryDiseaseValues <- function(phenotypeSources, phenotypeTables, co
                         get(columnIdentifierInterventionBaseline) == "No" ~ 0L,
                         TRUE ~ NA_integer_)) %>%
     filter(!is.na(VALUE)) %>%
-    inner_join(correctionTable, by = c("PSEUDOIDEXT", "VMID"))
+    inner_join(correctionTable, by = c("PSEUDOIDEXT", "VMID")) %>%
+    select(PSEUDOIDEXT, AGE, SEX, VALUE, VMID)
   
   columnIdentifierInterventionFollowUp <- phenotypeSources$ColumnIdentifier[phenotypeSources$Name == "Balloon angioplasty since last questionnaire"]
   
-  FollowUpIntervention <- phenotypeTables[[phenotypeSources$filePath[phenotypeSources$Name == "Balloon angioplasty since last questionnaire"]]] %>%
+  followUpIntervention <- phenotypeTables[[phenotypeSources$filePath[phenotypeSources$Name == "Balloon angioplasty since last questionnaire"]]] %>%
     mutate(
       VALUE = case_when(get(columnIdentifierInterventionFollowUp) == "Yes" ~ 1L,
                         TRUE ~ NA_integer_)) %>%
     filter(!is.na(VALUE)) %>%
-    inner_join(correctionTable, by = c("PSEUDOIDEXT", "VMID"))
+    inner_join(correctionTable, by = c("PSEUDOIDEXT", "VMID")) %>%
+    select(PSEUDOIDEXT, AGE, SEX, VALUE, VMID)
   
-  intermediateCad <- bind_rows(list(baselineMi, followUpMi, baselineIntervention, FollowUpIntervention))
+  cad <- bind_rows(list(
+    "HEALTH19" = baselineMi, 
+    "HEALTH100B1" = followUpMi, 
+    "HEALTH23" = baselineIntervention, 
+    "HEALTH101M1" = followUpIntervention), .id = "ID") %>%
+    group_by(PSEUDOIDEXT) %>%
+    slice_max(VALUE, with_ties=FALSE) %>%
+    select(PSEUDOIDEXT, AGE, SEX, VALUE)
+  
+  return(cad)
 }
 
 getDerivedBinaryValues <- function(phenotypeSources, phenotypeTables, correctionTable, name, encountercode) {
@@ -323,11 +336,17 @@ estimateGfr <- function(serum_creatine, age, female, black) {
   return(eGFR)
 }
 
+plotPhenotype <- function(name, tbl) {
+  #frequencies <- table(tbl$VALUE, useNA="ifany")
+  
+  ggplot(tbl, aes(x=VALUE)) + geom_histogram() + labs(x=name, y=Count)
+}
+
 ##############################
 # Generate phenotypes
 ##############################
 
-args <- parser$parse_args(commandArgs(trailingOnly = TRUE))
+#args <- parser$parse_args(commandArgs(trailingOnly = TRUE))
 
 args <- parser$parse_args(c(
   "--gsa-linkage-file", "/groups/umcg-lifelines/tmp01/releases/gsa_linkage_files/v1/gsa_linkage_file.dat",
@@ -335,7 +354,7 @@ args <- parser$parse_args(c(
   "--phenotype-source-map", "/home/umcg-rwarmerdam/pgs_based_mixup_correction/scripts/r-scripts/pgs_based_sample_mix-up_correction/phenotype-source-map.txt"))
 
 # Load GSA linkage file
-gsaLinkageFile <- fread(args$gsa_linkage_file, sep="\t", header=T)
+gsaLinkageTable <- fread(args$gsa_linkage_file, sep="\t", header=T)
 
 # Collect required columns
 phenotypeSources <- fread(args$phenotype_source_map, sep="\t", header=T) %>%
@@ -453,4 +472,12 @@ traitList[["Coronary artery disease"]] <- getCoronaryArteryDiseaseValues(
 traitList[["Schizophrenia"]] <- getSchizophreniaValues(
   phenotypeSources, phenotypeTables, correctionTable)
 
-bind_rows(traitList, .id = "TRAIT")
+sapply(names(traitList), function(name) plotPhenotype(name, traitList[[name]]))
+
+# Combine to single table
+processedPhenotypeTable <- bind_rows(traitList, .id = "TRAIT") %>%
+  inner_join(gsaLinkageTable, by="PSEUDOIDEXT") %>%
+  select(UGLI_ID, AGE, SEX, VALUE, TRAIT)
+
+write.table(processedPhenotypeTable, args$out, row.names=F, col.names=T, quote=F, sep="\t")
+
