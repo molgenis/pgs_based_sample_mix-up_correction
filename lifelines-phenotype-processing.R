@@ -266,7 +266,7 @@ getBloodPressureValues <- function(phenotypeSources, phenotypeTables, correction
   columnIdentifier <- phenotypeSources$ColumnIdentifier[phenotypeSources$Name == name]
   return(phenotypeTables[[phenotypeSources$filePath[phenotypeSources$Name == name]]] %>%
            mutate(VMID = factor(getVmidFromEncountercode("Baseline assessment (1A)"), 
-                                         levels = VMID),
+                                         levels = VMID_LEVELS),
                   VALUE = get(columnIdentifier)) %>%
            filter(!is.na(VALUE)) %>%
            inner_join(correctionTable, by = c("PSEUDOIDEXT", "VMID")) %>%
@@ -353,6 +353,7 @@ args <- parser$parse_args(c(
   "--out", "/groups/umcg-lifelines/tmp01/projects/ugli_blood_gsa/pgs_based_mixup_correction/data/lifelines/processed/UGLI.pgs.phenotypes.dat",
   "--phenotype-source-map", "/home/umcg-rwarmerdam/pgs_based_mixup_correction/scripts/r-scripts/pgs_based_sample_mix-up_correction/phenotype-source-map.txt"))
 
+message("Started.")
 # Load GSA linkage file
 gsaLinkageTable <- fread(args$gsa_linkage_file, sep="\t", header=T)
 
@@ -360,118 +361,152 @@ gsaLinkageTable <- fread(args$gsa_linkage_file, sep="\t", header=T)
 phenotypeSources <- fread(args$phenotype_source_map, sep="\t", header=T) %>%
   mutate(filePath = file.path(Path, FileName))
 
+message("Loading phenotype tables.")
 # For every unique file, load it, and get the respective columns.
 phenotypeTables <- sapply(unique(phenotypeSources$filePath),
        loadPhenotypeTables, USE.NAMES = TRUE, simplify = F)
+message("Loaded all tables.")
 
+# Getting correction table
 correctionTable <- getCorrectionTable(phenotypeSources, phenotypeTables)
+message("Created correction table.")
 
 traitList <- list()
 
+message("Processing phenotypes...")
+
 # Height
+message("    Heigth...")
 traitList[["Height"]] <- getLatestValueFromRawPhenotypeTable(
   phenotypeSources, phenotypeTables, correctionTable, "Height")
 
 # BMI
+message("    BMI...")
 traitList[["BMI"]] <- getLatestValueFromRawPhenotypeTable(
   phenotypeSources, phenotypeTables, correctionTable, "BMI")
 
 # Diastolic blood pressure
+message("    Diastolic blood pressure...")
 traitList[["Diastolic blood pressure"]] <- getBloodPressureValues(
   phenotypeSources, phenotypeTables, correctionTable, "Diastolic blood pressure")
 
 # Systolic blood pressure
+message("    Systolic blood pressure...")
 traitList[["Systolic blood pressure"]] <- getBloodPressureValues(
   phenotypeSources, phenotypeTables, correctionTable, "Systolic blood pressure")
 
 # Estimated GFR
+message("    eGFR...")
 traitList[["eGFR"]] <- getEstimatedGfr(
   phenotypeSources, phenotypeTables, correctionTable)
 
 # Basophil concentration
+message("    Basophilic granulocytes...")
 traitList[["Basophilic Granulocytes"]] <- getLatestValueFromRawPhenotypeTable(
   phenotypeSources, phenotypeTables, correctionTable, "Basophilic Granulocytes")
 
 # Eosinophil concentration
+message("    Eosinophil concentration...")
 traitList[["Eosinophil concentration"]] <- getLatestValueFromRawPhenotypeTable(
   phenotypeSources, phenotypeTables, correctionTable, "Eosinophil concentration")
 
 # HbA1c concentration
+message("    HbA1c concentration")
 traitList[["HbA1c"]] <- getLatestValueFromRawPhenotypeTable(
   phenotypeSources, phenotypeTables, correctionTable, "HbA1c")
 
 # LDL-cholesterol
+message("    LDL-cholesterol...")
 traitList[["LDL cholesterol"]] <- getLatestValueFromRawPhenotypeTable(
   phenotypeSources, phenotypeTables, correctionTable, "LDL Cholesterol")
 
 # Log-transformed triglyceride concentration
+message("    Triglyceride concentration...")
 traitList[["triglyceride concentration (log-transformed)"]] <- getLogTransformedTriglycerideConcentration(
   phenotypeSources, phenotypeTables, correctionTable)
 
 # Square root of HDL-cholesterol
+message("    HDL-cholesterol")
 traitList[["HDL cholesterol (square root)"]] <- getSquareRootOfHdlCholesterol(
   phenotypeSources, phenotypeTables, correctionTable)
 
 # Total cholesterol concentration
+message("    Total cholesterol...")
 traitList[["Total cholesterol"]] <- getLatestValueFromRawPhenotypeTable(
   phenotypeSources, phenotypeTables, correctionTable, "Cholesterol")
 
 # Hematocrit concentration
+message("    Hematocrit concentration...")
 traitList[["Hematocrit concentration"]] <- getLatestValueFromRawPhenotypeTable(
   phenotypeSources, phenotypeTables, correctionTable, "Hematocrit")
 
 # Hemoglobin concentration
+message("    Hemoglobin concentration...")
 traitList[["Hemoglobin concentration"]] <- getLatestValueFromRawPhenotypeTable(
   phenotypeSources, phenotypeTables, correctionTable, "Hemoglobin")
 
 # Lymphocyte concentration
+message("    Lymphocyte concentration...")
 traitList[["Lymphocyte concentration"]] <- getLatestValueFromRawPhenotypeTable(
   phenotypeSources, phenotypeTables, correctionTable, "Lymphocytes")
 
 # Monocyte concentration
+message("    Monocyte concentration...")
 traitList[["Monocyte concentration"]] <- getLatestValueFromRawPhenotypeTable(
   phenotypeSources, phenotypeTables, correctionTable, "Monocytes")
 
 # Erythrocyte concentration
+message("    Erythrocyte concentration...")
 traitList[["Erythrocyte concentration"]] <- getLatestValueFromRawPhenotypeTable(
   phenotypeSources, phenotypeTables, correctionTable, "Erythrocytes")
 
 # Neutrophil concentration
+message("    Neutrophil concentration...")
 traitList[["Neutrophil concentration"]] <- getLatestValueFromRawPhenotypeTable(
   phenotypeSources, phenotypeTables, correctionTable, "Neutrophil Granulocytes")
 
 # Thrombocyte concentration
+message("    Thrombocyte concentration...")
 traitList[["Thrombocyte concentration"]] <- getLatestValueFromRawPhenotypeTable(
   phenotypeSources, phenotypeTables, correctionTable, "Thrombocytes")
 
 # Type-2 diabetes
+message("    Type 2 diabetes...")
 traitList[["Type 2 diabetes"]] <- getDerivedBinaryValues(
   phenotypeSources, phenotypeTables, correctionTable, "Type 2 diabetes", "Second assessment (2A)")
 
 # Type-1 diabetes
+message("    Type 1 diabetes...")
 traitList[["Type 1 diabetes"]] <- getDerivedBinaryValues(
   phenotypeSources, phenotypeTables, correctionTable, "Type 1 diabetes", "Second assessment (2A)")
 
 # Asthma
+message("    Asthma...")
 traitList[["Asthma"]] <- getDerivedBinaryValues(
   phenotypeSources, phenotypeTables, correctionTable, "Asthma", "Baseline assessment (1A)")
 
 # Hair colour (level of blonde (black - blonde))
-traitList[["Blondeness of hair"]] <- getBlondenessOfHair(
+message("    Blondeness of hair...")
+traitList[["Blondeness of hair..."]] <- getBlondenessOfHair(
   phenotypeSources, phenotypeTables, correctionTable)
 
 # Hair colour (red vs. a level of blonde (black - blonde))
+message("    Red hair colour...")
 traitList[["Red hair colour"]] <- getRedHairValues(
   phenotypeSources, phenotypeTables, correctionTable)
 
 # Coronary artery disease
+message("    Coronary artery disease...")
 traitList[["Coronary artery disease"]] <- getCoronaryArteryDiseaseValues(
   phenotypeSources, phenotypeTables, correctionTable)
 
 # Schizophrenia
+message("    Schizophrenia...")
 traitList[["Schizophrenia"]] <- getSchizophreniaValues(
   phenotypeSources, phenotypeTables, correctionTable)
 
+message("Completed processing individual traits!")
+message("Plotting trait histograms...")
 sapply(names(traitList), function(name) plotPhenotype(name, traitList[[name]]))
 
 # Combine to single table
@@ -479,5 +514,6 @@ processedPhenotypeTable <- bind_rows(traitList, .id = "TRAIT") %>%
   inner_join(gsaLinkageTable, by="PSEUDOIDEXT") %>%
   select(UGLI_ID, AGE, SEX, VALUE, TRAIT)
 
+message("Writing output table...")
 write.table(processedPhenotypeTable, args$out, row.names=F, col.names=T, quote=F, sep="\t")
-
+message(paste0("DONE! Output written to '", args$out, "'."))
