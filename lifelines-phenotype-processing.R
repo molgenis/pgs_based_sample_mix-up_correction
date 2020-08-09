@@ -339,8 +339,8 @@ estimateGfr <- function(serum_creatine, age, female, black) {
 
 plotPhenotype <- function(name, tbl) {
   #frequencies <- table(tbl$VALUE, useNA="ifany")
-  
-  ggplot(tbl, aes(x=VALUE)) + geom_histogram() + labs(x=name, y="Count")
+  phenotypeHistogram <- ggplot(tbl, aes(x=VALUE)) + geom_histogram() + labs(x=name, y="Count")
+  print(phenotypeHistogram)
 }
 
 ##############################
@@ -356,7 +356,8 @@ args <- parser$parse_args(c(
 
 message("Started.")
 # Load GSA linkage file
-gsaLinkageTable <- fread(args$gsa_linkage_file, sep="\t", header=T)
+gsaLinkageTable <- fread(args$gsa_linkage_file, sep="\t", header=T) %>% 
+  mutate(PSEUDOIDEXT = as.character(PSEUDOIDEXT))
 
 # Collect required columns
 phenotypeSources <- fread(args$phenotype_source_map, sep="\t", header=T) %>%
@@ -508,7 +509,10 @@ traitList[["Schizophrenia"]] <- getSchizophreniaValues(
 
 message("Completed processing individual traits!")
 message("Plotting trait histograms...")
-sapply(names(traitList), function(name) plotPhenotype(name, traitList[[name]]))
+pdf(paste0("debugHistograms.pdf"))
+par(xpd = NA)
+lapply(names(traitList), function(name) plotPhenotype(name, traitList[[name]]))
+dev.off()
 
 # Combine to single table
 processedPhenotypeTable <- bind_rows(traitList, .id = "TRAIT") %>%
