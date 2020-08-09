@@ -340,7 +340,6 @@ estimateGfr <- function(serum_creatine, age, female, black) {
 plotPhenotype <- function(name, tbl) {
   #frequencies <- table(tbl$VALUE, useNA="ifany")
   phenotypeHistogram <- ggplot(tbl, aes(x=VALUE)) + geom_histogram() + labs(x=name, y="Count")
-  print(phenotypeHistogram)
 }
 
 ##############################
