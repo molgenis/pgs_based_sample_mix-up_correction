@@ -153,8 +153,7 @@ getBlondenessOfHair <- function(phenotypeSources, phenotypeTables, correctionTab
            inner_join(correctionTable, by = c("PSEUDOIDEXT", "VMID")) %>%
            group_by(PSEUDOIDEXT) %>%
            slice(1) %>%
-           select(PSEUDOIDEXT, AGE, SEX, VALUE)) %>%
-           ungroup()
+           select(PSEUDOIDEXT, AGE, SEX, VALUE))
 }
 
 getRedHairValues <- function(phenotypeSources, phenotypeTables, correctionTable) {
@@ -170,8 +169,7 @@ getRedHairValues <- function(phenotypeSources, phenotypeTables, correctionTable)
            inner_join(correctionTable, by = c("PSEUDOIDEXT", "VMID")) %>%
            group_by(PSEUDOIDEXT) %>%
            slice(1) %>%
-           select(PSEUDOIDEXT, AGE, SEX, VALUE)) %>%
-           ungroup()
+           select(PSEUDOIDEXT, AGE, SEX, VALUE))
 }
 
 getSchizophreniaValues <- function(phenotypeSources, phenotypeTables, correctionTable) {
@@ -184,8 +182,7 @@ getSchizophreniaValues <- function(phenotypeSources, phenotypeTables, correction
            inner_join(correctionTable, by = c("PSEUDOIDEXT", "VMID")) %>%
            group_by(PSEUDOIDEXT) %>%
            slice(1) %>%
-           select(PSEUDOIDEXT, AGE, SEX, VALUE)) %>%
-           ungroup()
+           select(PSEUDOIDEXT, AGE, SEX, VALUE))
 }
 
 getCoronaryArteryDiseaseValues <- function(phenotypeSources, phenotypeTables, correctionTable) {
@@ -244,8 +241,7 @@ getCoronaryArteryDiseaseValues <- function(phenotypeSources, phenotypeTables, co
     "HEALTH101M1" = followUpIntervention), .id = "ID") %>%
     group_by(PSEUDOIDEXT) %>%
     slice_max(VALUE, with_ties=FALSE) %>%
-    select(PSEUDOIDEXT, AGE, SEX, VALUE) %>%
-    ungroup()
+    select(PSEUDOIDEXT, AGE, SEX, VALUE)
   
   return(cad)
 }
@@ -263,8 +259,7 @@ getDerivedBinaryValues <- function(phenotypeSources, phenotypeTables, correction
            inner_join(correctionTable, by = c("PSEUDOIDEXT", "VMID")) %>%
            group_by(PSEUDOIDEXT) %>%
            slice(1) %>%
-           select(PSEUDOIDEXT, AGE, SEX, VALUE)) %>%
-           ungroup()
+           select(PSEUDOIDEXT, AGE, SEX, VALUE))
 }
 
 getBloodPressureValues <- function(phenotypeSources, phenotypeTables, correctionTable, name) {
@@ -277,8 +272,7 @@ getBloodPressureValues <- function(phenotypeSources, phenotypeTables, correction
            inner_join(correctionTable, by = c("PSEUDOIDEXT", "VMID")) %>%
            group_by(PSEUDOIDEXT) %>%
            slice(1) %>%
-           select(PSEUDOIDEXT, AGE, SEX, VALUE)) %>%
-           ungroup()
+           select(PSEUDOIDEXT, AGE, SEX, VALUE))
 }
 
 getLatestValueFromRawPhenotypeTable <- function(phenotypeSources, phenotypeTables, correctionTable, name) {
@@ -293,8 +287,7 @@ getLatestValueFromRawPhenotypeTable <- function(phenotypeSources, phenotypeTable
            # Per PSEUDOIDEXT, get the row with the 'latest' VMID that is not NA
            group_by(PSEUDOIDEXT) %>%
            slice_max(as.numeric(VMID)) %>%
-           select(PSEUDOIDEXT, AGE, SEX, VALUE)) %>%
-           ungroup()
+           select(PSEUDOIDEXT, AGE, SEX, VALUE))
 }
 
 getSquareRootOfHdlCholesterol <- function(phenotypeSources, phenotypeTables, correctionTable) {
@@ -524,6 +517,7 @@ dev.off()
 # Combine to single table
 processedPhenotypeTable <- bind_rows(traitList, .id = "TRAIT") %>%
   inner_join(gsaLinkageTable, by="PSEUDOIDEXT") %>%
+  ungroup() %>%
   select(UGLI_ID, AGE, SEX, VALUE, TRAIT)
 
 message("Writing output table...")
