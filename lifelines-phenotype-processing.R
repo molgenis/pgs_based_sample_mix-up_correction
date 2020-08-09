@@ -294,21 +294,10 @@ getEstimatedGfr <- function(phenotypeSources, phenotypeTables, correctionTable) 
   creatinine <- getLatestValueFromRawPhenotypeTable(
     phenotypeSources, phenotypeTables, correctionTable, "Creatinine")
 
-  estimatedGfr <- apply(creatinine, 1, function(row) {
-    if (is.na(row["SEX"]) | (row["SEX"] != "Female" & row["SEX"] != "Male")) {
-      return(NA)
-    }
-    
-    return(estimateGfr(
-      serum_creatine = as.numeric(row["VALUE"]), 
-      age = as.numeric(row["age_bl1"]), 
-      female = row["SEX"] == "Female", 
-      black = FALSE))
-  })
-  
   return(creatinine %>%
-    mutate(VALUE = estimatedGfr) %>%
-    filter(is.na(VALUE)))
+    filter(!is.na(SEX) & SEX %in% c("Male", "Female")) %>%
+    mutate(VALUE = estimateGfr(VALUE, AGE, SEX == "Female", FALSE)) %>%
+    filter(!is.na(VALUE)))
 }
 
 # Function for calculating eGFR
