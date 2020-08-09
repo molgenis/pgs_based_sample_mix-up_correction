@@ -290,13 +290,25 @@ getLatestValueFromRawPhenotypeTable <- function(phenotypeSources, phenotypeTable
            select(PSEUDOIDEXT, AGE, SEX, VALUE))
 }
 
+getSquareRootOfHdlCholesterol <- function(phenotypeSources, phenotypeTables, correctionTable) {
+  return(getLatestValueFromRawPhenotypeTable(
+    phenotypeSources, phenotypeTables, correctionTable, "HDL Cholesterol") %>%
+      mutate(VALUE = sqrt(VALUE)))
+}
+
+getLogTransformedTriglycerideConcentration <- function(phenotypeSources, phenotypeTables, correctionTable) {
+  return(getLatestValueFromRawPhenotypeTable(
+    phenotypeSources, phenotypeTables, correctionTable, "Triglycerides") %>%
+      mutate(VALUE = log(VALUE)))
+}
+
 getEstimatedGfr <- function(phenotypeSources, phenotypeTables, correctionTable) {
   creatinine <- getLatestValueFromRawPhenotypeTable(
     phenotypeSources, phenotypeTables, correctionTable, "Creatinine")
 
   return(creatinine %>%
     filter(!is.na(SEX) & SEX %in% c("Male", "Female")) %>%
-    mutate(VALUE = estimateGfr(VALUE, AGE, SEX == "Female", FALSE)) %>%
+    mutate(VALUE = log(estimateGfr(VALUE, AGE, SEX == "Female", FALSE))) %>%
     filter(!is.na(VALUE)))
 }
 
