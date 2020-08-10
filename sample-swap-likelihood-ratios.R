@@ -341,9 +341,9 @@ args <- parser$parse_args(commandArgs(trailingOnly = TRUE))
 
 # Load table containing paths for the plink output 
 # and corresponding phenotype labels.
-traitDescriptionsTable <- read.csv(
-  args$trait_gwas_mapping, quote="", header=F, 
-  col.names=c("trait", "traitDataType", "profilePath"), stringsAsFactors=F)
+traitDescriptionsTable <- read.table(
+  args$trait_gwas_mapping, quote="", header=F, sep = "\t",
+  col.names=c("trait", "traitDataType", "summaryStatistics"), stringsAsFactors=F)
 
 # Get the paths to the polygenic scores.
 basePathWithPolygenicScores <- args$base_pgs_path
