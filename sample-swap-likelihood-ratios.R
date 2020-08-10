@@ -342,7 +342,7 @@ args <- parser$parse_args(commandArgs(trailingOnly = TRUE))
 # Load table containing paths for the plink output 
 # and corresponding phenotype labels.
 traitDescriptionsTable <- read.table(
-  args$trait_gwas_mapping, quote="", header=F, sep = "\t",
+  args$trait_gwas_mapping, quote="", header=T, sep = "\t",
   col.names=c("trait", "traitDataType", "summaryStatistics"), stringsAsFactors=F)
 
 # Get the paths to the polygenic scores.
@@ -362,7 +362,7 @@ out <- args$out
 
 # Load the phenotypes 
 phenotypesFilePath <- args$phenotypes_file
-phenotypesTable <- read.table(phenotypesFilePath, header=T, row.names=1, quote="", sep="\t",
+phenotypesTable <- read.table(phenotypesFilePath, header=T, quote="", sep="\t",
                               col.names = c("ID", "AGE", "SEX", "VALUE", "TRAIT"))
 
 link <- data.frame(geno = phenotypesTable$ID, pheno = phenotypesTable$ID)
@@ -374,7 +374,7 @@ if (!is.null(args$sample_coupling_file)) {
 }
 
 llRdataFrameList <- list()
-pearson.correlations <- data.frame(phenotype = phenotypes,
+pearson.correlations <- data.frame(trait = traits,
                                    pearson.not_corrected = 0.0, 
                                    pearson.corrected.sex = 0.0,
                                    pearson.corrected.age = 0.0,
@@ -391,7 +391,7 @@ for (fileIndex in c(1:length(profilePaths))) {
   
   phenotypeTable <- phenotypesTable %>%
     filter(TRAIT == trait) %>%
-    rename(ID = "pheno") %>%
+    rename(pheno = ID) %>%
     inner_join(link, by="pheno")
   
   # Give status update
