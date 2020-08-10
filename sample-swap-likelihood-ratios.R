@@ -334,10 +334,10 @@ forceNormal <- function(x) {
 # Run
 ##############################
 args <- parser$parse_args(commandArgs(trailingOnly = TRUE))
-args <- parser$parse_args(c("--trait-gwas-mapping", "/groups/umcg-lld/tmp01/other-users/umcg-rwarmerdam/pgs_based_mixup_correction/scripts/r-scripts/pgs_based_sample_mix-up_correction/trait-gwas-mapping.txt",
-                            "--base-pgs-path", "/groups/umcg-lifelines/tmp01/projects/ugli_blood_gsa/pgs_based_mixup_correction/output/PRScs/20200803",
-                            "--phenotypes-file", "/groups/umcg-lifelines/tmp01/projects/ugli_blood_gsa/pgs_based_mixup_correction/data/lifelines/processed/UGLI.pgs.phenotypes.dat",
-                            "--out", "/groups/umcg-lifelines/tmp01/projects/ugli_blood_gsa/pgs_based_mixup_correction/output/sample-swap-prediction/20200803"))
+# args <- parser$parse_args(c("--trait-gwas-mapping", "/groups/umcg-lld/tmp01/other-users/umcg-rwarmerdam/pgs_based_mixup_correction/scripts/r-scripts/pgs_based_sample_mix-up_correction/trait-gwas-mapping.txt",
+#                             "--base-pgs-path", "/groups/umcg-lifelines/tmp01/projects/ugli_blood_gsa/pgs_based_mixup_correction/output/PRScs/20200803",
+#                             "--phenotypes-file", "/groups/umcg-lifelines/tmp01/projects/ugli_blood_gsa/pgs_based_mixup_correction/data/lifelines/processed/UGLI.pgs.phenotypes.dat",
+#                             "--out", "/groups/umcg-lifelines/tmp01/projects/ugli_blood_gsa/pgs_based_mixup_correction/output/sample-swap-prediction/20200803"))
 
 # Load table containing paths for the plink output 
 # and corresponding phenotype labels.
@@ -365,7 +365,7 @@ phenotypesFilePath <- args$phenotypes_file
 phenotypesTable <- read.table(phenotypesFilePath, header=T, quote="", sep="\t",
                               col.names = c("ID", "AGE", "SEX", "VALUE", "TRAIT"))
 
-link <- data.frame(geno = phenotypesTable$ID, pheno = phenotypesTable$ID)
+link <- data.frame(geno = unique(phenotypesTable$ID), pheno = unique(phenotypesTable$ID))
 
 # Get the link path
 if (!is.null(args$sample_coupling_file)) {
@@ -416,6 +416,8 @@ for (fileIndex in c(1:length(polygenicScoreFilePaths))) {
     polygenicScoreFilePath,
     header=T) %>%
     rename(PGS = SCORESUM)
+  
+  print(nrow(polygenicScores))
   
   completeTable <- phenotypeTable %>%
     inner_join(polygenicScores, by = c("geno" = "IID"))
