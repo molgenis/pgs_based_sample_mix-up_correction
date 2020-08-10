@@ -20,12 +20,14 @@ library(ROCR)
 
 parser <- ArgumentParser(description='')
 parser$add_argument('--profiles',
-                    help='path to plink --score output')
+                    help='paths to plink --score output')
 parser$add_argument('--phenotypes_path',
                     help='phenotype table')
 parser$add_argument('--sample_coupling_file', required = FALSE,
                     help=paste0('file containing genotype sample ids in the first column',
                     'and phenotype sample ids in the second column'))
+parser$add_argument('--out',
+                    help='path to output directory')
 
 ##############################
 # Define functions
@@ -339,32 +341,29 @@ args <- parser$parse_args(commandArgs(trailingOnly = TRUE))
 # and corresponding phenotype labels.
 traitDescriptionsTable <- read.csv(
   args$profiles, quote="", header=F, 
-  col.names=c("file", "phenotype", "traitDataType"), stringsAsFactors=F)
+  col.names=c("trait", "traitDataType", "profilePath"), stringsAsFactors=F)
 
 # Get the plink output paths
-profiles <- traitDescriptionsTable$file
+profilePaths <- traitDescriptionsTable$profilePath
 
 # Get the phenotype labels
-phenotypes <- traitDescriptionsTable$phenotype
+traits <- traitDescriptionsTable$trait
+
+# Get the output path
+out <- args$out
 
 # Load the phenotypes 
-phenotypes_path <- args$phenotypes_path
-phenotypes_table <- read.table(phenotypes_path, header=T, row.names=1, quote="", sep="\t")
+phenotypesPath <- args$phenotypes_path
+phenotypesTable <- read.table(phenotypesPath, header=T, row.names=1, quote="", sep="\t",
+                              col.names = c("ID", "AGE", "SEX", "VALUE", "TRAIT"))
 
-link <- data.frame(geno = rownames(phenotypes_table), pheno = rownames(phenotypes_table))
+link <- data.frame(geno = phenotypesTable$ID, pheno = phenotypesTable$ID)
 
 # Get the link path
 if (!is.null(args$sample_coupling_file)) {
   link <- fread(args$sample_coupling_file, stringsAsFactors=F,
                 col.names = c("geno", "pheno"))
 }
-
-# Get the tables for correcting phenotypes
-trait.table <- phenotypes_table[,"geslacht", drop=F]
-trait.name <- colnames(trait.table)[1]
-colnames(trait.table) <- c("crrct.trait")
-
-age.table <- phenotypes_table[,"age_bl1", drop=F]
 
 llRdataFrameList <- list()
 pearson.correlations <- data.frame(phenotype = phenotypes,
@@ -376,83 +375,52 @@ rownames(pearson.correlations) <- pearson.correlations$phenotype
 
 # Loop trough traits
 
-for (file.index in c(1:length(profiles))) {
+for (fileIndex in c(1:length(profilePaths))) {
   
-  filename <- profiles[file.index]
-  print(filename)
-  print(phenotypes[file.index])
-  all.trait <- phenotypes_table[,phenotypes[file.index], drop=F]
-  colnames(all.trait) <- c("actual")
+  profilePath <- profilePaths[fileIndex]
+  trait <- traits[fileIndex]
+  responseDataType <- traitDescriptionsTable$traitDataType[fileIndex]
   
-  all.trait <- all.trait %>% 
-    mutate(pheno = rownames(all.trait)) %>%
-    inner_join(link, by="pheno") %>%
-    select(geno, actual)
+  phenotypeTable <- phenotypesTable %>%
+    filter(TRAIT == trait) %>%
+    rename(ID = "pheno") %>%
+    inner_join(link, by="pheno")
   
-  rownames(all.trait) <- all.trait$geno
-  
-  responseDataType <- traitDescriptionsTable$traitDataType[file.index]
+  # Give status update
+  message(paste0(fileIndex, " / ", length(profilePaths), ": '", trait, "' (", responseDataType, ")."))
   
   if (responseDataType == "binary") {
+    phenotypeFrequencyTable <- table(phenotypeTable)
+    
+    message(paste0("    Available for ", nrow(phenotypeTable), 
+                   " samples (number of 0's = ", phenotypeFrequencyTable["0"],
+                   ", 1's = ", phenotypeFrequencyTable["1"], ")."))
+    warning("Skipping...")
     next
+  } else if (responseDataType == "continuous") {
+    message(paste0("    Available for ", nrow(phenotypeTable)))
   }
 
+  message(paste0("    Loading polygenic scores from '", profilePath, "'..."))
+  
   # Read the PLINK polygenic score table.
-  all.PGSs <- read.table(
-    filename,
-    header=T, row.names="IID")
+  polygenicScores <- read.table(
+    profilePath,
+    header=T) %>%
+    rename(SCORESUM = "PGS")
   
-  mat.all.PGSs <- merge(all.trait, all.PGSs, by="row.names")
-  mat.all.PGSs.colnames <- colnames(mat.all.PGSs)
-  mat.all.PGSs.colnames[1] <- "ID"
-  mat.all.PGSs.colnames[mat.all.PGSs.colnames=="SCORESUM"] <- "PGS"
+  completeTable <- phenotypeTable %>%
+    inner_join(polygenicScores, by = c("geno" = "IID"))
   
-  colnames(mat.all.PGSs) <- mat.all.PGSs.colnames
-  rownames(mat.all.PGSs) <- mat.all.PGSs$ID
+  print(head(completeTable))
   
-  head(mat.all.PGSs)
-  
-  trait2pgs <- mat.all.PGSs[c("actual", "PGS")]
-  
-  print(paste0("Processing '", tools::file_path_sans_ext(basename(filename)), "'..."))
-  colnames(trait2pgs) <- c("actual", "PGS")
-  
-  initial.cor.test.results <- cor.test(trait2pgs$actual, trait2pgs$PGS)
+  initial.cor.test.results <- cor.test(completeTable$VALUE, completeTable$PGS)
   print(paste0("Initial R-squared of correlation = ", initial.cor.test.results$estimate ^ 2))
-  pearson.correlations[file.index, "pearson.not_corrected"] <- initial.cor.test.results$estimate
-  
-  # Merge the table of polygenic scores vs actual traits, and the table with a trait to correct for
-  combined <- merge(trait2pgs, trait.table, by="row.names")
-  rownames(combined) <- combined$Row.names
-  combined$Row.names <- NULL
-  combined <- merge(combined, age.table, by="row.names")
-  
-  combined <- combined[!is.na(combined$actual),]
-  
-  # Perform actual correction
-  # trait2pgs.corrected <- combined %>% group_by(crrct.trait) %>% mutate(actual = scale(actual))
-  
-  # Correct for sex
-  # trait2pgs.sexCorrected <- combined
-  # model.geslacht <- lm(actual ~ crrct.trait, data = combined)
-  # trait2pgs.sexCorrected$actual <- resid(model.geslacht)
-  # 
-  # sex.cor.test.results <- cor.test(trait2pgs.sexCorrected$actual, trait2pgs.sexCorrected$PGS)
-  # print(paste0("Sex corrected pearson correlation = ", sex.cor.test.results$estimate))
-  # pearson.correlations[file.index, "pearson.corrected.sex"] <- sex.cor.test.results$estimate
-  
-  # Correct for age
-  # trait2pgs.ageCorrected <- combined
-  # model.age <- lm(actual ~ age_bl1, data = combined)
-  # trait2pgs.ageCorrected$actual <- resid(model.age)
-  
-  # age.cor.test.results <- cor.test(combined$actual, combined$PGS)
-  # print(paste0("Age corrected pearson correlation = ", age.cor.test.results$estimate))
-  # pearson.correlations[file.index, "pearson.corrected.age"] <- age.cor.test.results$estimate
+  pearson.correlations[fileIndex, "pearson.not_corrected"] <- initial.cor.test.results$estimate
   
   # Correct for age and sex
-  trait2pgs.corrected <- combined
-  model.complete <- lm(actual ~ age_bl1 + crrct.trait + age_bl1 * crrct.trait, data = combined)
+  trait2pgs.corrected <- completeTable
+  model.complete <- lm(VALUE ~ AGE + SEX + AGE * SEX, data = trait2pgs.corrected)
   trait2pgs.corrected$actual <- resid(model.complete)
   
   # Scale both the actual and estimated traits
@@ -464,15 +432,15 @@ for (file.index in c(1:length(profiles))) {
   # Output the correlation of the corrected traits
   corrected.cor.test.results <- cor.test(trait2pgs.corrected$actual, trait2pgs.corrected$PGS)
   print(paste0("R-squared of corrected traits = ", corrected.cor.test.results$estimate ^ 2))
-  pearson.correlations[file.index, "pearson.corrected.both"] <- corrected.cor.test.results$estimate
+  pearson.correlations[fileIndex, "pearson.corrected.both"] <- corrected.cor.test.results$estimate
   
   # Calculate z-score matrix based on polygenic scores and actual phenotypes,
   # using the chosen function for calculating residuals.
   scaledResidualsDataFrame <- calculate.scaledResiduals(
-    estimate = combined$PGS, 
-    actual = combined$actual, 
-    covariates = combined[c("age_bl1", "crrct.trait")],
-    sampleNames = combined$Row.names,
+    estimate = completeTable$PGS, 
+    actual = completeTable$VALUE, 
+    covariates = completeTable[c("AGE", "SEX")],
+    sampleNames = completeTable$geno,
     responseDataType = responseDataType)
   
   scaledResidualsDataFrame$group <- "alternative"
@@ -493,84 +461,76 @@ for (file.index in c(1:length(profiles))) {
   #   scaledResidualsDataFrame$scaledResiduals,
   #   group = scaledResidualsDataFrame$group)
   
-  llRdataFrameList[[file.index]] <- scaledResidualsDataFrame %>% 
+  llRdataFrameList[[fileIndex]] <- scaledResidualsDataFrame %>% 
     select(genotypeSamples, phenotypeSamples, group, logLikelihoodRatios)
   
   ggplot(scaledResidualsDataFrame, aes(x=scaledResiduals, stat(density), fill=group)) +
     geom_histogram(bins = 72, alpha=.5, position="identity") +
     geom_line(aes(y=logLikelihoodRatios)) +
-    xlab("Scaled residuals") + ggtitle(paste0("Scaled residuals for trait '", phenotypes[file.index], "'"))
+    xlab("Scaled residuals") + ggtitle(paste0("Scaled residuals for trait '", trait, "'"))
   
-  ggsave(paste0(dirname(filename), "/scaledResidualsHistogram.png"), width=8, height=7)
+  ggsave(file.path(out, trait, "/scaledResidualsHistogram.png"), width=8, height=7)
 }
-
-basedir <- dirname(dirname(filename))
-
-# merged.zscore.df <- 
-#   Reduce(function(...) merge(..., by = c("Var1", "Var2", "testedMatch")), zscore.list)
-
-# print(str(merged.zscore.df))
-# zscore.sums <- data.frame(merged.zscore.df[1:3], zscore.sum = apply(merged.zscore.df[-1:-3], 1, sum))
 
 mergedLlrDataFrame <- 
   Reduce(function(...) merge(..., by = c("genotypeSamples", "phenotypeSamples", "group")), llRdataFrameList)
 
 lRProducts <- data.frame(mergedLlrDataFrame[1:3], logLikelihoodRatios = apply(mergedLlrDataFrame[-1:-3], 1, sum))
 
-print(paste0("Calculated overall AUC: ", calculate.auc(lRProducts$group == "null", lRProducts$logLikelihoodRatios)))
+message(paste0("Calculated overall AUC: ", calculate.auc(lRProducts$group == "null", lRProducts$logLikelihoodRatios)))
 
 # zscore.sums$zscore.avg <- zscore.sums$zscore.sum / sqrt(length(zscore.list))
 # zscore.sums$zscore.avg <- zscore.sums$zscore.sum
 
 # Write these Z-scores for later.
-write.table(lRProducts, paste0(basedir, "/likelihoodRatios.tsv"),
+write.table(lRProducts, file.path(out, "/likelihoodRatios.tsv"),
             sep="\t", col.names = T, row.names = T, quote = F)
 
 ggplot(lRProducts, aes(x=logLikelihoodRatios, stat(density), fill=group)) +
   geom_histogram(bins = 32, alpha=.5, position="identity") +
   xlab("Likelihood ratios") + ggtitle(paste0("LR overall"))
 
-ggsave(paste0(basedir, "/likelihoodRatioHistogram.png"), width=8, height=7)
+ggsave(file.path(out, "/likelihoodRatioHistogram.png"), width=8, height=7)
 
 ggplot(lRProducts, aes(x=group, y=logLikelihoodRatios)) +
   geom_boxplot() + ggtitle(paste0("Likelihood ratio distributions comparison overall"))
 
-ggsave(paste0(basedir, "/likelihoodRatioBoxplot.png"), width=8, height=7)
+ggsave(file.path(out, "/likelihoodRatioBoxplot.png"), width=8, height=7)
 
 # Pearson correlations
 # pearson.correlations <- pearson.correlations[order(pearson.correlations$pearson.corrected),]
-pearson.correlations$r2.not_corrected <- pearson.correlations$pearson.not_corrected ^ 2
-pearson.correlations$r2.corrected.sex <- pearson.correlations$pearson.corrected.sex ^ 2
-pearson.correlations$r2.corrected.age <- pearson.correlations$pearson.corrected.age ^ 2
-pearson.correlations$r2.corrected.both <- pearson.correlations$pearson.corrected.both ^ 2
+# pearson.correlations$r2.not_corrected <- pearson.correlations$pearson.not_corrected ^ 2
+# pearson.correlations$r2.corrected.sex <- pearson.correlations$pearson.corrected.sex ^ 2
+# pearson.correlations$r2.corrected.age <- pearson.correlations$pearson.corrected.age ^ 2
+# pearson.correlations$r2.corrected.both <- pearson.correlations$pearson.corrected.both ^ 2
+# 
+# write.table(pearson.correlations, file.path(out, "/correlations_comparison.tsv"))
+# 
+# pearson.correlations.melted <- melt(pearson.correlations[,c('phenotype','r2.not_corrected','r2.corrected.sex', 'r2.corrected.age', 'r2.corrected.both')], value.name = "r2")
+# pearson.correlations.melted <- pearson.correlations.melted[order(pearson.correlations.melted[,"r2"]),]
+# 
+# ggplot(pearson.correlations.melted,aes(x = phenotype,y = r2)) +
+#   geom_bar(aes(fill = variable),stat = "identity",position = "dodge") +
+#   coord_flip()
+# 
+# ggsave(file.path(out, "/correlations_comparison.png"), width=8, height=7)
 
-write.table(pearson.correlations, paste0(dirname(filename), "/correlations_comparison.tsv"))
-
-pearson.correlations.melted <- melt(pearson.correlations[,c('phenotype','r2.not_corrected','r2.corrected.sex', 'r2.corrected.age', 'r2.corrected.both')], value.name = "r2")
-pearson.correlations.melted <- pearson.correlations.melted[order(pearson.correlations.melted[,"r2"]),]
-
-ggplot(pearson.correlations.melted,aes(x = phenotype,y = r2)) +
-  geom_bar(aes(fill = variable),stat = "identity",position = "dodge") +
-  coord_flip()
-
-ggsave(paste0(dirname(filename), "/correlations_comparison.png"), width=8, height=7)
-
-# Calculate the correlation of residual Z-scores between phenotypes
-res.zscore.correlations <- sapply(lRdataFrameList, function(x) sapply(lRdataFrameList, function(y) cor(x["likelihoodRatios"], y["likelihoodRatios"])))
-rownames(res.zscore.correlations) <- phenotypes
-colnames(res.zscore.correlations) <- phenotypes
-res.zscore.correlations <- as.matrix(res.zscore.correlations)
-
-res.zscore.correlations.melted <- melt(res.zscore.correlations, value.name="pearson.cor")
-
-# Color Brewer palette
-ggplot(data = res.zscore.correlations.melted, aes(x=Var1, Var2, fill=pearson.cor)) +
-  ggtitle("Correlations of LRs between phenotypes") +
-  xlab("Phenotypes") +
-  ylab("Phenotypes") +
-  geom_tile() +
-  scale_fill_distiller(palette = "Blues") +
-  theme_classic() +
-  theme(axis.text.x = element_text(angle = 90, hjust = 1))
-
-ggsave(paste0(dirname(filename), "/residual_LikelihoodRatioCorrelations.png"), width=8, height=7)
+# # Calculate the correlation of residual Z-scores between phenotypes
+# res.zscore.correlations <- sapply(lRdataFrameList, function(x) sapply(lRdataFrameList, function(y) cor(x["likelihoodRatios"], y["likelihoodRatios"])))
+# rownames(res.zscore.correlations) <- phenotypes
+# colnames(res.zscore.correlations) <- phenotypes
+# res.zscore.correlations <- as.matrix(res.zscore.correlations)
+# 
+# res.zscore.correlations.melted <- melt(res.zscore.correlations, value.name="pearson.cor")
+# 
+# # Color Brewer palette
+# ggplot(data = res.zscore.correlations.melted, aes(x=Var1, Var2, fill=pearson.cor)) +
+#   ggtitle("Correlations of LRs between phenotypes") +
+#   xlab("Phenotypes") +
+#   ylab("Phenotypes") +
+#   geom_tile() +
+#   scale_fill_distiller(palette = "Blues") +
+#   theme_classic() +
+#   theme(axis.text.x = element_text(angle = 90, hjust = 1))
+# 
+# ggsave(paste0(dirname(filename), "/residual_LikelihoodRatioCorrelations.png"), width=8, height=7)
