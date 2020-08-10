@@ -334,10 +334,10 @@ forceNormal <- function(x) {
 # Run
 ##############################
 args <- parser$parse_args(commandArgs(trailingOnly = TRUE))
-# args <- parser$parse_args(c("--profiles",
-#                          "~/pgs_based_mixup_correction/jobs/pgs_output_processing/mapping_with_responseType.txt",
-#                          "--phenotypes_path",
-#                          "/home/umcg-rwarmerdam/pgs_based_mixup_correction/data/lldeep/samples/LLDeep_GoNL_samples_V01_20200313.txt"))
+args <- parser$parse_args(c("--trait-gwas-mapping", "/groups/umcg-lld/tmp01/other-users/umcg-rwarmerdam/pgs_based_mixup_correction/scripts/r-scripts/pgs_based_sample_mix-up_correction/trait-gwas-mapping.txt",
+                            "--base-pgs-path", "/groups/umcg-lifelines/tmp01/projects/ugli_blood_gsa/pgs_based_mixup_correction/output/PRScs/20200803",
+                            "--phenotypes-file", "/groups/umcg-lifelines/tmp01/projects/ugli_blood_gsa/pgs_based_mixup_correction/data/lifelines/processed/UGLI.pgs.phenotypes.dat",
+                            "--out", "/groups/umcg-lifelines/tmp01/projects/ugli_blood_gsa/pgs_based_mixup_correction/output/sample-swap-prediction/20200803"))
 
 # Load table containing paths for the plink output 
 # and corresponding phenotype labels.
@@ -406,14 +406,14 @@ for (fileIndex in c(1:length(polygenicScoreFilePaths))) {
     warning("Skipping...")
     next
   } else if (responseDataType == "continuous") {
-    message(paste0("    Available for ", nrow(phenotypeTable), "samples."))
+    message(paste0("    Available for ", nrow(phenotypeTable), " samples."))
   }
 
-  message(paste0("    Loading polygenic scores from '", polygenicScoreFilePaths, "'..."))
+  message(paste0("    Loading polygenic scores from '", polygenicScoreFilePath, "'..."))
   
   # Read the PLINK polygenic score table.
   polygenicScores <- read.table(
-    polygenicScoreFilePaths,
+    polygenicScoreFilePath,
     header=T) %>%
     rename(SCORESUM = "PGS")
   
