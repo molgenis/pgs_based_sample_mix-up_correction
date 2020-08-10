@@ -395,7 +395,7 @@ for (fileIndex in c(1:length(polygenicScoreFilePaths))) {
     inner_join(link, by="pheno")
   
   # Give status update
-  message(paste0(fileIndex, " / ", length(profilePaths), ": '", trait, "' (", responseDataType, ")."))
+  message(paste0(fileIndex, " / ", length(polygenicScoreFilePaths), ": '", trait, "' (", responseDataType, ")."))
   
   if (responseDataType == "binary") {
     phenotypeFrequencyTable <- table(phenotypeTable)
@@ -406,16 +406,16 @@ for (fileIndex in c(1:length(polygenicScoreFilePaths))) {
     warning("Skipping...")
     next
   } else if (responseDataType == "continuous") {
-    message(paste0("    Available for ", nrow(phenotypeTable), "samples."))
+    message(paste0("    Available for ", nrow(phenotypeTable), " samples."))
   }
 
-  message(paste0("    Loading polygenic scores from '", polygenicScoreFilePaths, "'..."))
+  message(paste0("    Loading polygenic scores from '", polygenicScoreFilePath, "'..."))
   
   # Read the PLINK polygenic score table.
   polygenicScores <- read.table(
-    polygenicScoreFilePaths,
+    polygenicScoreFilePath,
     header=T) %>%
-    rename(SCORESUM = "PGS")
+    rename(PGS = SCORESUM)
   
   completeTable <- phenotypeTable %>%
     inner_join(polygenicScores, by = c("geno" = "IID"))
