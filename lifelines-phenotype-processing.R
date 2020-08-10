@@ -72,7 +72,7 @@ loadPhenotypeTables <- function(filePath) {
   #   text = gsub("(?<!\r)(\n)", "\\n", read_file(filePath), perl = T), 
   #   header=T, quote="", sep="\t")
 
-  phenotypeDataFrame <- fread(filePath,
+  phenotypeDataFrame <- fread(paste0("tr -d '\n' < ", filePath),
     header=T, quote="", sep="\t", fill=T)
   
   if ("ENCOUNTERCODE" %in% colnames(phenotypeDataFrame)) {
@@ -427,7 +427,7 @@ traitList[["triglyceride concentration (log-transformed)"]] <- getLogTransformed
   phenotypeSources, phenotypeTables, correctionTable)
 
 # Square root of HDL-cholesterol
-message("    HDL-cholesterol")
+message("    HDL-cholesterol...")
 traitList[["HDL cholesterol (square root)"]] <- getSquareRootOfHdlCholesterol(
   phenotypeSources, phenotypeTables, correctionTable)
 
