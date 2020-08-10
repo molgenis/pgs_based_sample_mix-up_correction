@@ -347,12 +347,12 @@ traitDescriptionsTable <- read.table(
 
 # Get the paths to the polygenic scores.
 basePathWithPolygenicScores <- args$base_pgs_path
-traitDescriptionsTable$fullFilePath <- file.path(basePathWithPolygenicScores, 
+traitDescriptionsTable$polygenicScoreFilePath <- file.path(basePathWithPolygenicScores, 
                                                  traitDescriptionsTable$summaryStatistics, 
                                                  "full.UGLI.pgs.profile")
 
 # Get the plink output paths
-profilePaths <- traitDescriptionsTable$profilePath
+polygenicScoreFilePaths <- traitDescriptionsTable$polygenicScoreFilePath
 
 # Get the phenotype labels
 traits <- traitDescriptionsTable$trait
@@ -383,9 +383,9 @@ rownames(pearson.correlations) <- pearson.correlations$phenotype
 
 # Loop trough traits
 
-for (fileIndex in c(1:length(profilePaths))) {
+for (fileIndex in c(1:length(polygenicScoreFilePaths))) {
   
-  profilePath <- profilePaths[fileIndex]
+  polygenicScoreFilePath <- polygenicScoreFilePaths[fileIndex]
   trait <- traits[fileIndex]
   responseDataType <- traitDescriptionsTable$traitDataType[fileIndex]
   
@@ -406,14 +406,14 @@ for (fileIndex in c(1:length(profilePaths))) {
     warning("Skipping...")
     next
   } else if (responseDataType == "continuous") {
-    message(paste0("    Available for ", nrow(phenotypeTable)))
+    message(paste0("    Available for ", nrow(phenotypeTable), "samples."))
   }
 
-  message(paste0("    Loading polygenic scores from '", profilePath, "'..."))
+  message(paste0("    Loading polygenic scores from '", polygenicScoreFilePaths, "'..."))
   
   # Read the PLINK polygenic score table.
   polygenicScores <- read.table(
-    profilePath,
+    polygenicScoreFilePaths,
     header=T) %>%
     rename(SCORESUM = "PGS")
   
