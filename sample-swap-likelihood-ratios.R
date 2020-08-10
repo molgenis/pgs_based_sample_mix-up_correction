@@ -395,7 +395,7 @@ for (fileIndex in c(1:length(polygenicScoreFilePaths))) {
     inner_join(link, by="pheno")
   
   # Give status update
-  message(paste0(fileIndex, " / ", length(profilePaths), ": '", trait, "' (", responseDataType, ")."))
+  message(paste0(fileIndex, " / ", length(polygenicScoreFilePaths), ": '", trait, "' (", responseDataType, ")."))
   
   if (responseDataType == "binary") {
     phenotypeFrequencyTable <- table(phenotypeTable)
@@ -415,7 +415,7 @@ for (fileIndex in c(1:length(polygenicScoreFilePaths))) {
   polygenicScores <- read.table(
     polygenicScoreFilePath,
     header=T) %>%
-    rename(SCORESUM = "PGS")
+    rename(PGS = SCORESUM)
   
   completeTable <- phenotypeTable %>%
     inner_join(polygenicScores, by = c("geno" = "IID"))
