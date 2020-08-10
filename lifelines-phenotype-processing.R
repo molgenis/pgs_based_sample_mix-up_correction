@@ -401,7 +401,7 @@ traitList[["eGFR"]] <- getEstimatedGfr(
 
 # Basophil concentration
 message("    Basophilic granulocytes...")
-traitList[["Basophilic Granulocytes"]] <- getLatestValueFromRawPhenotypeTable(
+traitList[["Basophilic Granulocyte concentration"]] <- getLatestValueFromRawPhenotypeTable(
   phenotypeSources, phenotypeTables, correctionTable, "Basophilic Granulocytes")
 
 # Eosinophil concentration
@@ -421,12 +421,12 @@ traitList[["LDL cholesterol"]] <- getLatestValueFromRawPhenotypeTable(
 
 # Log-transformed triglyceride concentration
 message("    Triglyceride concentration...")
-traitList[["triglyceride concentration (log-transformed)"]] <- getLogTransformedTriglycerideConcentration(
+traitList[["Triglyceride concentration"]] <- getLogTransformedTriglycerideConcentration(
   phenotypeSources, phenotypeTables, correctionTable)
 
 # Square root of HDL-cholesterol
 message("    HDL-cholesterol...")
-traitList[["HDL cholesterol (square root)"]] <- getSquareRootOfHdlCholesterol(
+traitList[["HDL cholesterol"]] <- getSquareRootOfHdlCholesterol(
   phenotypeSources, phenotypeTables, correctionTable)
 
 # Total cholesterol concentration
@@ -486,7 +486,7 @@ traitList[["Asthma"]] <- getDerivedBinaryValues(
 
 # Hair colour (level of blonde (black - blonde))
 message("    Blondeness of hair...")
-traitList[["Blondeness of hair..."]] <- getBlondenessOfHair(
+traitList[["Blondeness of hair"]] <- getBlondenessOfHair(
   phenotypeSources, phenotypeTables, correctionTable)
 
 # Hair colour (red vs. a level of blonde (black - blonde))

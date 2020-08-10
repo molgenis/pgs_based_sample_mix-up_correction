@@ -1,0 +1,26 @@
+trait	traitDataType	summaryStatistics
+Height	continuous	Meta-analysis_Wood_et_al+UKBiobank_2018.processed
+BMI	continuous	Meta-analysis_Locke_et_al+UKBiobank_2018.processed
+Diastolic blood pressure	continuous	Evangelou_30224653_DBP.processed
+Systolic blood pressure	continuous	Evangelou_30224653_SBP.processed
+eGFR	continuous	20171016_MW_eGFR_overall_ALL_nstud61.dbgap.processed
+Basophilic Granulocyte concentration	continuous	baso.processed
+Eosinophil concentration	continuous	eo.processed
+HbA1c	continuous	HbA1c_METAL_European.processed
+LDL cholesterol	continuous	GERA-LDL.processed
+Triglyceride concentration	continuous	GERA-logTG.processed
+HDL cholesterol	continuous	GERA-sqrtHDL.processed
+Total cholesterol	continuous	GERA-TC.processed
+Hematocrit concentration	continuous	hct.processed
+Hemoglobin concentration	continuous	hgb.processed
+Lymphocyte concentration	continuous	lymph.processed
+Monocyte concentration	continuous	mono.processed
+Erythrocyte concentration	continuous	rbc.processed
+Thrombocyte concentration	continuous	plt.processed
+Blondeness of hair	continuous	ukb-d-1747_1.processed
+Red hair colour	binary	ukb-d-1747_2.processed
+Type 2 diabetes	binary	T2D_European.BMIunadjusted.processed
+Type 1 diabetes	binary	onengut_2015_25751624_t1d_efo0001359_meta_ichip.sumstats.processed
+Asthma	binary	TAGC_European_Ancestry.processed
+Coronary artery disease	binary	ebi-a-GCST005195.processed
+Schizophrenia	binary	ieu-a-22.processed

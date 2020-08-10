@@ -19,10 +19,12 @@ library(ROCR)
 ##############################
 
 parser <- ArgumentParser(description='')
-parser$add_argument('--profiles',
-                    help='paths to plink --score output')
-parser$add_argument('--phenotypes_path',
-                    help='phenotype table')
+parser$add_argument('--trait-gwas-mapping',
+                    help='path to a tab-delimited file that maps traits to the GWAS summary statistics')
+parser$add_argument('--base-pgs-path',
+                    help="path to a directory containing polygenic scores. Folder structure should be '<base-pgs-path>/<name-of-gwas-summary-statistic>/full.UGLI.pgs.profile'")
+parser$add_argument('--phenotypes-file',
+                    help='path to a tab-delimited file holding all processed phenotype data.')
 parser$add_argument('--sample_coupling_file', required = FALSE,
                     help=paste0('file containing genotype sample ids in the first column',
                     'and phenotype sample ids in the second column'))
@@ -340,8 +342,14 @@ args <- parser$parse_args(commandArgs(trailingOnly = TRUE))
 # Load table containing paths for the plink output 
 # and corresponding phenotype labels.
 traitDescriptionsTable <- read.csv(
-  args$profiles, quote="", header=F, 
+  args$trait_gwas_mapping, quote="", header=F, 
   col.names=c("trait", "traitDataType", "profilePath"), stringsAsFactors=F)
+
+# Get the paths to the polygenic scores.
+basePathWithPolygenicScores <- args$base_pgs_path
+traitDescriptionsTable$fullFilePath <- file.path(basePathWithPolygenicScores, 
+                                                 traitDescriptionsTable$summaryStatistics, 
+                                                 "full.UGLI.pgs.profile")
 
 # Get the plink output paths
 profilePaths <- traitDescriptionsTable$profilePath
@@ -353,8 +361,8 @@ traits <- traitDescriptionsTable$trait
 out <- args$out
 
 # Load the phenotypes 
-phenotypesPath <- args$phenotypes_path
-phenotypesTable <- read.table(phenotypesPath, header=T, row.names=1, quote="", sep="\t",
+phenotypesFilePath <- args$phenotypes_file
+phenotypesTable <- read.table(phenotypesFilePath, header=T, row.names=1, quote="", sep="\t",
                               col.names = c("ID", "AGE", "SEX", "VALUE", "TRAIT"))
 
 link <- data.frame(geno = phenotypesTable$ID, pheno = phenotypesTable$ID)
