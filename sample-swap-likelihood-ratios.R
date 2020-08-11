@@ -421,6 +421,10 @@ for (traitIndex in 1:nrow(traitDescriptionsTable)) {
   trait <- traitDescriptionsTable$trait[traitIndex]
   responseDataType <- traitDescriptionsTable$traitDataType[traitIndex]
   
+  if (!dir.create(file.path(out, trait), recursive = T)) {
+    stop(paste0("Could not create directory '", file.path(out, trait), "'"))
+  }
+  
   phenotypeTable <- phenotypesTable %>%
     filter(TRAIT == trait) %>%
     rename(pheno = ID) %>%
@@ -485,6 +489,9 @@ for (traitIndex in 1:nrow(traitDescriptionsTable)) {
   rownames(scaledResidualsMatrix) <- completeTable$pheno
   colnames(scaledResidualsMatrix) <- completeTable$geno
   
+  rm(completeTable)
+  gc()
+  
   write.table(scaledResidualsMatrix, file.path(out, trait, "/scaledResidualMatrix.png"), 
               sep = "\t", col.names = T, row.names = T, quote = F)
 
@@ -524,25 +531,37 @@ for (traitIndex in 1:nrow(traitDescriptionsTable)) {
   #   xlab("Scaled residuals") + ggtitle(paste0("Scaled residuals for trait '", trait, "'"))
   # 
   # ggsave(file.path(out, trait, "/scaledResidualsHistogram.png"), width=8, height=7)
+  rm(logLikelihoodRatios)
+  rm(scaledResidualsMatrix)
+  gc()
 }
 
-message(paste0("Calculated overall AUC: ", calculate.auc(lRProducts$group == "null", lRProducts$logLikelihoodRatios)))
+message(paste0("Calculated overall AUC: ", calculate.auc(
+  lower.tri(scaledResiduals, diag = T) & upper.tri(scaledResiduals, diag = T), 
+  aggregatedLlrMatrix)))
 
 # zscore.sums$zscore.avg <- zscore.sums$zscore.sum / sqrt(length(zscore.list))
 # zscore.sums$zscore.avg <- zscore.sums$zscore.sum
 
 # Write these Z-scores for later.
-write.table(lRProducts, file.path(out, "/likelihoodRatios.tsv"),
+write.table(aggregatedLlrMatrix, file.path(out, "/aggregatedLogLikelihoodRatiosMatrix.tsv"),
             sep="\t", col.names = T, row.names = T, quote = F)
 
-ggplot(lRProducts, aes(x=logLikelihoodRatios, stat(density), fill=group)) +
+lrProducts <- as.data.frame.table(aggregatedLlrMatrix, 
+                                  responseName = "logLikelihoodRatios")
+
+lrProducts$group <- "alternative"
+lrProducts$group[lrProducts$Var1 == lrProducts$Var2] <- "null"
+lrProducts$group <- factor(lrProducts$group, c("null", "alternative"))
+
+ggplot(lrProducts, aes(x=logLikelihoodRatios, stat(density), fill=group)) +
   geom_histogram(bins = 32, alpha=.5, position="identity") +
-  xlab("Likelihood ratios") + ggtitle(paste0("LR overall"))
+  xlab("Log likelihood ratios") + ggtitle(paste0("LR overall"))
 
 ggsave(file.path(out, "/likelihoodRatioHistogram.png"), width=8, height=7)
 
-ggplot(lRProducts, aes(x=group, y=logLikelihoodRatios)) +
-  geom_boxplot() + ggtitle(paste0("Likelihood ratio distributions comparison overall"))
+ggplot(lrProducts, aes(x=group, y=logLikelihoodRatios)) +
+  geom_boxplot() + ggtitle(paste0("Log likelihood ratio distributions comparison overall"))
 
 ggsave(file.path(out, "/likelihoodRatioBoxplot.png"), width=8, height=7)
 
