@@ -440,13 +440,12 @@ for (traitIndex in 1:nrow(traitDescriptionsTable)) {
                  ": '", trait, "' (", responseDataType, ")."))
   
   if (responseDataType == "binary") {
-    phenotypeFrequencyTable <- table(phenotypeTable)
+    phenotypeFrequencyTable <- table(phenotypeTable$VALUE)
+    print(phenotypeFrequencyTable)
     
     message(paste0("    Available for ", nrow(phenotypeTable), 
                    " samples (number of 0's = ", phenotypeFrequencyTable["0"],
                    ", 1's = ", phenotypeFrequencyTable["1"], ")."))
-    warning("Skipping...")
-    next
   } else if (responseDataType == "continuous") {
     message(paste0("    Available for ", nrow(phenotypeTable), " samples."))
   }
