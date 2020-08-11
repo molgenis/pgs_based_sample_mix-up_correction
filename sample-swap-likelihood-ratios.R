@@ -166,7 +166,7 @@ residualsFunConstructor <- function(estimate, actual, covariates, responseDataTy
 
 # Define function for calculating scaled residuals.
 # Output is a matrix with rows representing actual values and columns representing expected values
-calculate.scaledResiduals <- function(estimate, actual, covariates, sampleNames = NULL, responseDataType = "continuous") {
+calculate.scaledResiduals <- function(estimate, actual, covariates, responseDataType = "continuous") {
   # Get a function that returns the deviance of an observation to the regression line.
   # This will either be the 'deviance residuals' from a logistic model when the response data type is binary,
   # or this will be the regular residuals corresponding to a linear model.
@@ -207,8 +207,10 @@ scaledResidualsToLlr.naiveBayes <- function(scaledResiduals, nBins = 50) {
   # the residuals belonging to the matches that are assumed to be sample-swaps.
   alternativeResiduals <- scaledResiduals[lower.tri(scaledResiduals) | upper.tri(scaledResiduals)]
   
-  # Store the dimensions of the scaled residuals matrix.
+  # Store the dimensions of the scaled residual matrix, as well as rownames and colnames.
   returnDimensions <- dim(scaledResiduals)
+  returnColumnNames <- colnames(scaledResiduals)
+  returnRowNames <- rownames(scaledResiduals)
   
   # nullDensity <- density(
   #   nullResiduals, 
@@ -227,6 +229,7 @@ scaledResidualsToLlr.naiveBayes <- function(scaledResiduals, nBins = 50) {
   nullTiles <- ntile(nullResiduals, nBins)
   breaks <- sapply(1:nBins, function(bin) min(nullResiduals[nullTiles == bin]))
   rm(nullResiduals)
+  gc()
   
   breaks[1] <- min(scaledResiduals - 1)
   breaks <- c(breaks, max(scaledResiduals) + 1)
@@ -235,6 +238,7 @@ scaledResidualsToLlr.naiveBayes <- function(scaledResiduals, nBins = 50) {
   
   alternativeTiles <- cut(alternativeResiduals, breaks = breaks, labels = FALSE)
   rm(alternativeResiduals)
+  gc()
   
   message("NullLikelihoods...")
   
@@ -270,6 +274,8 @@ scaledResidualsToLlr.naiveBayes <- function(scaledResiduals, nBins = 50) {
   message("Applying dims...")
   
   dim(likelihoodRatios) <- returnDimensions
+  rownames(likelihoodRatios) <- returnRowNames
+  colnames(likelihoodRatios) <- returnColumnNames
   
   message("Log-transforming and Returning...")
   
@@ -379,12 +385,6 @@ traitDescriptionsTable$polygenicScoreFilePath <- file.path(basePathWithPolygenic
                                                  traitDescriptionsTable$summaryStatistics, 
                                                  "full.UGLI.pgs.profile")
 
-# Get the plink output paths
-polygenicScoreFilePaths <- traitDescriptionsTable$polygenicScoreFilePath
-
-# Get the phenotype labels
-traits <- traitDescriptionsTable$trait
-
 # Get the output path
 out <- args$out
 
@@ -398,11 +398,15 @@ link <- data.frame(geno = unique(phenotypesTable$ID), pheno = unique(phenotypesT
 # Get the link path
 if (!is.null(args$sample_coupling_file)) {
   link <- fread(args$sample_coupling_file, stringsAsFactors=F,
-                col.names = c("geno", "pheno"))
+                col.names = c("geno", "pheno")) %>%
+    filter(pheno %in% unique(phenotypesTable$ID))
 }
 
-llRdataFrameList <- list()
-pearson.correlations <- data.frame(trait = traits,
+aggregatedLlrMatrix <- matrix(nrow = nrow(link), 
+                              ncol = nrow(link), 
+                              dimnames = list(link$pheno, link$geno))
+
+pearson.correlations <- data.frame(trait = traitDescriptionsTable$trait,
                                    pearson.not_corrected = 0.0, 
                                    pearson.corrected.sex = 0.0,
                                    pearson.corrected.age = 0.0,
@@ -411,11 +415,11 @@ rownames(pearson.correlations) <- pearson.correlations$phenotype
 
 # Loop trough traits
 
-for (fileIndex in c(1:length(polygenicScoreFilePaths))) {
+for (traitIndex in 1:nrow(traitDescriptionsTable)) {
   
-  polygenicScoreFilePath <- polygenicScoreFilePaths[fileIndex]
-  trait <- traits[fileIndex]
-  responseDataType <- traitDescriptionsTable$traitDataType[fileIndex]
+  polygenicScoreFilePath <- traitDescriptionsTable$polygenicScoreFilePath[traitIndex]
+  trait <- traitDescriptionsTable$trait[traitIndex]
+  responseDataType <- traitDescriptionsTable$traitDataType[traitIndex]
   
   phenotypeTable <- phenotypesTable %>%
     filter(TRAIT == trait) %>%
@@ -423,7 +427,8 @@ for (fileIndex in c(1:length(polygenicScoreFilePaths))) {
     inner_join(link, by="pheno")
   
   # Give status update
-  message(paste0(fileIndex, " / ", length(polygenicScoreFilePaths), ": '", trait, "' (", responseDataType, ")."))
+  message(paste0(fileIndex, " / ", nrow(traitDescriptionsTable), 
+                 ": '", trait, "' (", responseDataType, ")."))
   
   if (responseDataType == "binary") {
     phenotypeFrequencyTable <- table(phenotypeTable)
@@ -445,12 +450,8 @@ for (fileIndex in c(1:length(polygenicScoreFilePaths))) {
     header=T) %>%
     rename(PGS = SCORESUM)
   
-  print(nrow(polygenicScores))
-  
   completeTable <- phenotypeTable %>%
     inner_join(polygenicScores, by = c("geno" = "IID"))
-  
-  print(head(completeTable))
   
   #initial.cor.test.results <- cor.test(completeTable$VALUE, completeTable$PGS)
   #print(paste0("Initial R-squared of correlation = ", initial.cor.test.results$estimate ^ 2))
@@ -474,14 +475,20 @@ for (fileIndex in c(1:length(polygenicScoreFilePaths))) {
   
   # Calculate z-score matrix based on polygenic scores and actual phenotypes,
   # using the chosen function for calculating residuals.
+  
   scaledResidualsMatrix <- calculate.scaledResiduals(
     estimate = completeTable$PGS, 
     actual = completeTable$VALUE, 
     covariates = completeTable[c("AGE", "SEX")],
-    sampleNames = completeTable$geno,
     responseDataType = responseDataType)
+  
+  rownames(scaledResidualsMatrix) <- completeTable$pheno
+  colnames(scaledResidualsMatrix) <- completeTable$geno
+  
+  write.table(scaledResidualsMatrix, file.path(out, trait, "/scaledResidualMatrix.png"), 
+              sep = "\t", col.names = T, row.names = T, quote = F)
 
-  message("    completed calculating scaled residuals.")
+  message("    Completed calculating scaled residuals")
   
   # scaledResidualsDataFrame$group <- "alternative"
   # 
@@ -492,35 +499,32 @@ for (fileIndex in c(1:length(polygenicScoreFilePaths))) {
   # 
   # Calculate the likelihood ratios for every residual being from the distribution of possible mix-ups.
 
-  message("    calculating log likelihood ratios.")
+  message("    Calculating log likelihood ratios.")
   
   logLikelihoodRatios <- scaledResidualsToLlr.naiveBayes(
     scaledResidualsMatrix,
     nBins = 128)
-
-  message("    completed calculating log likelihood ratios.")
+  
+  write.table(logLikelihoodRatios, file.path(out, trait, "/logLikelihoodRatios.tsv"), 
+              sep = "\t", col.names = T, row.names = T, quote = F)
   
   # scaledResidualsDataFrame$logLikelihoodRatios <- scaledResidualsToLlr.gaussianNaiveBayes(
   #   scaledResidualsDataFrame$scaledResiduals,
   #   group = scaledResidualsDataFrame$group)
+
+  message("    completed calculating log likelihood ratios.")
+  message("    summing log likelihood ratios with aggregated log likelihood ratios...")
   
-  stop("Cannot go futher")
+  aggregatedLlrMatrix[rownames(logLikelihoodRatios), colnames(logLikelihoodRatios)] <- 
+    aggregatedLlrMatrix[rownames(logLikelihoodRatios), colnames(logLikelihoodRatios)] + logLikelihoodRatios
   
-  llRdataFrameList[[fileIndex]] <- scaledResidualsDataFrame %>% 
-    select(genotypeSamples, phenotypeSamples, group, logLikelihoodRatios)
-  
-  ggplot(scaledResidualsDataFrame, aes(x=scaledResiduals, stat(density), fill=group)) +
-    geom_histogram(bins = 72, alpha=.5, position="identity") +
-    geom_line(aes(y=logLikelihoodRatios)) +
-    xlab("Scaled residuals") + ggtitle(paste0("Scaled residuals for trait '", trait, "'"))
-  
-  ggsave(file.path(out, trait, "/scaledResidualsHistogram.png"), width=8, height=7)
+  # ggplot(scaledResidualsDataFrame, aes(x=scaledResiduals, stat(density), fill=group)) +
+  #   geom_histogram(bins = 72, alpha=.5, position="identity") +
+  #   geom_line(aes(y=logLikelihoodRatios)) +
+  #   xlab("Scaled residuals") + ggtitle(paste0("Scaled residuals for trait '", trait, "'"))
+  # 
+  # ggsave(file.path(out, trait, "/scaledResidualsHistogram.png"), width=8, height=7)
 }
-
-mergedLlrDataFrame <- 
-  Reduce(function(...) merge(..., by = c("genotypeSamples", "phenotypeSamples", "group")), llRdataFrameList)
-
-lRProducts <- data.frame(mergedLlrDataFrame[1:3], logLikelihoodRatios = apply(mergedLlrDataFrame[-1:-3], 1, sum))
 
 message(paste0("Calculated overall AUC: ", calculate.auc(lRProducts$group == "null", lRProducts$logLikelihoodRatios)))
 
