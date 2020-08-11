@@ -194,8 +194,6 @@ calculate.scaledResiduals <- function(estimate, actual, covariates, sampleNames 
   progressCounter <- 0
   numberOfEstimates <- length(estimate)
 
-  print(object.size(scaledResidualDataFrame))
-
   message("    calculating residuals...")
   residualsMatrix <- sapply(estimate, function(estimateValue) {
     cat(paste0(progressCounter, ' / ', numberOfEstimates, 'completed'))
