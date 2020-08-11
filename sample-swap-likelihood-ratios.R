@@ -207,6 +207,9 @@ scaledResidualsToLlr.naiveBayes <- function(scaledResiduals, nBins = 50) {
   # the residuals belonging to the matches that are assumed to be sample-swaps.
   alternativeResiduals <- scaledResiduals[lower.tri(scaledResiduals) | upper.tri(scaledResiduals)]
   
+  # Store the dimensions of the scaled residuals matrix.
+  returnDimensions <- dim(scaledResiduals)
+  
   # nullDensity <- density(
   #   nullResiduals, 
   #   bw = "SJ",
@@ -247,6 +250,7 @@ scaledResidualsToLlr.naiveBayes <- function(scaledResiduals, nBins = 50) {
   
   rm(nullTiles)
   rm(alternativeTiles)
+  gc()
   
   message("LikelihoodRatioMap...")
   
@@ -256,13 +260,16 @@ scaledResidualsToLlr.naiveBayes <- function(scaledResiduals, nBins = 50) {
   
   allTiles <- cut(scaledResiduals, breaks = breaks, labels = FALSE)
   
-  message("LikelihoodRatios")
+  rm(scaledResiduals)
+  gc()
   
-  likelihoodRatios <- sapply(allTiles, function(tile) likelihoodRatioMap[tile])
+  message("LikelihoodRatios...")
+  
+  likelihoodRatios <- likelihoodRatioMap[allTiles]
   
   message("Applying dims...")
   
-  dim(likelihoodRatios) <- dim(scaledResiduals)
+  dim(likelihoodRatios) <- returnDimensions
   
   message("Log-transforming and Returning...")
   
