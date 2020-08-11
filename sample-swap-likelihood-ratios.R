@@ -462,14 +462,14 @@ for (traitIndex in 1:nrow(traitDescriptionsTable)) {
   completeTable <- phenotypeTable %>%
     inner_join(polygenicScores, by = c("geno" = "IID"))
   
-  #initial.cor.test.results <- cor.test(completeTable$VALUE, completeTable$PGS)
-  #print(paste0("Initial R-squared of correlation = ", initial.cor.test.results$estimate ^ 2))
-  #pearson.correlations[fileIndex, "pearson.not_corrected"] <- initial.cor.test.results$estimate
+  initial.cor.test.results <- cor.test(completeTable$VALUE, completeTable$PGS)
+  message(paste0("Initial R-squared of correlation = ", initial.cor.test.results$estimate ^ 2))
+  pearson.correlations[fileIndex, "pearson.not_corrected"] <- initial.cor.test.results$estimate
   
   # Correct for age and sex
-  #trait2pgs.corrected <- completeTable
-  #model.complete <- lm(VALUE ~ AGE + SEX + AGE * SEX, data = trait2pgs.corrected)
-  #trait2pgs.corrected$actual <- resid(model.complete)
+  trait2pgs.corrected <- completeTable
+  model.complete <- lm(VALUE ~ AGE + SEX + AGE * SEX, data = trait2pgs.corrected)
+  trait2pgs.corrected$actual <- resid(model.complete)
   
   # Scale both the actual and estimated traits
   #trait2pgs.corrected$actual <- rank(trait2pgs.corrected$actual)/length(trait2pgs.corrected$actual)
@@ -478,10 +478,10 @@ for (traitIndex in 1:nrow(traitDescriptionsTable)) {
   #trait2pgs.corrected$PGS <- scale(trait2pgs.corrected$PGS)
   
   # Output the correlation of the corrected traits
-  #corrected.cor.test.results <- cor.test(trait2pgs.corrected$actual, trait2pgs.corrected$PGS)
-  #print(paste0("R-squared of corrected traits = ", corrected.cor.test.results$estimate ^ 2))
-  #pearson.correlations[fileIndex, "pearson.corrected.both"] <- corrected.cor.test.results$estimate
-  
+  corrected.cor.test.results <- cor.test(trait2pgs.corrected$actual, trait2pgs.corrected$PGS)
+  message(paste0("R-squared of corrected traits = ", corrected.cor.test.results$estimate ^ 2))
+  pearson.correlations[fileIndex, "pearson.corrected.both"] <- corrected.cor.test.results$estimate
+
   # Calculate z-score matrix based on polygenic scores and actual phenotypes,
   # using the chosen function for calculating residuals.
   
@@ -497,7 +497,7 @@ for (traitIndex in 1:nrow(traitDescriptionsTable)) {
   rm(completeTable)
   gc()
   
-  write.table(scaledResidualsMatrix, file.path(out, trait, "/scaledResidualMatrix.png"), 
+  write.table(scaledResidualsMatrix, file.path(out, trait, "/scaledResidualMatrix.tsv"), 
               sep = "\t", col.names = T, row.names = T, quote = F)
 
   message("    Completed calculating scaled residuals")
