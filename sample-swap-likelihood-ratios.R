@@ -464,7 +464,7 @@ for (traitIndex in 1:nrow(traitDescriptionsTable)) {
   
   initial.cor.test.results <- cor.test(completeTable$VALUE, completeTable$PGS)
   message(paste0("Initial R-squared of correlation = ", initial.cor.test.results$estimate ^ 2))
-  pearson.correlations[fileIndex, "pearson.not_corrected"] <- initial.cor.test.results$estimate
+  pearson.correlations[traitIndex, "pearson.not_corrected"] <- initial.cor.test.results$estimate
   
   # Correct for age and sex
   trait2pgs.corrected <- completeTable
@@ -480,7 +480,7 @@ for (traitIndex in 1:nrow(traitDescriptionsTable)) {
   # Output the correlation of the corrected traits
   corrected.cor.test.results <- cor.test(trait2pgs.corrected$actual, trait2pgs.corrected$PGS)
   message(paste0("R-squared of corrected traits = ", corrected.cor.test.results$estimate ^ 2))
-  pearson.correlations[fileIndex, "pearson.corrected.both"] <- corrected.cor.test.results$estimate
+  pearson.correlations[traitIndex, "pearson.corrected.both"] <- corrected.cor.test.results$estimate
 
   # Calculate z-score matrix based on polygenic scores and actual phenotypes,
   # using the chosen function for calculating residuals.
