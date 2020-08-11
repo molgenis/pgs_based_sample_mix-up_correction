@@ -205,8 +205,7 @@ scaledResidualsToLlr.naiveBayes <- function(scaledResiduals, nBins = 50) {
   
   # Extract the alternative residuals; 
   # the residuals belonging to the matches that are assumed to be sample-swaps.
-  alternativeResiduals <- scaledResiduals[lower.tri(scaledResiduals) 
-                                          | upper.tri(scaledResiduals)]
+  alternativeResiduals <- scaledResiduals[lower.tri(scaledResiduals) | upper.tri(scaledResiduals)]
   
   # nullDensity <- density(
   #   nullResiduals, 
@@ -220,17 +219,27 @@ scaledResidualsToLlr.naiveBayes <- function(scaledResiduals, nBins = 50) {
   # plot(nullDensity)
   # lines(alternativeDensity)
   
+  message("Nulltiles...")
+  
   nullTiles <- ntile(nullResiduals, nBins)
   breaks <- sapply(1:nBins, function(bin) min(nullResiduals[nullTiles == bin]))
+  rm(nullResiduals)
   
   breaks[1] <- min(scaledResiduals - 1)
   breaks <- c(breaks, max(scaledResiduals) + 1)
   
+  message("AlternativeTiles...")
+  
   alternativeTiles <- cut(alternativeResiduals, breaks = breaks, labels = FALSE)
+  rm(alternativeResiduals)
+  
+  message("NullLikelihoods...")
   
   nullLikelihoods <- sapply(
     1:nBins, 
     function(bin) sum(nullTiles == bin) / length(nullTiles))
+  
+  message("AlternativeLikelihoods...")
   
   alternativeLikelihoods <- sapply(
     1:nBins, 
@@ -239,11 +248,23 @@ scaledResidualsToLlr.naiveBayes <- function(scaledResiduals, nBins = 50) {
   rm(nullTiles)
   rm(alternativeTiles)
   
+  message("LikelihoodRatioMap...")
+  
   likelihoodRatioMap <- alternativeLikelihoods / nullLikelihoods
   
+  message("AllTiles...")
+  
   allTiles <- cut(scaledResiduals, breaks = breaks, labels = FALSE)
+  
+  message("LikelihoodRatios")
+  
   likelihoodRatios <- sapply(allTiles, function(tile) likelihoodRatioMap[tile])
+  
+  message("Applying dims...")
+  
   dim(likelihoodRatios) <- dim(scaledResiduals)
+  
+  message("Log-transforming and Returning...")
   
   return(log(likelihoodRatios))
 }
