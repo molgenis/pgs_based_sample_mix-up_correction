@@ -187,6 +187,7 @@ calculate.scaledResiduals <- function(estimate, actual, covariates, sampleNames 
   # Get the mean and standard deviation to express residuals as z-score-like values.
   residuals.mean <- mean(residuals)
   residuals.sd <- sd(residuals)
+  rm(residuals)
   
   # Create names
   if (is.null(sampleNames)) {
