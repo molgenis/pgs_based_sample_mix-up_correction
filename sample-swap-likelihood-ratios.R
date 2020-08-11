@@ -194,6 +194,8 @@ calculate.scaledResiduals <- function(estimate, actual, covariates, sampleNames 
   progressCounter <- 0
   numberOfEstimates <- length(estimate)
 
+  print(object.size(scaledResidualDataFrame))
+
   message("    calculating residuals...")
   residualsMatrix <- sapply(estimate, function(estimateValue) {
     cat(paste0(progressCounter, ' / ', numberOfEstimates, 'completed'))
@@ -447,14 +449,14 @@ for (fileIndex in c(1:length(polygenicScoreFilePaths))) {
   
   print(head(completeTable))
   
-  initial.cor.test.results <- cor.test(completeTable$VALUE, completeTable$PGS)
-  print(paste0("Initial R-squared of correlation = ", initial.cor.test.results$estimate ^ 2))
-  pearson.correlations[fileIndex, "pearson.not_corrected"] <- initial.cor.test.results$estimate
+  #initial.cor.test.results <- cor.test(completeTable$VALUE, completeTable$PGS)
+  #print(paste0("Initial R-squared of correlation = ", initial.cor.test.results$estimate ^ 2))
+  #pearson.correlations[fileIndex, "pearson.not_corrected"] <- initial.cor.test.results$estimate
   
   # Correct for age and sex
-  trait2pgs.corrected <- completeTable
-  model.complete <- lm(VALUE ~ AGE + SEX + AGE * SEX, data = trait2pgs.corrected)
-  trait2pgs.corrected$actual <- resid(model.complete)
+  #trait2pgs.corrected <- completeTable
+  #model.complete <- lm(VALUE ~ AGE + SEX + AGE * SEX, data = trait2pgs.corrected)
+  #trait2pgs.corrected$actual <- resid(model.complete)
   
   # Scale both the actual and estimated traits
   #trait2pgs.corrected$actual <- rank(trait2pgs.corrected$actual)/length(trait2pgs.corrected$actual)
@@ -463,9 +465,9 @@ for (fileIndex in c(1:length(polygenicScoreFilePaths))) {
   #trait2pgs.corrected$PGS <- scale(trait2pgs.corrected$PGS)
   
   # Output the correlation of the corrected traits
-  corrected.cor.test.results <- cor.test(trait2pgs.corrected$actual, trait2pgs.corrected$PGS)
-  print(paste0("R-squared of corrected traits = ", corrected.cor.test.results$estimate ^ 2))
-  pearson.correlations[fileIndex, "pearson.corrected.both"] <- corrected.cor.test.results$estimate
+  #corrected.cor.test.results <- cor.test(trait2pgs.corrected$actual, trait2pgs.corrected$PGS)
+  #print(paste0("R-squared of corrected traits = ", corrected.cor.test.results$estimate ^ 2))
+  #pearson.correlations[fileIndex, "pearson.corrected.both"] <- corrected.cor.test.results$estimate
   
   # Calculate z-score matrix based on polygenic scores and actual phenotypes,
   # using the chosen function for calculating residuals.
