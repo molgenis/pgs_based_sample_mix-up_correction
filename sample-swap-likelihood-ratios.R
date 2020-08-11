@@ -402,6 +402,12 @@ if (!is.null(args$sample_coupling_file)) {
     filter(pheno %in% unique(phenotypesTable$ID))
 }
 
+if (TRUE) {
+  link <- link %>%
+    slice_sample(n = 4096) %>%
+    order_by(geno)
+}
+
 aggregatedLlrMatrix <- matrix(nrow = nrow(link), 
                               ncol = nrow(link), 
                               dimnames = list(link$pheno, link$geno))
@@ -525,15 +531,25 @@ for (traitIndex in 1:nrow(traitDescriptionsTable)) {
   aggregatedLlrMatrix[rownames(logLikelihoodRatios), colnames(logLikelihoodRatios)] <- 
     aggregatedLlrMatrix[rownames(logLikelihoodRatios), colnames(logLikelihoodRatios)] + logLikelihoodRatios
   
-  # ggplot(scaledResidualsDataFrame, aes(x=scaledResiduals, stat(density), fill=group)) +
-  #   geom_histogram(bins = 72, alpha=.5, position="identity") +
-  #   geom_line(aes(y=logLikelihoodRatios)) +
-  #   xlab("Scaled residuals") + ggtitle(paste0("Scaled residuals for trait '", trait, "'"))
-  # 
-  # ggsave(file.path(out, trait, "/scaledResidualsHistogram.png"), width=8, height=7)
   rm(logLikelihoodRatios)
+  gc()
+  
+  scaledResidualsDataFrame <- as.data.frame.table(scaledResidualsMatrix, 
+                                                  responseName = "scaledResiduals")
+  
+  scaledResidualsDataFrame$group <- "alternative"
+  scaledResidualsDataFrame$group[scaledResidualsDataFrame$Var1 == scaledResidualsDataFrame$Var2] <- "null"
+  scaledResidualsDataFrame$group <- factor(scaledResidualsDataFrame$group, c("null", "alternative"))
+  
   rm(scaledResidualsMatrix)
   gc()
+  
+  ggplot(scaledResidualsDataFrame, aes(x=scaledResiduals, stat(density), fill=group)) +
+    geom_histogram(bins = 72, alpha=.5, position="identity") +
+    geom_line(aes(y=logLikelihoodRatios)) +
+    xlab("Scaled residuals") + ggtitle(paste0("Scaled residuals for trait '", trait, "'"))
+  
+  ggsave(file.path(out, trait, "/scaledResidualsHistogram.png"), width=8, height=7)
 }
 
 message(paste0("Calculated overall AUC: ", calculate.auc(
