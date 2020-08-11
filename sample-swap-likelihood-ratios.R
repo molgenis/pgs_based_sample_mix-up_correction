@@ -185,11 +185,6 @@ calculate.scaledResiduals <- function(estimate, actual, covariates, sampleNames 
   residuals.sd <- sd(residuals)
   rm(residuals)
   
-  # Create names
-  if (is.null(sampleNames)) {
-    sampleNames <- 1:length(actual)
-  }
-  
   residualsMatrix <- sapply(estimate, function(estimateValue) {
 
     return(residualsFun(estimate = estimateValue, 
@@ -198,21 +193,20 @@ calculate.scaledResiduals <- function(estimate, actual, covariates, sampleNames 
   })
   
   residualsMatrix <- (residualsMatrix - residuals.mean) / residuals.sd
-  rownames(residualsMatrix) <- sampleNames
-  colnames(residualsMatrix) <- sampleNames
   return(residualsMatrix)
 }
 
 # Function for converting a matrix of scaled residuals to log likelihood ratios
-scaledResidualsToLlr.naiveBayes <- function(scaledResiduals, group, nBins = 50) {
+scaledResidualsToLlr.naiveBayes <- function(scaledResiduals, nBins = 50) {
 
   # Extract the null-residuals; 
   # the residuals belonging to the matches that are assumed to be correct.
-  nullResiduals <- scaledResiduals[group == "null"]
+  nullResiduals <- diag(scaledResiduals)
   
   # Extract the alternative residuals; 
   # the residuals belonging to the matches that are assumed to be sample-swaps.
-  alternativeResiduals <- scaledResiduals[group == "alternative"]
+  alternativeResiduals <- scaledResiduals[lower.tri(scaledResiduals) 
+                                          | upper.tri(scaledResiduals)]
   
   # nullDensity <- density(
   #   nullResiduals, 
@@ -242,10 +236,14 @@ scaledResidualsToLlr.naiveBayes <- function(scaledResiduals, group, nBins = 50) 
     1:nBins, 
     function(bin) sum(alternativeTiles == bin) / length(alternativeTiles))
   
+  rm(nullTiles)
+  rm(alternativeTiles)
+  
   likelihoodRatioMap <- alternativeLikelihoods / nullLikelihoods
   
   allTiles <- cut(scaledResiduals, breaks = breaks, labels = FALSE)
   likelihoodRatios <- sapply(allTiles, function(tile) likelihoodRatioMap[tile])
+  dim(likelihoodRatios) <- dim(scaledResiduals)
   
   return(log(likelihoodRatios))
 }
@@ -457,32 +455,28 @@ for (fileIndex in c(1:length(polygenicScoreFilePaths))) {
 
   message("    completed calculating scaled residuals.")
   
-  print(str(scaledResidualsMatrix))
-  print(head(scaledResidualsMatrix))
-  
-  stop("Cannot go further")
-
-  scaledResidualsDataFrame$group <- "alternative"
-  
-  scaledResidualsDataFrame$group[which(
-    scaledResidualsDataFrame$genotypeSamples == scaledResidualsDataFrame$phenotypeSamples)] <- "null"
-  
-  scaledResidualsDataFrame$group <- factor(scaledResidualsDataFrame$group, c("null", "alternative"))
-  
+  # scaledResidualsDataFrame$group <- "alternative"
+  # 
+  # scaledResidualsDataFrame$group[which(
+  #   scaledResidualsDataFrame$genotypeSamples == scaledResidualsDataFrame$phenotypeSamples)] <- "null"
+  # 
+  # scaledResidualsDataFrame$group <- factor(scaledResidualsDataFrame$group, c("null", "alternative"))
+  # 
   # Calculate the likelihood ratios for every residual being from the distribution of possible mix-ups.
 
   message("    calculating log likelihood ratios.")
   
-  scaledResidualsDataFrame$logLikelihoodRatios <- scaledResidualsToLlr.naiveBayes(
-    scaledResidualsDataFrame$scaledResiduals,
-    group = scaledResidualsDataFrame$group,
+  logLikelihoodRatios <- scaledResidualsToLlr.naiveBayes(
+    scaledResidualsMatrix,
     nBins = 128)
 
-  message("    completed calculating scaled residuals.")
+  message("    completed calculating log likelihood ratios.")
   
   # scaledResidualsDataFrame$logLikelihoodRatios <- scaledResidualsToLlr.gaussianNaiveBayes(
   #   scaledResidualsDataFrame$scaledResiduals,
   #   group = scaledResidualsDataFrame$group)
+  
+  stop("Cannot go futher")
   
   llRdataFrameList[[fileIndex]] <- scaledResidualsDataFrame %>% 
     select(genotypeSamples, phenotypeSamples, group, logLikelihoodRatios)
