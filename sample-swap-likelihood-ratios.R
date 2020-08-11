@@ -427,7 +427,7 @@ for (traitIndex in 1:nrow(traitDescriptionsTable)) {
   responseDataType <- traitDescriptionsTable$traitDataType[traitIndex]
   
   if (!dir.create(file.path(out, trait), recursive = T)) {
-    stop(paste0("Could not create directory '", file.path(out, trait), "'"))
+    warning(paste0("Could not create directory '", file.path(out, trait), "'"))
   }
   
   phenotypeTable <- phenotypesTable %>%
