@@ -88,12 +88,18 @@ plotSigmoid <- function(estimate, actual, covariates, logitModel) {
 # to the actual values.
 devianceFromOlsRegressionLine <- function(estimate, actual, covariates, olsModel) {
   # Predict actual values using the given model and the supplied independent variables
+  message("    Predicting actual with OLS model.")
   predictedActual <- predict(olsModel, 
                              cbind(estimate, covariates), 
                              type = "response")
   
+  message("    Calculating deviance.")
   # Calculate the residual
   deviance <- actual - predictedActual
+
+  print(head(deviance))
+
+  message("    Unnaming and returning.")
   return(unname(deviance))
 }
 
@@ -194,8 +200,8 @@ calculate.scaledResiduals <- function(estimate, actual, covariates, sampleNames 
 
   message("    calculating residuals...")
   scaledResidualDataFrame$scaledResiduals <- residualsFun(estimate = scaledResidualDataFrame$estimate, 
-                                                         actual = scaledResidualDataFrame$actual, 
-                                                         covariates = scaledResidualDataFrame[colnames(covariates)])
+                                                          actual = scaledResidualDataFrame$actual, 
+                                                          covariates = scaledResidualDataFrame[colnames(covariates)])
   
   scaledResidualDataFrame$scaledResiduals <- (scaledResidualDataFrame$scaledResiduals - residuals.mean) / residuals.sd
   
