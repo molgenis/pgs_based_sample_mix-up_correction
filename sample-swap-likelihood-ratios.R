@@ -544,7 +544,6 @@ for (traitIndex in 1:nrow(traitDescriptionsTable)) {
   
   ggplot(scaledResidualsDataFrame, aes(x=scaledResiduals, stat(density), fill=group)) +
     geom_histogram(bins = 72, alpha=.5, position="identity") +
-    geom_line(aes(y=logLikelihoodRatios)) +
     xlab("Scaled residuals") + ggtitle(paste0("Scaled residuals for trait '", trait, "'"))
   
   ggsave(file.path(out, trait, "/scaledResidualsHistogram.png"), width=8, height=7)
