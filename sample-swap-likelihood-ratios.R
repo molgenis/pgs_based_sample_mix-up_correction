@@ -181,6 +181,7 @@ calculate.scaledResiduals <- function(estimate, actual, covariates, sampleNames 
   # Get the mean and standard deviation to express residuals as z-score-like values.
   residuals.mean <- mean(residuals)
   residuals.sd <- sd(residuals)
+  rm(residuals)
   
   # Create names
   if (is.null(sampleNames)) {
@@ -191,8 +192,8 @@ calculate.scaledResiduals <- function(estimate, actual, covariates, sampleNames 
   estimateDataFrame <- data.frame(genotypeSamples = sampleNames, estimate = estimate)
   scaledResidualDataFrame <- expand_grid(actualDataFrame, estimateDataFrame)
   scaledResidualDataFrame$scaledResiduals <- residualsFun(estimate = scaledResidualDataFrame$estimate, 
-                                                         actual = scaledResidualDataFrame$actual, 
-                                                         covariates = scaledResidualDataFrame[colnames(covariates)])
+                                                          actual = scaledResidualDataFrame$actual, 
+                                                          covariates = scaledResidualDataFrame[colnames(covariates)])
   
   scaledResidualDataFrame$scaledResiduals <- (scaledResidualDataFrame$scaledResiduals - residuals.mean) / residuals.sd
   
