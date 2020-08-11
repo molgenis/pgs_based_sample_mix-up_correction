@@ -164,7 +164,8 @@ residualsFunConstructor <- function(estimate, actual, covariates, responseDataTy
 }
 
 
-# Define function for calculating Z-scores that represents what the Java implementation should do.
+# Define function for calculating scaled residuals.
+# Output is a matrix with rows representing actual values and columns representing expected values
 calculate.scaledResiduals <- function(estimate, actual, covariates, sampleNames = NULL, responseDataType = "continuous") {
   # Get a function that returns the deviance of an observation to the regression line.
   # This will either be the 'deviance residuals' from a logistic model when the response data type is binary,
@@ -189,39 +190,17 @@ calculate.scaledResiduals <- function(estimate, actual, covariates, sampleNames 
     sampleNames <- 1:length(actual)
   }
   
-  actualDataFrame <- as.data.frame(c(list(phenotypeSamples = sampleNames, actual = actual), covariates))
-  
-  progressCounter <- 0
-  numberOfEstimates <- length(estimate)
-
-  message("    calculating residuals...")
   residualsMatrix <- sapply(estimate, function(estimateValue) {
-    cat(paste0(progressCounter, ' / ', numberOfEstimates, 'completed'))
-    
-    residualsVector <- residualsFun(estimate = estimateValue, 
-                 actual = actualDataFrame$actual, 
-                 covariates = actualDataFrame[colnames(covariates)])
-    
-    progressCounter <- progressCounter + 1
-    cat('\014')
-    
-    return(residualsVector)
+
+    return(residualsFun(estimate = estimateValue, 
+                 actual = actual, 
+                 covariates = covariates))
   })
   
-  cat(paste0(progressCounter, ' / ', numberOfEstimates, 'completed'))
-  message("DONE!")
-  
-  print(str(residualsMatrix))
-
-  # scaledResidualDataFrame$scaledResiduals <- residualsFun(estimate = scaledResidualDataFrame$estimate, 
-  #                                                         actual = scaledResidualDataFrame$actual, 
-  #                                                         covariates = scaledResidualDataFrame[colnames(covariates)])
-  
-  #scaledResidualDataFrame$scaledResiduals <- (scaledResidualDataFrame$scaledResiduals - residuals.mean) / residuals.sd
-  return(NULL)
-  # return(
-  #   scaledResidualDataFrame %>% 
-  #   select(phenotypeSamples, genotypeSamples, scaledResiduals))
+  residualsMatrix <- (residualsMatrix - residuals.mean) / residuals.sd
+  rownames(residualsMatrix) <- sampleNames
+  colnames(residualsMatrix) <- sampleNames
+  return(residualsMatrix)
 }
 
 # Function for converting a matrix of scaled residuals to log likelihood ratios
@@ -469,7 +448,7 @@ for (fileIndex in c(1:length(polygenicScoreFilePaths))) {
   
   # Calculate z-score matrix based on polygenic scores and actual phenotypes,
   # using the chosen function for calculating residuals.
-  scaledResidualsDataFrame <- calculate.scaledResiduals(
+  scaledResidualsMatrix <- calculate.scaledResiduals(
     estimate = completeTable$PGS, 
     actual = completeTable$VALUE, 
     covariates = completeTable[c("AGE", "SEX")],
@@ -477,6 +456,11 @@ for (fileIndex in c(1:length(polygenicScoreFilePaths))) {
     responseDataType = responseDataType)
 
   message("    completed calculating scaled residuals.")
+  
+  print(str(scaledResidualsMatrix))
+  print(head(scaledResidualsMatrix))
+  
+  stop("Cannot go further")
 
   scaledResidualsDataFrame$group <- "alternative"
   
