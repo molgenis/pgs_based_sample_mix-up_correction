@@ -427,7 +427,7 @@ for (traitIndex in 1:nrow(traitDescriptionsTable)) {
     inner_join(link, by="pheno")
   
   # Give status update
-  message(paste0(fileIndex, " / ", nrow(traitDescriptionsTable), 
+  message(paste0(traitIndex, " / ", nrow(traitDescriptionsTable), 
                  ": '", trait, "' (", responseDataType, ")."))
   
   if (responseDataType == "binary") {
