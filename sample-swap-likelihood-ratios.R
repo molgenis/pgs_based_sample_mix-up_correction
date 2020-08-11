@@ -404,8 +404,7 @@ if (!is.null(args$sample_coupling_file)) {
 
 if (TRUE) {
   link <- link %>%
-    slice_sample(n = 4096) %>%
-    order_by(geno)
+    slice_sample(n = 4096, order_by = geno)
 }
 
 aggregatedLlrMatrix <- matrix(nrow = nrow(link), 
