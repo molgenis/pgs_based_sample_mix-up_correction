@@ -88,18 +88,13 @@ plotSigmoid <- function(estimate, actual, covariates, logitModel) {
 # to the actual values.
 devianceFromOlsRegressionLine <- function(estimate, actual, covariates, olsModel) {
   # Predict actual values using the given model and the supplied independent variables
-  message("    Predicting actual with OLS model.")
-  predictedActual <- predict(olsModel, 
+  predictedActual <- predict(olsModel,
                              cbind(estimate, covariates), 
                              type = "response")
   
-  message("    Calculating deviance.")
   # Calculate the residual
   deviance <- actual - predictedActual
 
-  print(head(deviance))
-
-  message("    Unnaming and returning.")
   return(unname(deviance))
 }
 
@@ -194,21 +189,39 @@ calculate.scaledResiduals <- function(estimate, actual, covariates, sampleNames 
     sampleNames <- 1:length(actual)
   }
   
-  message("    generating large data frame...")
   actualDataFrame <- as.data.frame(c(list(phenotypeSamples = sampleNames, actual = actual), covariates))
-  estimateDataFrame <- data.frame(genotypeSamples = sampleNames, estimate = estimate)
-  scaledResidualDataFrame <- expand_grid(actualDataFrame, estimateDataFrame)
+  
+  progressCounter <- 0
+  numberOfEstimates <- length(estimate)
 
   message("    calculating residuals...")
-  scaledResidualDataFrame$scaledResiduals <- residualsFun(estimate = scaledResidualDataFrame$estimate, 
-                                                          actual = scaledResidualDataFrame$actual, 
-                                                          covariates = scaledResidualDataFrame[colnames(covariates)])
+  residualsMatrix <- sapply(estimate, function(estimateValue) {
+    cat(paste0(progressCounter, ' / ', numberOfEstimates, 'completed'))
+    
+    residualsVector <- residualsFun(estimate = estimateValue, 
+                 actual = actualDataFrame$actual, 
+                 covariates = actualDataFrame[colnames(covariates)])
+    
+    progressCounter <- progressCounter + 1
+    cat('\014')
+    
+    return(residualsVector)
+  })
   
-  scaledResidualDataFrame$scaledResiduals <- (scaledResidualDataFrame$scaledResiduals - residuals.mean) / residuals.sd
+  cat(paste0(progressCounter, ' / ', numberOfEstimates, 'completed'))
+  message("DONE!")
   
-  return(
-    scaledResidualDataFrame %>% 
-    select(phenotypeSamples, genotypeSamples, scaledResiduals))
+  print(str(residualsMatrix))
+
+  # scaledResidualDataFrame$scaledResiduals <- residualsFun(estimate = scaledResidualDataFrame$estimate, 
+  #                                                         actual = scaledResidualDataFrame$actual, 
+  #                                                         covariates = scaledResidualDataFrame[colnames(covariates)])
+  
+  #scaledResidualDataFrame$scaledResiduals <- (scaledResidualDataFrame$scaledResiduals - residuals.mean) / residuals.sd
+  return(NULL)
+  # return(
+  #   scaledResidualDataFrame %>% 
+  #   select(phenotypeSamples, genotypeSamples, scaledResiduals))
 }
 
 # Function for converting a matrix of scaled residuals to log likelihood ratios
