@@ -452,7 +452,9 @@ for (fileIndex in c(1:length(polygenicScoreFilePaths))) {
     covariates = completeTable[c("AGE", "SEX")],
     sampleNames = completeTable$geno,
     responseDataType = responseDataType)
-  
+
+  message("    completed calculating scaled residuals.")
+
   scaledResidualsDataFrame$group <- "alternative"
   
   scaledResidualsDataFrame$group[which(
@@ -461,11 +463,15 @@ for (fileIndex in c(1:length(polygenicScoreFilePaths))) {
   scaledResidualsDataFrame$group <- factor(scaledResidualsDataFrame$group, c("null", "alternative"))
   
   # Calculate the likelihood ratios for every residual being from the distribution of possible mix-ups.
+
+  message("    calculating log likelihood ratios.")
   
   scaledResidualsDataFrame$logLikelihoodRatios <- scaledResidualsToLlr.naiveBayes(
     scaledResidualsDataFrame$scaledResiduals,
     group = scaledResidualsDataFrame$group,
     nBins = 128)
+
+  message("    completed calculating scaled residuals.")
   
   # scaledResidualsDataFrame$logLikelihoodRatios <- scaledResidualsToLlr.gaussianNaiveBayes(
   #   scaledResidualsDataFrame$scaledResiduals,
