@@ -530,12 +530,14 @@ for (traitIndex in 1:nrow(traitDescriptionsTable)) {
   aggregatedLlrMatrix[rownames(logLikelihoodRatios), colnames(logLikelihoodRatios)] <- 
     aggregatedLlrMatrix[rownames(logLikelihoodRatios), colnames(logLikelihoodRatios)] + logLikelihoodRatios
   
+  message("    aggregation done!")
+  
   scaledResidualsDataFrame <- as.data.frame.table(scaledResidualsMatrix, 
                                                   responseName = "scaledResiduals")
   
   scaledResidualsDataFrame$group <- "alternative"
   scaledResidualsDataFrame$group[scaledResidualsDataFrame$Var1 == scaledResidualsDataFrame$Var2] <- "null"
-  scaledResidualsDataFrame$group <- factor(scaledResidualsDataFrame$group, c("null", "alternative"))
+  scaledResidualsDataFrame$group <- factor(scaledResidualsDataFrame$group, levels = c("null", "alternative"))
   
   rm(scaledResidualsMatrix)
   gc()
