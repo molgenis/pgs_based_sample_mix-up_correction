@@ -530,9 +530,6 @@ for (traitIndex in 1:nrow(traitDescriptionsTable)) {
   aggregatedLlrMatrix[rownames(logLikelihoodRatios), colnames(logLikelihoodRatios)] <- 
     aggregatedLlrMatrix[rownames(logLikelihoodRatios), colnames(logLikelihoodRatios)] + logLikelihoodRatios
   
-  rm(logLikelihoodRatios)
-  gc()
-  
   scaledResidualsDataFrame <- as.data.frame.table(scaledResidualsMatrix, 
                                                   responseName = "scaledResiduals")
   
@@ -549,6 +546,9 @@ for (traitIndex in 1:nrow(traitDescriptionsTable)) {
     xlab("Scaled residuals") + ggtitle(paste0("Scaled residuals for trait '", trait, "'"))
   
   ggsave(file.path(out, trait, "/scaledResidualsHistogram.png"), width=8, height=7)
+  
+  rm(logLikelihoodRatios)
+  gc()
 }
 
 message(paste0("Calculated overall AUC: ", calculate.auc(
