@@ -187,9 +187,12 @@ calculate.scaledResiduals <- function(estimate, actual, covariates, sampleNames 
     sampleNames <- 1:length(actual)
   }
   
+  message("    generating large data frame...")
   actualDataFrame <- as.data.frame(c(list(phenotypeSamples = sampleNames, actual = actual), covariates))
   estimateDataFrame <- data.frame(genotypeSamples = sampleNames, estimate = estimate)
   scaledResidualDataFrame <- expand_grid(actualDataFrame, estimateDataFrame)
+
+  message("    calculating residuals...")
   scaledResidualDataFrame$scaledResiduals <- residualsFun(estimate = scaledResidualDataFrame$estimate, 
                                                          actual = scaledResidualDataFrame$actual, 
                                                          covariates = scaledResidualDataFrame[colnames(covariates)])
