@@ -551,10 +551,6 @@ for (traitIndex in 1:nrow(traitDescriptionsTable)) {
   gc()
 }
 
-message(paste0("Calculated overall AUC: ", calculate.auc(
-  lower.tri(scaledResiduals, diag = T) & upper.tri(scaledResiduals, diag = T), 
-  aggregatedLlrMatrix)))
-
 # zscore.sums$zscore.avg <- zscore.sums$zscore.sum / sqrt(length(zscore.list))
 # zscore.sums$zscore.avg <- zscore.sums$zscore.sum
 
@@ -568,6 +564,9 @@ lrProducts <- as.data.frame.table(aggregatedLlrMatrix,
 lrProducts$group <- "alternative"
 lrProducts$group[lrProducts$Var1 == lrProducts$Var2] <- "null"
 lrProducts$group <- factor(lrProducts$group, c("null", "alternative"))
+
+message(paste0("Calculated overall AUC: ", calculate.auc(
+  lrProducts$group, lrProducts$logLikelihoods)))
 
 ggplot(lrProducts, aes(x=logLikelihoodRatios, stat(density), fill=group)) +
   geom_histogram(bins = 32, alpha=.5, position="identity") +
