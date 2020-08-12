@@ -149,7 +149,7 @@ residualsFunConstructor <- function(estimate, actual, covariates, responseDataTy
     
     print(summary(logitModel))
     
-    #plotSigmoid(estimate = estimate, actual = actual, covariates = covariates, logitModel = logitModel)
+    plotSigmoid(estimate = estimate, actual = actual, covariates = covariates, logitModel = logitModel)
     
     # Define residualsFun to use the logistic regression model.
     residualsFun <- function(estimate, actual, covariates) {
@@ -224,8 +224,6 @@ scaledResidualsToLlr.naiveBayes <- function(scaledResiduals, nBins = 50) {
   # plot(nullDensity)
   # lines(alternativeDensity)
   
-  message("Nulltiles...")
-  
   nullTiles <- ntile(nullResiduals, nBins)
   breaks <- sapply(1:nBins, function(bin) min(nullResiduals[nullTiles == bin]))
   rm(nullResiduals)
@@ -234,19 +232,13 @@ scaledResidualsToLlr.naiveBayes <- function(scaledResiduals, nBins = 50) {
   breaks[1] <- min(scaledResiduals - 1)
   breaks <- c(breaks, max(scaledResiduals) + 1)
   
-  message("AlternativeTiles...")
-  
   alternativeTiles <- cut(alternativeResiduals, breaks = breaks, labels = FALSE)
   rm(alternativeResiduals)
   gc()
   
-  message("NullLikelihoods...")
-  
   nullLikelihoods <- sapply(
     1:nBins, 
     function(bin) sum(nullTiles == bin) / length(nullTiles))
-  
-  message("AlternativeLikelihoods...")
   
   alternativeLikelihoods <- sapply(
     1:nBins, 
@@ -256,28 +248,18 @@ scaledResidualsToLlr.naiveBayes <- function(scaledResiduals, nBins = 50) {
   rm(alternativeTiles)
   gc()
   
-  message("LikelihoodRatioMap...")
-  
   likelihoodRatioMap <- alternativeLikelihoods / nullLikelihoods
-  
-  message("AllTiles...")
   
   allTiles <- cut(scaledResiduals, breaks = breaks, labels = FALSE)
   
   rm(scaledResiduals)
   gc()
   
-  message("LikelihoodRatios...")
-  
   likelihoodRatios <- likelihoodRatioMap[allTiles]
-  
-  message("Applying dims...")
   
   dim(likelihoodRatios) <- returnDimensions
   rownames(likelihoodRatios) <- returnRowNames
   colnames(likelihoodRatios) <- returnColumnNames
-  
-  message("Log-transforming and Returning...")
   
   return(log(likelihoodRatios))
 }
@@ -388,6 +370,9 @@ traitDescriptionsTable$polygenicScoreFilePath <- file.path(basePathWithPolygenic
 # Get the output path
 out <- args$out
 
+# Set the number of bins to use for the Naive Bayes method.
+binsNaiveBayes <- 100
+
 # Load the phenotypes 
 phenotypesFilePath <- args$phenotypes_file
 phenotypesTable <- read.table(phenotypesFilePath, header=T, quote="", sep="\t",
@@ -441,11 +426,16 @@ for (traitIndex in 1:nrow(traitDescriptionsTable)) {
   
   if (responseDataType == "binary") {
     phenotypeFrequencyTable <- table(phenotypeTable$VALUE)
-    print(phenotypeFrequencyTable)
-    
+
     message(paste0("    Available for ", nrow(phenotypeTable), 
                    " samples (number of 0's = ", phenotypeFrequencyTable["0"],
                    ", 1's = ", phenotypeFrequencyTable["1"], ")."))
+    
+    if (any(phenotypeFrequencyTable < 50)) {
+      message(paste0("Not enough samples present in group '", names(phenotypeFrequencyTable)[phenotypeFrequencyTable < 50], "'. Skipping..."))
+      next
+    }
+    
   } else if (responseDataType == "continuous") {
     message(paste0("    Available for ", nrow(phenotypeTable), " samples."))
   }
@@ -499,7 +489,7 @@ for (traitIndex in 1:nrow(traitDescriptionsTable)) {
   write.table(scaledResidualsMatrix, file.path(out, trait, "/scaledResidualMatrix.tsv"), 
               sep = "\t", col.names = T, row.names = T, quote = F)
 
-  message("    Completed calculating scaled residuals")
+  message("    completed calculating scaled residuals")
   
   # scaledResidualsDataFrame$group <- "alternative"
   # 
@@ -510,11 +500,11 @@ for (traitIndex in 1:nrow(traitDescriptionsTable)) {
   # 
   # Calculate the likelihood ratios for every residual being from the distribution of possible mix-ups.
 
-  message("    Calculating log likelihood ratios.")
+  message("    calculating log likelihood ratios")
   
   logLikelihoodRatios <- scaledResidualsToLlr.naiveBayes(
     scaledResidualsMatrix,
-    nBins = 128)
+    nBins = binsNaiveBayes)
   
   write.table(logLikelihoodRatios, file.path(out, trait, "/logLikelihoodRatios.tsv"), 
               sep = "\t", col.names = T, row.names = T, quote = F)
