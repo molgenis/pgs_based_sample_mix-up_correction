@@ -21,13 +21,16 @@ parser$add_argument('--plink-profiles', nargs='+',
                     help='path to plink --score outputs')
 parser$add_argument('--out',
                     help='output path of summed profiles')
+parser$add_argument('--scoresum-column',
+                    help='columnname containing summable polygenic scores')
 
 ##############################
 # Define functions
 ##############################
 
-read.plinkProfiles <- function(plinkProfile) {
-  return(fread(plinkProfile, header=T) %>% select(IID, SCORESUM))
+read.plinkProfiles <- function(plinkProfile, scoresumColumn) {
+  rename_list <- list(IID = "IID", SCORESUM = scoresumColumn)
+  return(fread(plinkProfile, header=T)  %>% select_(.dots = rename_list))
 }
 
 ##############################
@@ -64,7 +67,7 @@ args <- parser$parse_args(commandArgs(trailingOnly = TRUE))
 #   "/groups/umcg-lifelines/tmp01/projects/ugli_blood_gsa/pgs_based_mixup_correction/output/PRScs/20200803//HbA1c_METAL_European.processed/full.UGLI.pgs.profile"
 #   ))
 
-profileDataFrameList <- lapply(args$plink_profiles, read.plinkProfiles)
+profileDataFrameList <- lapply(args$plink_profiles, read.plinkProfiles, args$scoresum_column)
 
 print(sapply(profileDataFrameList, nrow))
 
