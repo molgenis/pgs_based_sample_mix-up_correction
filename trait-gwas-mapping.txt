@@ -20,7 +20,7 @@ Thrombocyte concentration	continuous	plt.processed
 Blondeness of hair	continuous	ukb-d-1747_1.processed
 Red hair colour	binary	ukb-d-1747_2.processed
 Type 2 diabetes	binary	T2D_European.BMIunadjusted.processed
-Type 1 diabetes	binary	onengut_2015_25751624_t1d_efo0001359_meta_ichip.sumstats.processed
+#Type 1 diabetes	binary	onengut_2015_25751624_t1d_efo0001359_meta_ichip.sumstats.processed
 Asthma	binary	TAGC_European_Ancestry.processed
 Coronary artery disease	binary	ebi-a-GCST005195.processed
-Schizophrenia	binary	ieu-a-22.processed
+#Schizophrenia	binary	ieu-a-22.processed
