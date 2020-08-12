@@ -224,48 +224,63 @@ scaledResidualsToLlr.naiveBayes <- function(scaledResiduals, nBins = 50) {
   # plot(nullDensity)
   # lines(alternativeDensity)
   
+  # Split the null residuals in equal sized tiles, 
+  # and get the break points which separate these tiles.
   nullTiles <- ntile(nullResiduals, nBins)
   breaks <- sapply(1:nBins, function(bin) min(nullResiduals[nullTiles == bin]))
-  rm(nullResiduals)
-  gc()
   
+  # Adapt the breaks to span the entire range of scaled residuals + a buffer of 1.
   breaks[1] <- min(scaledResiduals - 1)
   breaks <- c(breaks, max(scaledResiduals) + 1)
   
+  # Split the alternative residuals in tiles according to the same break points
+  # that separate the null residuals in equal sized tiles.
   alternativeTiles <- cut(alternativeResiduals, breaks = breaks, labels = FALSE)
+  
+  # Remove the null and alternative residuals to clear memory.
   rm(alternativeResiduals)
   gc()
   
+  # Get the density / likelihood of the null residuals for each of the bins.
   nullLikelihoods <- sapply(
     1:nBins, 
     function(bin) sum(nullTiles == bin) / length(nullTiles))
   
+  # Get the density / likelihood of the alternative residuals for each of the bins.
   alternativeLikelihoods <- sapply(
     1:nBins, 
     function(bin) sum(alternativeTiles == bin) / length(alternativeTiles))
   
+  # Remove the null and alternative tiles to clear memory.
   rm(nullTiles)
   rm(alternativeTiles)
   gc()
   
+  # Determine, for each of the bins, 
+  # the ratio between the densities / likelihoods of the alternative compared to the null residuals.
   likelihoodRatioMap <- alternativeLikelihoods / nullLikelihoods
   
+  # Apply breaks again on all the residuals.
   allTiles <- cut(scaledResiduals, breaks = breaks, labels = FALSE)
   
+  # Remove the scaled residuals from memory.
   rm(scaledResiduals)
   gc()
   
+  # Retrieve, for every of the bins / tiles, its respective likelihood ratio.
   likelihoodRatios <- likelihoodRatioMap[allTiles]
   
+  # Apply the same dimensions, row names and column names as where used for the input matrix.
   dim(likelihoodRatios) <- returnDimensions
   rownames(likelihoodRatios) <- returnRowNames
   colnames(likelihoodRatios) <- returnColumnNames
   
+  # Return the log-transformed likelihood ratios.
   return(log(likelihoodRatios))
 }
 
 # Function for converting a matrix of scaled residuals to likelihood ratios.
-# This function employs a gaussian naive bayes method to calculate likelihoods.
+# This function employs a Gaussian naive Bayes method to calculate likelihoods.
 scaledResidualsToLlr.gaussianNaiveBayes <- function(scaledResiduals, group, error = 0.01) {
   
   # Extract the null-residuals; 
@@ -294,21 +309,24 @@ scaledResidualsToLlr.gaussianNaiveBayes <- function(scaledResiduals, group, erro
   # Declare function for calculating the log likelihood of 'value' being sampled from 
   # a normal distribution with the given mean and standard deviation 'sd'.
   gaussianLogLikelihood <- function(value, mean, sd) {
-    return(subtractLogTransformedProbabilities(
+    logLikelihoods <- subtractLogTransformedProbabilities(
       pnorm(value + (error / 2), mean = mean, sd = sd, log.p = TRUE),
       pnorm(value - (error / 2), mean = mean, sd = sd, log.p = TRUE)
-      ))
+      )
+    
+    # log likelihood is -Inf if log(p) of 
+    return(logLikelihoods)
   }
   
   # Calculate, for every residual, the likelihood of the residual being sampled from
   # the corresponding normal distribution of null residuals.
-  nullLogLikelihoods <- sapply(
-    nullResiduals, gaussianLogLikelihood, nullMean, nullSd)
+  nullLogLikelihoods <- gaussianLogLikelihood(
+    nullResiduals, nullMean, nullSd)
   
   # Calculate, for every residual, the likelihood of the residual being sampled from
   # the corresponding normal distribution of alternative residuals.
-  alternativeLogLikelihoods <- sapply(
-    alternativeResiduals, gaussianLogLikelihood, alternativeMean, alternativeSd)
+  alternativeLogLikelihoods <- gaussianLogLikelihood(
+    alternativeResiduals, alternativeMean, alternativeSd)
   
   # For every residual, calculate the likelihood ratio the residual belonging to a
   # sample swap.
@@ -491,27 +509,14 @@ for (traitIndex in 1:nrow(traitDescriptionsTable)) {
 
   message("    completed calculating scaled residuals")
   
-  # scaledResidualsDataFrame$group <- "alternative"
-  # 
-  # scaledResidualsDataFrame$group[which(
-  #   scaledResidualsDataFrame$genotypeSamples == scaledResidualsDataFrame$phenotypeSamples)] <- "null"
-  # 
-  # scaledResidualsDataFrame$group <- factor(scaledResidualsDataFrame$group, c("null", "alternative"))
-  # 
-  # Calculate the likelihood ratios for every residual being from the distribution of possible mix-ups.
-
   message("    calculating log likelihood ratios")
-  
+  # Calculate the likelihood ratios for every residual being from the distribution of possible mix-ups.
   logLikelihoodRatios <- scaledResidualsToLlr.naiveBayes(
     scaledResidualsMatrix,
     nBins = binsNaiveBayes)
   
   write.table(logLikelihoodRatios, file.path(out, trait, "/logLikelihoodRatios.tsv"), 
               sep = "\t", col.names = T, row.names = T, quote = F)
-  
-  # scaledResidualsDataFrame$logLikelihoodRatios <- scaledResidualsToLlr.gaussianNaiveBayes(
-  #   scaledResidualsDataFrame$scaledResiduals,
-  #   group = scaledResidualsDataFrame$group)
 
   message("    completed calculating log likelihood ratios.")
   message("    summing log likelihood ratios with aggregated log likelihood ratios...")
