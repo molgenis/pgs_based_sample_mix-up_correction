@@ -303,31 +303,31 @@ getLogTransformedTriglycerideConcentration <- function(phenotypeSources, phenoty
 getLogTransformedEosinophilConcentration <- function(phenotypeSources, phenotypeTables, correctionTable) {
   return(getLatestValueFromRawPhenotypeTable(
     phenotypeSources, phenotypeTables, correctionTable, "Eosinophil concentration") %>%
-    mutate(VALUE = log10(VALUE)))
+    mutate(VALUE = log10(VALUE + 0.01)))
 }
 
 getLogTransformedNeutrophilConcentration <- function(phenotypeSources, phenotypeTables, correctionTable) {
   return(getLatestValueFromRawPhenotypeTable(
     phenotypeSources, phenotypeTables, correctionTable, "Neutrophil Granulocytes") %>%
-      mutate(VALUE = log10(VALUE)))
+      mutate(VALUE = log10(VALUE + 0.01)))
 }
 
 getLogTransformedBasophilConcentration <- function(phenotypeSources, phenotypeTables, correctionTable) {
   return(getLatestValueFromRawPhenotypeTable(
     phenotypeSources, phenotypeTables, correctionTable, "Basophilic Granulocytes") %>%
-      mutate(VALUE = log10(VALUE)))
+      mutate(VALUE = log10(VALUE + 0.01)))
 }
 
 getLogTransformedMonocyteConcentration <- function(phenotypeSources, phenotypeTables, correctionTable) {
   return(getLatestValueFromRawPhenotypeTable(
     phenotypeSources, phenotypeTables, correctionTable, "Monocytes") %>%
-      mutate(VALUE = log10(VALUE)))
+      mutate(VALUE = log10(VALUE + 0.01)))
 }
 
 getLogTransformedLymphocyteConcentration <- function(phenotypeSources, phenotypeTables, correctionTable) {
   return(getLatestValueFromRawPhenotypeTable(
     phenotypeSources, phenotypeTables, correctionTable, "Lymphocytes") %>%
-      mutate(VALUE = log10(VALUE)))
+      mutate(VALUE = log10(VALUE + 0.01)))
 }
 
 getThrombocyteConcentration <- function(phenotypeSources, phenotypeTables, correctionTable) {
