@@ -405,7 +405,10 @@ binsNaiveBayes <- 100
 # Load the phenotypes 
 phenotypesFilePath <- args$phenotypes_file
 phenotypesTable <- read.table(phenotypesFilePath, header=T, quote="", sep="\t",
-                              col.names = c("ID", "AGE", "SEX", "VALUE", "TRAIT"))
+                              col.names = c("ID", "AGE", "SEX", "VALUE", "TRAIT")) %>%
+  group_by(ID) %>%
+  filter(!any(AGE < 18)) %>%
+  ungroup()
 
 link <- data.frame(geno = unique(phenotypesTable$ID), pheno = unique(phenotypesTable$ID))
 
