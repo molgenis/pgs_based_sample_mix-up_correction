@@ -24,7 +24,7 @@ initial.options <- commandArgs(trailingOnly = FALSE)
 file.arg.name <- "--file="
 script.name <- sub(file.arg.name, "", initial.options[grep(file.arg.name, initial.options)])
 script.basename <- dirname(script.name)
-default.phenotype_sources_map <- file.path(script.basename, "phenotype-sources-map.txt")
+default.phenotype_sources_map <- file.path(script.basename, "phenotype-source-map.txt")
 if (length(default.phenotype_sources_map) == 0) {
   default.phenotype_sources_map = NULL
 }
