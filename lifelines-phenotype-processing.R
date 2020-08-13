@@ -60,7 +60,7 @@ parser$add_argument('--gsa-linkage-file',
                                 'and UGLI_ID sample ids in the second column'))
 
 parser$add_argument('--out',
-                    help='path to a file where the derived phenotypes are to be written to.')
+                    help='prefix where the derived phenotypes are to be written to.')
 
 ##############################
 # Define functions
@@ -300,6 +300,42 @@ getLogTransformedTriglycerideConcentration <- function(phenotypeSources, phenoty
       mutate(VALUE = log(VALUE)))
 }
 
+getLogTransformedEosinophilConcentration <- function(phenotypeSources, phenotypeTables, correctionTable) {
+  return(getLatestValueFromRawPhenotypeTable(
+    phenotypeSources, phenotypeTables, correctionTable, "Eosinophil concentration") %>%
+    mutate(VALUE = log10(VALUE)))
+}
+
+getLogTransformedNeutrophilConcentration <- function(phenotypeSources, phenotypeTables, correctionTable) {
+  return(getLatestValueFromRawPhenotypeTable(
+    phenotypeSources, phenotypeTables, correctionTable, "Neutrophil Granulocytes") %>%
+      mutate(VALUE = log10(VALUE)))
+}
+
+getLogTransformedBasophilConcentration <- function(phenotypeSources, phenotypeTables, correctionTable) {
+  return(getLatestValueFromRawPhenotypeTable(
+    phenotypeSources, phenotypeTables, correctionTable, "Basophilic Granulocytes") %>%
+      mutate(VALUE = log10(VALUE)))
+}
+
+getLogTransformedMonocyteConcentration <- function(phenotypeSources, phenotypeTables, correctionTable) {
+  return(getLatestValueFromRawPhenotypeTable(
+    phenotypeSources, phenotypeTables, correctionTable, "Monocytes") %>%
+      mutate(VALUE = log10(VALUE)))
+}
+
+getLogTransformedLymphocyteConcentration <- function(phenotypeSources, phenotypeTables, correctionTable) {
+  return(getLatestValueFromRawPhenotypeTable(
+    phenotypeSources, phenotypeTables, correctionTable, "Lymphocytes") %>%
+      mutate(VALUE = log10(VALUE)))
+}
+
+getThrombocyteConcentration <- function(phenotypeSources, phenotypeTables, correctionTable) {
+  return(getLatestValueFromRawPhenotypeTable(
+    phenotypeSources, phenotypeTables, correctionTable, "Thrombocytes") %>%
+      filter(!(VALUE > 1000)))
+}
+
 getEstimatedGfr <- function(phenotypeSources, phenotypeTables, correctionTable) {
   creatinine <- getLatestValueFromRawPhenotypeTable(
     phenotypeSources, phenotypeTables, correctionTable, "Creatinine")
@@ -401,13 +437,13 @@ traitList[["eGFR"]] <- getEstimatedGfr(
 
 # Basophil concentration
 message("    Basophilic granulocytes...")
-traitList[["Basophilic Granulocyte concentration"]] <- getLatestValueFromRawPhenotypeTable(
-  phenotypeSources, phenotypeTables, correctionTable, "Basophilic Granulocytes")
+traitList[["Basophilic Granulocyte concentration"]] <- getLogTransformedBasophilConcentration(
+  phenotypeSources, phenotypeTables, correctionTable)
 
 # Eosinophil concentration
 message("    Eosinophil concentration...")
-traitList[["Eosinophil concentration"]] <- getLatestValueFromRawPhenotypeTable(
-  phenotypeSources, phenotypeTables, correctionTable, "Eosinophil concentration")
+traitList[["Eosinophil concentration"]] <- getLogTransformedEosinophilConcentration(
+  phenotypeSources, phenotypeTables, correctionTable)
 
 # HbA1c concentration
 message("    HbA1c concentration")
@@ -446,13 +482,13 @@ traitList[["Hemoglobin concentration"]] <- getLatestValueFromRawPhenotypeTable(
 
 # Lymphocyte concentration
 message("    Lymphocyte concentration...")
-traitList[["Lymphocyte concentration"]] <- getLatestValueFromRawPhenotypeTable(
-  phenotypeSources, phenotypeTables, correctionTable, "Lymphocytes")
+traitList[["Lymphocyte concentration"]] <- getLogTransformedLymphocyteConcentration(
+  phenotypeSources, phenotypeTables, correctionTable)
 
 # Monocyte concentration
 message("    Monocyte concentration...")
-traitList[["Monocyte concentration"]] <- getLatestValueFromRawPhenotypeTable(
-  phenotypeSources, phenotypeTables, correctionTable, "Monocytes")
+traitList[["Monocyte concentration"]] <- getLogTransformedMonocyteConcentration(
+  phenotypeSources, phenotypeTables, correctionTable)
 
 # Erythrocyte concentration
 message("    Erythrocyte concentration...")
@@ -461,13 +497,13 @@ traitList[["Erythrocyte concentration"]] <- getLatestValueFromRawPhenotypeTable(
 
 # Neutrophil concentration
 message("    Neutrophil concentration...")
-traitList[["Neutrophil concentration"]] <- getLatestValueFromRawPhenotypeTable(
-  phenotypeSources, phenotypeTables, correctionTable, "Neutrophil Granulocytes")
+traitList[["Neutrophil concentration"]] <- getLogTransformedNeutrophilConcentration(
+  phenotypeSources, phenotypeTables, correctionTable)
 
 # Thrombocyte concentration
 message("    Thrombocyte concentration...")
-traitList[["Thrombocyte concentration"]] <- getLatestValueFromRawPhenotypeTable(
-  phenotypeSources, phenotypeTables, correctionTable, "Thrombocytes")
+traitList[["Thrombocyte concentration"]] <- getThrombocyteConcentration(
+  phenotypeSources, phenotypeTables, correctionTable)
 
 # Type-2 diabetes
 message("    Type 2 diabetes...")
@@ -504,19 +540,34 @@ message("    Schizophrenia...")
 traitList[["Schizophrenia"]] <- getSchizophreniaValues(
   phenotypeSources, phenotypeTables, correctionTable)
 
+rm(phenotypeTables)
+rm(correctionTable)
+rm(phenotypeSources)
+gc()
+
 message("Completed processing individual traits!")
 message("Plotting trait histograms...")
-pdf(paste0("debugHistograms.pdf"))
+pdf(paste0(args$out, ".lifelines.debugHistograms.pdf"))
 par(xpd = NA)
 lapply(names(traitList), function(name) plotPhenotype(name, traitList[[name]]))
 dev.off()
 
+message(paste0("Debug histograms written to '", args$out, ".lifelines.debugHistograms.pdf", "'."))
+
 # Combine to single table
-processedPhenotypeTable <- bind_rows(traitList, .id = "TRAIT") %>%
-  inner_join(gsaLinkageTable, by="PSEUDOIDEXT") %>%
+lifelinesPhenotypeTable <- bind_rows(traitList, .id = "TRAIT") %>%
   ungroup() %>%
+  select(PSEUDOIDEXT, AGE, SEX, VALUE, TRAIT)
+
+ugliPhenotypeTable <- lifelinesPhenotypeTable %>%
+  inner_join(gsaLinkageTable, by="PSEUDOIDEXT") %>%
   select(UGLI_ID, AGE, SEX, VALUE, TRAIT)
 
-message("Writing output table...")
-write.table(processedPhenotypeTable, args$out, row.names=F, col.names=T, quote=F, sep="\t")
-message(paste0("DONE! Output written to '", args$out, "'."))
+message("Writing output tables...")
+write.table(lifelinesPhenotypeTable, paste0(args$out, ".lifelines.dat"), row.names=F, col.names=T, quote=F, sep="\t")
+message(paste0("Output written to '", args$out, ".lifelines.dat", "'."))
+
+write.table(ugliPhenotypeTable, paste0(args$out, ".ugli.dat"), row.names=F, col.names=T, quote=F, sep="\t")
+message(paste0("Output written to '", args$out, ".ugli.dat", "'."))
+
+message(paste0("DONE!"))

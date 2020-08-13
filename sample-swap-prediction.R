@@ -196,7 +196,14 @@ calculate.scaledResiduals <- function(estimate, actual, covariates, responseData
   return(residualsMatrix)
 }
 
-# Function for converting a matrix of scaled residuals to log likelihood ratios
+# Function for converting a matrix of scaled residuals to log likelihood ratios.
+# Bins are selected while maintaining a regular bandwidth
+scaledResidualsToLlr.naiveBayes.evenWidthBins <- function(scaledResiduals, nBins = 50) {
+  return(NULL)
+}
+
+# Function for converting a matrix of scaled residuals to log likelihood ratios.
+# Bins are selected in order to separate the null residuals in equal sized groups.
 scaledResidualsToLlr.naiveBayes <- function(scaledResiduals, nBins = 50) {
 
   # Extract the null-residuals; 
@@ -281,6 +288,10 @@ scaledResidualsToLlr.naiveBayes <- function(scaledResiduals, nBins = 50) {
 
 # Function for converting a matrix of scaled residuals to likelihood ratios.
 # This function employs a Gaussian naive Bayes method to calculate likelihoods.
+# Known problems:
+# 1. For very low log likelihoods, the value is expected to be -Inf (< -30 approximately)
+# 2. If the alternative log likelihood is -Inf as well as the null log likelihood, NaN is returned.
+#    When only the null log likelihood is -Inf. Positive infinity is returned.
 scaledResidualsToLlr.gaussianNaiveBayes <- function(scaledResiduals, group, error = 0.01) {
   
   # Extract the null-residuals; 
