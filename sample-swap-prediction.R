@@ -46,6 +46,7 @@ plotSigmoid <- function(estimate, actual, covariates, logitModel) {
   
     if (is.factor(covariates[,lab])) {
       newData[, lab] <- sample(covariates[, lab], nrow(newData), replace = T)
+      newData[, lab] <- factor(newData[, lab], levels = levels(covariates[, lab]))
     }
     else {
       newData[, lab] <- mean(covariates[,lab])
