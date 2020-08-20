@@ -43,6 +43,7 @@ plotSigmoid <- function(estimate, actual, covariates, logitModel) {
     estimate=seq(floor(min(estimate)), ceiling(max(estimate)), 0.05))
 
   for (lab in covariateLabels) {
+    print(covariates[, lab])
   
     if (is.factor(covariates[,lab])) {
       newData[, lab] <- sample_n(covariates[, lab], nrow(newData), replace = T)
