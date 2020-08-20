@@ -75,8 +75,7 @@ plotSigmoid <- function(estimate, actual, covariates, logitModel) {
                                         type="response")), 
               aes(x,y), colour="grey50", lwd=1) +
     theme_bw(base_size=12)
-  
-  ggsave("sigmoid.pdf", plot = sigmoid)
+  print(sigmoid)
 }
 
 # Function that takes (a set of) estimates, actual values, confounders, 
@@ -426,7 +425,7 @@ if (TRUE) {
 
 aggregatedLlrMatrix <- matrix(nrow = nrow(link), 
                               ncol = nrow(link), 
-                              dimnames = list(link$pheno, link$geno))
+                              dimnames = list(link$pheno, link$geno), 0)
 
 pearson.correlations <- data.frame(trait = traitDescriptionsTable$trait,
                                    pearson.not_corrected = 0.0, 
@@ -506,11 +505,16 @@ for (traitIndex in 1:nrow(traitDescriptionsTable)) {
   # Calculate z-score matrix based on polygenic scores and actual phenotypes,
   # using the chosen function for calculating residuals.
   
+  pdf(file.path(out, trait, "/debugFigures.pdf"))
+  par(xpd = NA)
+  
   scaledResidualsMatrix <- calculate.scaledResiduals(
     estimate = completeTable$PGS, 
     actual = completeTable$VALUE, 
     covariates = completeTable[c("AGE", "SEX")],
     responseDataType = responseDataType)
+  
+  dev.off()
   
   rownames(scaledResidualsMatrix) <- completeTable$pheno
   colnames(scaledResidualsMatrix) <- completeTable$geno
@@ -575,7 +579,7 @@ lrProducts$group[lrProducts$Var1 == lrProducts$Var2] <- "null"
 lrProducts$group <- factor(lrProducts$group, c("null", "alternative"))
 
 message(paste0("Calculated overall AUC: ", calculate.auc(
-  lrProducts$group, lrProducts$logLikelihoods)))
+  lrProducts$group, lrProducts$logLikelihoodRatios)))
 
 ggplot(lrProducts, aes(x=logLikelihoodRatios, stat(density), fill=group)) +
   geom_histogram(bins = 32, alpha=.5, position="identity") +
