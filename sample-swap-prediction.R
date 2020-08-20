@@ -52,6 +52,8 @@ plotSigmoid <- function(estimate, actual, covariates, logitModel) {
     }
   }
   
+  print(newData)
+  
   dat <- data.frame(estimate, actual)
   
   h <-  data.frame(estimate, actual) %>% group_by(actual) %>%
