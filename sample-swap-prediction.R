@@ -41,15 +41,14 @@ plotSigmoid <- function(estimate, actual, covariates, logitModel) {
   
   newData <- data.frame(
     estimate=seq(floor(min(estimate)), ceiling(max(estimate)), 0.05))
-  
+
   for (lab in covariateLabels) {
   
     if (is.factor(covariates[,lab])) {
-      newData[, lab] <- sample(covariates[, lab], nrow(newData), replace = T)
-      newData[, lab] <- factor(newData[, lab], levels = levels(covariates[, lab]))
+      newData[, lab] <- sample(covariates %>% pull(lab), nrow(newData), replace = T)
     }
     else {
-      newData[, lab] <- mean(covariates[,lab])
+      newData[, lab] <- mean(covariates %>% pull(lab))
     }
   }
   
@@ -381,9 +380,9 @@ forceNormal <- function(x) {
 ##############################
 args <- parser$parse_args(commandArgs(trailingOnly = TRUE))
 # args <- parser$parse_args(c("--trait-gwas-mapping", "/groups/umcg-lld/tmp01/other-users/umcg-rwarmerdam/pgs_based_mixup_correction/scripts/r-scripts/pgs_based_sample_mix-up_correction/trait-gwas-mapping.txt",
-#                             "--base-pgs-path", "/groups/umcg-lifelines/tmp01/projects/ugli_blood_gsa/pgs_based_mixup_correction/output/PRScs/20200803",
-#                             "--phenotypes-file", "/groups/umcg-lifelines/tmp01/projects/ugli_blood_gsa/pgs_based_mixup_correction/data/lifelines/processed/UGLI.pgs.phenotypes.dat",
-#                             "--out", "/groups/umcg-lifelines/tmp01/projects/ugli_blood_gsa/pgs_based_mixup_correction/output/sample-swap-prediction/20200803"))
+#                             "--base-pgs-path", "/groups/umcg-lifelines/tmp01/projects/ugli_blood_gsa/pgs_based_mixup_correction/output/PRScs/20200811/",
+#                             "--phenotypes-file", "/groups/umcg-lifelines/tmp01/projects/ugli_blood_gsa/pgs_based_mixup_correction/data/lifelines/processed/pgs.phenotypes.ugli.dat",
+#                             "--out", "/groups/umcg-lifelines/tmp01/projects/ugli_blood_gsa/pgs_based_mixup_correction/output/sample-swap-prediction/20200811/"))
 
 # Load table containing paths for the plink output 
 # and corresponding phenotype labels.
