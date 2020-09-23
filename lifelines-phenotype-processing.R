@@ -273,6 +273,180 @@ getBloodPressureValues <- function(phenotypeSources, phenotypeTables, correction
            select(PSEUDOIDEXT, AGE, SEX, VALUE))
 }
 
+getBloodTraitPhenotypesTable <- function(phenotypeSources, phenotypeTables, correctionTable) {
+  # Method for getting a table with all blood traits. 
+  # (PGSes calculated with summary statistics from Vuckovic et al. (2020))
+  # We have to grab the variables from below
+  bloodTraits <- c("Basophilic Granulocytes",
+                   "Eosinophil concentration",
+                   "Lymphocytes",
+                   "Leukocytes",
+                   "Monocytes",
+                   "Erythrocytes",
+                   "Neutrophil Granulocytes",
+                   "Thrombocytes",
+                   "Hematocrit",
+                   "Hemoglobin")
+  
+  names <- c(bloodTraits,
+             "Pregnancy Baseline",
+             "Pregnancy Followup",
+             "Cancer, cured",
+             "Cancer",
+             "Cancer Followup",
+             "Renal failure",
+             "Liver cirrhosis")
+  
+  # 0b. List the names as column identifiers in a vector
+  
+  columnIdentifiers <- sapply(names, function(name) {
+    phenotypeSources$ColumnIdentifier[phenotypeSources$Name == name]
+    })
+  
+  # 1. First, get a list of extracted tables with the requested columns.
+  
+  extractedPhenotypeTableList <- extractPhenotypeTables(phenotypeSources = phenotypeSources,
+                                                        phenotypeTables = phenotypeTables,
+                                                        names = names)
+  
+  # 2. Then, get a table containing if the individual likely has cancer
+  
+  # Table with cancer at baseline.
+  hasCancerAtBaselineTable <- extractedPhenotypeTableList[c("Cancer, cured", "Cancer")] %>% 
+    reduce(inner_join, by = c("PSEUDOIDEXT", "VMID")) %>%
+    filter(VMID == "Baseline assessment, questionnaire 1") %>%
+    mutate(hasCancer = case_when(
+      # Set to one (1) if cancer is reported AND the individual was not declared cancer free, 
+      # OR if the individual reports to have had cancer, and is not declared cancer free.
+      (get(columnIdentifiers["Cancer"]) == "Yes" 
+      & get(columnIdentifiers["Cancer, cured"]) != "Yes")
+      | get(columnIdentifiers["Cancer, cured"]) == "No" ~ 1L,
+      
+      # Set to zero (0) if cancer was not reported, OR the individual reports to have been
+      # declared cancer free.
+      get(columnIdentifiers["Cancer"]) == "No" 
+      | get(columnIdentifiers["Cancer, cured"]) == "Yes" ~ 0L,
+      
+      # For other cases, set to NA
+      TRUE ~ NA_integer_)) %>%
+    filter(!is.na(hasCancer)) %>%
+    select(PSEUDOIDEXT, VMID, hasCancer)
+  
+  # Table with cancer since last questionnaire.
+  hasCancerAtFollowupTable <- extractedPhenotypeTableList[["Cancer Followup"]] %>%
+    mutate(hasCancer = case_when(
+      # Set to one (1) if cancer started since last questionnaire
+      get(columnIdentifiers["Cancer Followup"]) == "Yes" ~ 1L,
+      # Set to one (0) if cancer has not started since last questionnaire
+      get(columnIdentifiers["Cancer Followup"]) == "No" ~ 0L,
+      # Set to NA if neither No nor Yes was answered.
+      TRUE ~ NA_integer_)) %>%
+    filter(!is.na(hasCancer)) %>%
+    select(PSEUDOIDEXT, VMID, hasCancer)
+  
+  # Bind tables.
+  hasCancerTable <- bind_rows(hasCancerAtBaselineTable, hasCancerAtFollowupTable)
+
+  # Remove unnecessary variables
+  rm(hasCancerAtBaselineTable)
+  rm(hasCancerAtFollowupTable)
+  gc()
+  
+  # 3. Get a table containing pregnancy at 1A
+  
+  pregnancyAtBaseline <- extractedPhenotypeTableList[["Pregnancy Baseline"]] %>% 
+    mutate(isPregnant = case_when(
+      get(columnIdentifiers["Pregnancy Baseline"]) == "Yes" ~ 1L,
+      get(columnIdentifiers["Pregnancy Baseline"]) == "No" ~ 0L,
+      TRUE ~ NA_integer_)) %>%
+    filter(!is.na(isPregnant)) %>%
+    select(PSEUDOIDEXT, VMID, isPregnant)
+  
+  pregnancyAtFollowup <- extractedPhenotypeTableList[["Pregnancy Followup"]] %>% 
+    mutate(isPregnant = case_when(
+      get(columnIdentifiers["Pregnancy Followup"]) == "Yes" ~ 1L,
+      get(columnIdentifiers["Pregnancy Followup"]) == "No" ~ 0L,
+      TRUE ~ NA_integer_)) %>%
+    filter(!is.na(isPregnant)) %>%
+    select(PSEUDOIDEXT, VMID, isPregnant)
+  
+  # Bind tables.
+  isPregnantTable <- bind_rows(pregnancyAtBaseline, pregnancyAtFollowup)
+  
+  # Remove unnecessary variables
+  rm(pregnancyAtBaseline)
+  rm(pregnancyAtFollowup)
+  gc()
+  
+  # 4. Get a table containing renal failure
+  
+  renalFailureTable <- extractedPhenotypeTableList[["Renal failure"]] %>%
+    mutate(hasRenalFailure = case_when(
+      get(columnIdentifiers["Renal failure"]) == "Yes" ~ 1L,
+      TRUE ~ NA_integer_)) %>%
+    filter(!is.na(hasRenalFailure)) %>%
+    select(PSEUDOIDEXT, hasRenalFailure)
+  
+  # 5. Get a table containing liver cirrhosis
+  
+  liverCirrhosisTable <- extractedPhenotypeTableList[["Liver cirrhosis"]] %>%
+    mutate(hasLiverCirrhosis = case_when(
+      get(columnIdentifiers["Liver cirrhosis"]) == "Yes" ~ 1L,
+      TRUE ~ NA_integer_)) %>%
+    filter(!is.na(hasLiverCirrhosis)) %>%
+    select(PSEUDOIDEXT, hasLiverCirrhosis)
+  
+  # 4 Merge all tables (on PSUEDOIDEXT and VMID if applicable), 
+  # and make sure one of the VMID (if applicable) is retained
+  
+  bloodTraitPhenotypesTable <- extractedPhenotypeTableList[bloodTraits] %>% 
+    reduce(full_join, by = c("PSEUDOIDEXT", "VMID")) %>%
+    left_join(hasCancerTable, by = c("PSEUDOIDEXT", "VMID")) %>%
+    left_join(isPregnantTable, by = c("PSEUDOIDEXT", "VMID")) %>%
+    left_join(renalFailureTable, by = "PSEUDOIDEXT") %>%
+    left_join(liverCirrhosisTable, by = "PSEUDOIDEXT") %>%
+    filter(
+      # Remove rows with Platelet > 1000 * 10^(9) /L
+      !(get(columnIdentifiers["Thrombocytes"]) > 1000)
+
+      # Remove rows with WBC count > 200 * 10^(9) /L
+      & !(get(columnIdentifiers["Leukocytes"]) > 200)
+
+      # Remove rows with Hemoglobin > 20g /dL
+      & !(get(columnIdentifiers["Hemoglobin"]) > 20 * 0.6206)
+
+      # Remove rows with Hematocrit > 0.6 (L/L)
+      & !(get(columnIdentifiers["Hematocrit"]) > 0.6)
+
+      & (is.na(hasCancer) | hasCancer != 1)
+      & (is.na(isPregnant) | isPregnant != 1)
+      & (is.na(hasRenalFailure) | hasRenalFailure != 1)
+      & (is.na(hasLiverCirrhosis) | hasLiverCirrhosis != 1)) %>%
+    select(PSEUDOIDEXT, VMID, all_of(columnIdentifiers[bloodTraits])) %>%
+    inner_join(correctionTable, by = c("PSEUDOIDEXT", "VMID")) %>%
+    
+    # Per PSEUDOIDEXT, get the row with the 'latest' VMID that is not NA
+    group_by(PSEUDOIDEXT) %>%
+    slice_max(as.numeric(VMID)) %>%
+    select(-VMID)
+  
+  return(bloodTraitPhenotypesTable)
+}
+
+extractPhenotypeTables <- function(phenotypeSources, phenotypeTables, names) {
+  
+  phenotypeTableList <- sapply(names, function(name) {
+    columnIdentifier <- phenotypeSources$ColumnIdentifier[phenotypeSources$Name == name]
+    
+    return(phenotypeTables[[phenotypeSources$filePath[phenotypeSources$Name == name]]] %>%
+      mutate(VMID = if("VMID" %in% colnames(.)) VMID else getVmidFromEncountercode(ENCOUNTERCODE)) %>%
+      filter(!is.na(get(columnIdentifier))) %>%
+      select(PSEUDOIDEXT, VMID, all_of(columnIdentifier)))
+    }, simplify = FALSE, USE.NAMES = TRUE)
+  
+  return(phenotypeTableList)
+}
+
 getLatestValueFromRawPhenotypeTable <- function(phenotypeSources, phenotypeTables, correctionTable, name) {
   columnIdentifier <- phenotypeSources$ColumnIdentifier[phenotypeSources$Name == name]
   
@@ -288,6 +462,14 @@ getLatestValueFromRawPhenotypeTable <- function(phenotypeSources, phenotypeTable
            select(PSEUDOIDEXT, AGE, SEX, VALUE))
 }
 
+getValueFromBloodTraitPhenotypesTable <- function(bloodTraitPhenotypesTable, 
+                                                  name) {
+  return(bloodTraitPhenotypesTable %>%
+    rename(VALUE = !!name) %>%
+    filter(!is.na(VALUE)) %>%
+    select(PSEUDOIDEXT, AGE, SEX, VALUE))
+}
+
 getSquareRootOfHdlCholesterol <- function(phenotypeSources, phenotypeTables, correctionTable) {
   return(getLatestValueFromRawPhenotypeTable(
     phenotypeSources, phenotypeTables, correctionTable, "HDL Cholesterol") %>%
@@ -300,40 +482,34 @@ getLogTransformedTriglycerideConcentration <- function(phenotypeSources, phenoty
       mutate(VALUE = log(VALUE)))
 }
 
-getLogTransformedEosinophilConcentration <- function(phenotypeSources, phenotypeTables, correctionTable) {
-  return(getLatestValueFromRawPhenotypeTable(
-    phenotypeSources, phenotypeTables, correctionTable, "Eosinophil concentration") %>%
+getLogTransformedEosinophilConcentration <- function(bloodTraitPhenotypesTable) {
+  return(getValueFromBloodTraitPhenotypesTable(
+    bloodTraitPhenotypesTable, "Eosinophil concentration") %>%
     mutate(VALUE = log10(VALUE + 0.01)))
 }
 
-getLogTransformedNeutrophilConcentration <- function(phenotypeSources, phenotypeTables, correctionTable) {
-  return(getLatestValueFromRawPhenotypeTable(
-    phenotypeSources, phenotypeTables, correctionTable, "Neutrophil Granulocytes") %>%
+getLogTransformedNeutrophilConcentration <- function(bloodTraitPhenotypesTable) {
+  return(getValueFromBloodTraitPhenotypesTable(
+    bloodTraitPhenotypesTable, "Neutrophil Granulocytes") %>%
       mutate(VALUE = log10(VALUE + 0.01)))
 }
 
-getLogTransformedBasophilConcentration <- function(phenotypeSources, phenotypeTables, correctionTable) {
-  return(getLatestValueFromRawPhenotypeTable(
-    phenotypeSources, phenotypeTables, correctionTable, "Basophilic Granulocytes") %>%
+getLogTransformedBasophilConcentration <- function(bloodTraitPhenotypesTable) {
+  return(getValueFromBloodTraitPhenotypesTable(
+    bloodTraitPhenotypesTable, "Basophilic Granulocytes") %>%
       mutate(VALUE = log10(VALUE + 0.01)))
 }
 
-getLogTransformedMonocyteConcentration <- function(phenotypeSources, phenotypeTables, correctionTable) {
-  return(getLatestValueFromRawPhenotypeTable(
-    phenotypeSources, phenotypeTables, correctionTable, "Monocytes") %>%
+getLogTransformedMonocyteConcentration <- function(bloodTraitPhenotypesTable) {
+  return(getValueFromBloodTraitPhenotypesTable(
+    bloodTraitPhenotypesTable, "Monocytes") %>%
       mutate(VALUE = log10(VALUE + 0.01)))
 }
 
-getLogTransformedLymphocyteConcentration <- function(phenotypeSources, phenotypeTables, correctionTable) {
-  return(getLatestValueFromRawPhenotypeTable(
-    phenotypeSources, phenotypeTables, correctionTable, "Lymphocytes") %>%
+getLogTransformedLymphocyteConcentration <- function(bloodTraitPhenotypesTable) {
+  return(getValueFromBloodTraitPhenotypesTable(
+    bloodTraitPhenotypesTable, "Lymphocytes") %>%
       mutate(VALUE = log10(VALUE + 0.01)))
-}
-
-getThrombocyteConcentration <- function(phenotypeSources, phenotypeTables, correctionTable) {
-  return(getLatestValueFromRawPhenotypeTable(
-    phenotypeSources, phenotypeTables, correctionTable, "Thrombocytes") %>%
-      filter(!(VALUE > 1000)))
 }
 
 getEstimatedGfr <- function(phenotypeSources, phenotypeTables, correctionTable) {
@@ -382,10 +558,7 @@ plotPhenotype <- function(name, tbl) {
 
 args <- parser$parse_args(commandArgs(trailingOnly = TRUE))
 
-# args <- parser$parse_args(c(
-#   "--gsa-linkage-file", "/groups/umcg-lifelines/tmp01/releases/gsa_linkage_files/v1/gsa_linkage_file.dat",
-#   "--out", "/groups/umcg-lifelines/tmp01/projects/ugli_blood_gsa/pgs_based_mixup_correction/data/lifelines/processed/UGLI.pgs.phenotypes.dat",
-#   "--phenotype-source-map", "/home/umcg-rwarmerdam/pgs_based_mixup_correction/scripts/r-scripts/pgs_based_sample_mix-up_correction/phenotype-source-map.txt"))
+# args <- parser$parse_args(c("--gsa-linkage-file", "/groups/umcg-lifelines/tmp01/releases/gsa_linkage_files/v1/gsa_linkage_file.dat","--out", "/groups/umcg-lifelines/tmp01/projects/ugli_blood_gsa/pgs_based_mixup_correction/data/lifelines/processed/UGLI.pgs.phenotypes.dat","--phenotype-source-map", "/home/umcg-rwarmerdam/pgs_based_mixup_correction/scripts/r-scripts/pgs_based_sample_mix-up_correction/phenotype-source-map.txt"))
 
 message("Started.")
 # Load GSA linkage file
@@ -405,6 +578,11 @@ message("Loaded all tables.")
 # Getting correction table
 correctionTable <- getCorrectionTable(phenotypeSources, phenotypeTables)
 message("Created correction table.")
+
+bloodTraitPhenotypesTable <- getBloodTraitPhenotypesTable(phenotypeSources = phenotypeSources,
+                                                          phenotypeTables = phenotypeTables,
+                                                          correctionTable = correctionTable)
+message("Created blood trait phenotypes table.")
 
 traitList <- list()
 
@@ -438,12 +616,12 @@ traitList[["eGFR"]] <- getEstimatedGfr(
 # Basophil concentration
 message("    Basophilic granulocytes...")
 traitList[["Basophilic Granulocyte concentration"]] <- getLogTransformedBasophilConcentration(
-  phenotypeSources, phenotypeTables, correctionTable)
+  bloodTraitPhenotypesTable)
 
 # Eosinophil concentration
 message("    Eosinophil concentration...")
 traitList[["Eosinophil concentration"]] <- getLogTransformedEosinophilConcentration(
-  phenotypeSources, phenotypeTables, correctionTable)
+  bloodTraitPhenotypesTable)
 
 # HbA1c concentration
 message("    HbA1c concentration")
@@ -472,38 +650,38 @@ traitList[["Total cholesterol"]] <- getLatestValueFromRawPhenotypeTable(
 
 # Hematocrit concentration
 message("    Hematocrit concentration...")
-traitList[["Hematocrit concentration"]] <- getLatestValueFromRawPhenotypeTable(
-  phenotypeSources, phenotypeTables, correctionTable, "Hematocrit")
+traitList[["Hematocrit concentration"]] <- getValueFromBloodTraitPhenotypesTable(
+  bloodTraitPhenotypesTable, "Hematocrit")
 
 # Hemoglobin concentration
 message("    Hemoglobin concentration...")
-traitList[["Hemoglobin concentration"]] <- getLatestValueFromRawPhenotypeTable(
-  phenotypeSources, phenotypeTables, correctionTable, "Hemoglobin")
+traitList[["Hemoglobin concentration"]] <- getValueFromBloodTraitPhenotypesTable(
+  bloodTraitPhenotypesTable, "Hemoglobin")
 
 # Lymphocyte concentration
 message("    Lymphocyte concentration...")
 traitList[["Lymphocyte concentration"]] <- getLogTransformedLymphocyteConcentration(
-  phenotypeSources, phenotypeTables, correctionTable)
+  bloodTraitPhenotypesTable)
 
 # Monocyte concentration
 message("    Monocyte concentration...")
 traitList[["Monocyte concentration"]] <- getLogTransformedMonocyteConcentration(
-  phenotypeSources, phenotypeTables, correctionTable)
+  bloodTraitPhenotypesTable)
 
 # Erythrocyte concentration
 message("    Erythrocyte concentration...")
-traitList[["Erythrocyte concentration"]] <- getLatestValueFromRawPhenotypeTable(
-  phenotypeSources, phenotypeTables, correctionTable, "Erythrocytes")
+traitList[["Erythrocyte concentration"]] <- getValueFromBloodTraitPhenotypesTable(
+  bloodTraitPhenotypesTable, "Erythrocytes")
 
 # Neutrophil concentration
 message("    Neutrophil concentration...")
 traitList[["Neutrophil concentration"]] <- getLogTransformedNeutrophilConcentration(
-  phenotypeSources, phenotypeTables, correctionTable)
+  bloodTraitPhenotypesTable)
 
 # Thrombocyte concentration
 message("    Thrombocyte concentration...")
-traitList[["Thrombocyte concentration"]] <- getThrombocyteConcentration(
-  phenotypeSources, phenotypeTables, correctionTable)
+traitList[["Thrombocyte concentration"]] <- getValueFromBloodTraitPhenotypesTable(
+  bloodTraitPhenotypesTable, "Thrombocytes")
 
 # Type-2 diabetes
 message("    Type 2 diabetes...")
