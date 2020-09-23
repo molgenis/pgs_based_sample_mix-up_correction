@@ -6,7 +6,7 @@ Hemoglobin		HB	/groups/umcg-lifelines/tmp01/projects/phenotypes/tab_seperated_la
 Basophilic Granulocytes		BA	/groups/umcg-lifelines/tmp01/projects/phenotypes/tab_seperated_labels	Laboratory_assessment_Blood.dat
 Eosinophil concentration		EO	/groups/umcg-lifelines/tmp01/projects/phenotypes/tab_seperated_labels	Laboratory_assessment_Blood.dat
 Cholesterol		CHO	/groups/umcg-lifelines/tmp01/projects/phenotypes/tab_seperated_labels	Laboratory_assessment_Blood.dat
-Leukocytes		LE	/groups/umcg-lifelines/tmp01/projects/phenotypes/tab_seperated_labels	Laboratory_assessment_Blood.dat
+Leukocytes		LEU	/groups/umcg-lifelines/tmp01/projects/phenotypes/tab_seperated_labels	Laboratory_assessment_Blood.dat
 Lymphocytes		LY	/groups/umcg-lifelines/tmp01/projects/phenotypes/tab_seperated_labels	Laboratory_assessment_Blood.dat
 Monocytes		MO	/groups/umcg-lifelines/tmp01/projects/phenotypes/tab_seperated_labels	Laboratory_assessment_Blood.dat
 LDL Cholesterol		LDC	/groups/umcg-lifelines/tmp01/projects/phenotypes/tab_seperated_labels	Laboratory_assessment_Blood.dat
