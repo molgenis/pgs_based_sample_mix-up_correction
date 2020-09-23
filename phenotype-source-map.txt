@@ -32,8 +32,9 @@ Liver cirrhosis		HEALTH72C6	/groups/umcg-lifelines/tmp01/projects/ugli_blood_gsa
 Renal failure		HEALTH_72K	/groups/umcg-lifelines/tmp01/projects/ugli_blood_gsa/pgs_based_mixup_correction/data/lifelines/phenotypes/v1/tab_separated_labels	Questionnaire_Health.cleaned.dat
 Cancer		HEALTH16A	/groups/umcg-lifelines/tmp01/projects/ugli_blood_gsa/pgs_based_mixup_correction/data/lifelines/phenotypes/v1/tab_separated_labels	Questionnaire_Health.cleaned.dat
 Cancer, cured		HEALTH16D	/groups/umcg-lifelines/tmp01/projects/ugli_blood_gsa/pgs_based_mixup_correction/data/lifelines/phenotypes/v1/tab_separated_labels	Questionnaire_Health.cleaned.dat
-Anemia		HEALTH72F1	/groups/umcg-lifelines/tmp01/projects/ugli_blood_gsa/pgs_based_mixup_correction/data/lifelines/phenotypes/v1/tab_separated_labels	Questionnaire_Health_General.cleaned.dat
-Pregnancy		FAM24C	/groups/umcg-lifelines/tmp01/projects/phenotypes/tab_seperated_labels	Questionnaire_Family.dat
+Cancer Followup		HEALTH100C	/groups/umcg-lifelines/tmp01/projects/ugli_blood_gsa/pgs_based_mixup_correction/data/lifelines/phenotypes/v1/tab_separated_labels	Questionnaire_Health_General.cleaned.dat
+Pregnancy Followup		FAM24C	/groups/umcg-lifelines/tmp01/projects/phenotypes/tab_seperated_labels	Questionnaire_Family.dat
+Pregnancy Baseline		FEM4	/groups/umcg-lifelines/tmp01/projects/phenotypes/tab_seperated_labels	Questionnaire_Questions_for_females_M.dat
 Age 1A1		AGE_1A1	/groups/umcg-lifelines/tmp01/projects/phenotypes/tab_seperated_labels	Participant (Pa_99_G).dat
 Age 1A2		AGE_1A2	/groups/umcg-lifelines/tmp01/projects/phenotypes/tab_seperated_labels	Participant (Pa_99_G).dat
 Age 1A3		AGE_1A3	/groups/umcg-lifelines/tmp01/projects/phenotypes/tab_seperated_labels	Participant (Pa_99_G).dat
