@@ -29,6 +29,9 @@ parser$add_argument('--phenotypes-file',
 parser$add_argument('--sample-coupling-file', required = FALSE,
                     help=paste0('file containing genotype sample ids in the first column',
                     'and phenotype sample ids in the second column'))
+parser$add_argument('--llr-bayes-method', required = TRUE, nargs = "+",
+                    help = paste0('the naive bayes method to use for calculating log likelihood ratios.',
+                                  '<ewi-discretization | efi-discretization | gaussian> [(average) number of samples per bin]'))
 parser$add_argument('--out',
                     help='path to output directory')
 
@@ -230,7 +233,7 @@ scaledResidualsToLlr.naiveBayes.evenWidthBins <- function(
   
   # Calculate the number of bins given the number of null samples per bin and
   # the total number of null residuals
-  nBins <- length(nullResiduals) / averageSamplesPerBin
+  nBins <- as.integer(length(nullResiduals) / averageSamplesPerBin)
   
   breaks <- adaptedEqualWidthIntervals(nullResiduals, nBins, minFrequencyInTails)
   breaks[1] <- min(alternativeResiduals) - 1
@@ -307,7 +310,7 @@ scaledResidualsToLlr.naiveBayes <- function(scaledResiduals, samplesPerBin = 25)
   
   # Calculate the number of bins given the number of null samples per bin and
   # the total number of null residuals
-  nBins <- length(nullResiduals) / samplesPerBin
+  nBins <- as.integer(length(nullResiduals) / samplesPerBin)
   
   # Split the null residuals in equal sized tiles, 
   # and get the break points which separate these tiles.
@@ -513,7 +516,8 @@ args <- parser$parse_args(commandArgs(trailingOnly = TRUE))
 # args <- parser$parse_args(c("--trait-gwas-mapping", "/groups/umcg-lld/tmp01/other-users/umcg-rwarmerdam/pgs_based_mixup_correction/scripts/r-scripts/pgs_based_sample_mix-up_correction/trait-gwas-mapping.txt",
 #                             "--base-pgs-path", "/groups/umcg-lifelines/tmp01/projects/ugli_blood_gsa/pgs_based_mixup_correction/output/PRScs/20200811/",
 #                             "--phenotypes-file", "/groups/umcg-lifelines/tmp01/projects/ugli_blood_gsa/pgs_based_mixup_correction/data/lifelines/processed/pgs.phenotypes.ugli.dat",
-#                             "--out", "/groups/umcg-lifelines/tmp01/projects/ugli_blood_gsa/pgs_based_mixup_correction/output/sample-swap-prediction/20200811/"))
+#                             "--out", "/groups/umcg-lifelines/tmp01/projects/ugli_blood_gsa/pgs_based_mixup_correction/output/sample-swap-prediction/20200811/",
+#                             "--llr-bayes-method", "gaussian"))
 
 # Load table containing paths for the plink output 
 # and corresponding phenotype labels.
@@ -535,6 +539,17 @@ out <- args$out
 
 # Set the number of bins to use for the Naive Bayes method.
 samplesPerNaiveBayesBin <- 25
+
+# naive bayes method
+naiveBayesMethod <- args$llr_bayes_method[1]
+stopifnot("method must be one of the following: <ewi-discretization | efi-discretization | gaussian>" = 
+            naiveBayesMethod %in% c("ewi-discretization", "efi-discretization", "gaussian"))
+
+if ((naiveBayesMethod == "ewi-discretization" | naiveBayesMethod == "efi-discretization") 
+    & length(args$llr_bayes_method) == 2) {
+  
+  samplesPerNaiveBayesBin <- as.numeric(args$llr_bayes_method[2])
+}
 
 # Load the phenotypes 
 phenotypesFilePath <- args$phenotypes_file
@@ -668,13 +683,24 @@ for (traitIndex in 1:nrow(traitDescriptionsTable)) {
   message("    calculating log likelihood ratios")
   
   # Calculate the likelihood ratios for every residual being from the distribution of possible mix-ups.
-  # logLikelihoodRatios <- scaledResidualsToLlr.gaussianNaiveBayes(
-  #   scaledResidualsMatrix,
-  #   numberOfGaussians = 2)
-  
-  logLikelihoodRatios <- scaledResidualsToLlr.naiveBayes(
-    scaledResidualsMatrix,
-    samplesPerBin = samplesPerNaiveBayesBin)
+  if (naiveBayesMethod == "gaussian") {
+    
+    logLikelihoodRatios <- scaledResidualsToLlr.gaussianNaiveBayes(
+      scaledResiduals = scaledResidualsMatrix, actual = completeTable$VALUE, responseDataType = responseDataType)
+    
+  } else if (naiveBayesMethod == "ewi-discretization") {
+    
+    logLikelihoodRatios <- scaledResidualsToLlr.naiveBayes.evenWidthBins(
+      scaledResidualsMatrix,
+      averageSamplesPerBin = samplesPerNaiveBayesBin)
+    
+  } else if (naiveBayesMethod == "efi-discretization") {
+    
+    logLikelihoodRatios <- scaledResidualsToLlr.naiveBayes(
+      scaledResidualsMatrix,
+      samplesPerBin = samplesPerNaiveBayesBin)
+    
+  }
   
   # logLikelihoodRatios <- scaledResidualsToLlr.naiveBayes.evenWidthBins(
   #   scaledResidualsMatrix,
