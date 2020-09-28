@@ -730,7 +730,7 @@ lrProducts <- as.data.frame.table(aggregatedLlrMatrix,
 
 lrProducts$group <- "alternative"
 lrProducts$group[lrProducts$Var1 == lrProducts$Var2] <- "null"
-lrProducts$group <- factor(lrProducts$group, c("alternative", "null"))
+lrProducts$group <- factor(lrProducts$group, c("null", "alternative"))
 
 message(paste0("Calculated overall AUC: ", calculate.auc(
   lrProducts$group, lrProducts$logLikelihoodRatios)))
