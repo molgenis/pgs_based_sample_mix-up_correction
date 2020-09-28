@@ -462,8 +462,11 @@ getLatestValueFromRawPhenotypeTable <- function(phenotypeSources, phenotypeTable
            select(PSEUDOIDEXT, AGE, SEX, VALUE))
 }
 
-getValueFromBloodTraitPhenotypesTable <- function(bloodTraitPhenotypesTable, 
-                                                  name) {
+getValueFromBloodTraitPhenotypesTable <- function(
+  bloodTraitPhenotypesTable, name) {
+  
+  # Rename the value of interest to 'VALUE', and remove NA's.
+  # Return only the requested columns.
   return(bloodTraitPhenotypesTable %>%
     rename(VALUE = !!name) %>%
     filter(!is.na(VALUE)) %>%

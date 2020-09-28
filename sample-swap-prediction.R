@@ -121,12 +121,12 @@ devianceFromLogitRegressionLine <- function(estimate, actual, covariates, logitM
   return(unname(deviance))
 }
 
-
-# Function that takes 
+# Function that returns a function for calculating residuals.
+# The model determining residuals is dependant on the type of response data type.
 residualsFunConstructor <- function(estimate, actual, covariates, responseDataType = "continuous") {
   
   # Return a linear model in case 'actual', is a continuous data type.
-  if (responseDataType == "continuous") {
+  if (responseDataType == "continuous" | responseDataType == "ordinal") {
     olsModel <- lm(actual ~ estimate + . + .^2, data = covariates)
     
     print("R-squared:")
@@ -173,17 +173,17 @@ calculate.scaledResiduals <- function(estimate, actual, covariates, responseData
                                           actual = actual,
                                           covariates = covariates,
                                           responseDataType = responseDataType)
-  
+
   # extract residuals.
   residuals <- residualsFun(estimate = estimate, 
                             actual = actual, 
                             covariates = covariates)
-  
+
   # Get the mean and standard deviation to express residuals as z-score-like values.
   residuals.mean <- mean(residuals)
   residuals.sd <- sd(residuals)
   rm(residuals)
-  
+
   residualsMatrix <- sapply(estimate, function(estimateValue) {
 
     return(residualsFun(estimate = estimateValue, 
@@ -195,15 +195,89 @@ calculate.scaledResiduals <- function(estimate, actual, covariates, responseData
   return(residualsMatrix)
 }
 
+adaptedEqualWidthIntervals <- function(x, nBins, minFrequencyInTails) {
+  # Get breaks for outermost null residuals, so that the outermost N null residuals
+  # on each tail are represented in their respective bin.
+  n <- length(nullResiduals)
+  upperTailLowerBound <- sort(nullResiduals, partial = n - minFrequencyInTails)[n - minFrequencyInTails]
+  upperTailUpperBound <- max(nullResiduals) + 1
+  
+  lowerTailUpperBound <- sort(nullResiduals, partial = minFrequencyInTails)[minFrequencyInTails]
+  lowerTailLowerBound <- min(nullResiduals) - 1
+  
+  # Separate the space within the outermost bins into a nBins - 2
+  binSize <- (upperTailLowerBound - lowerTailUpperBound) / (nBins - 2)
+  breaks <- c(lowerTailLowerBound, lowerTailUpperBound,
+              lowerTailUpperBound + binSize * (1:(nBins - 3)), 
+              upperTailLowerBound, upperTailUpperBound)
+  
+  return(breaks)
+}
+
 # Function for converting a matrix of scaled residuals to log likelihood ratios.
 # Bins are selected while maintaining a regular bandwidth
-scaledResidualsToLlr.naiveBayes.evenWidthBins <- function(scaledResiduals, nBins = 50) {
-  return(NULL)
+scaledResidualsToLlr.naiveBayes.evenWidthBins <- function(
+  scaledResiduals, averageSamplesPerBin = 25, minFrequencyInTails = 10) {
+  
+  # Extract the null-residuals; 
+  # the residuals belonging to the matches that are assumed to be correct.
+  nullResiduals <- diag(scaledResiduals)
+  
+  # Extract the alternative residuals; 
+  # the residuals belonging to the matches that are assumed to be sample-swaps.
+  alternativeResiduals <- scaledResiduals[lower.tri(scaledResiduals) | upper.tri(scaledResiduals)]
+  
+  # Calculate the number of bins given the number of null samples per bin and
+  # the total number of null residuals
+  nBins <- length(nullResiduals) / averageSamplesPerBin
+  
+  breaks <- adaptedEqualWidthIntervals(nullResiduals, nBins, minFrequencyInTails)
+  breaks[1] <- min(alternativeResiduals) - 1
+  breaks[length(alternativeBreaks)] <- max(alternativeResiduals) + 1
+  nullTiles <- cut(nullResiduals, breaks = breaks, labels = FALSE)
+  alternativeTiles <- cut(alternativeResiduals, breaks = breaks, labels = FALSE)
+  
+  # Get the density / likelihood of the null residuals for each of the bins.
+  nullLikelihoods <- sapply(
+    1:nBins, 
+    function(bin) sum(nullTiles == bin) / length(nullTiles))
+  
+  # Get the density / likelihood of the alternative residuals for each of the bins.
+  alternativeLikelihoods <- sapply(
+    1:nBins, 
+    function(bin) sum(alternativeTiles == bin) / length(alternativeTiles))
+  
+  # Remove the null and alternative tiles to clear memory.
+  rm(nullTiles)
+  rm(alternativeTiles)
+  gc()
+  
+  # Determine, for each of the bins, 
+  # the ratio between the densities / likelihoods of the alternative compared to the null residuals.
+  likelihoodRatioMap <- alternativeLikelihoods / nullLikelihoods
+  
+  # Apply breaks again on all the residuals.
+  allTiles <- cut(scaledResiduals, breaks = breaks, labels = FALSE)
+  
+  # Remove the scaled residuals from memory.
+  rm(scaledResiduals)
+  gc()
+  
+  # Retrieve, for every of the bins / tiles, its respective likelihood ratio.
+  likelihoodRatios <- likelihoodRatioMap[allTiles]
+  
+  # Apply the same dimensions, row names and column names as where used for the input matrix.
+  dim(likelihoodRatios) <- returnDimensions
+  rownames(likelihoodRatios) <- returnRowNames
+  colnames(likelihoodRatios) <- returnColumnNames
+  
+  # Return the log-transformed likelihood ratios.
+  return(log(likelihoodRatios))
 }
 
 # Function for converting a matrix of scaled residuals to log likelihood ratios.
 # Bins are selected in order to separate the null residuals in equal sized groups.
-scaledResidualsToLlr.naiveBayes <- function(scaledResiduals, nBins = 50) {
+scaledResidualsToLlr.naiveBayes <- function(scaledResiduals, samplesPerBin = 25) {
 
   # Extract the null-residuals; 
   # the residuals belonging to the matches that are assumed to be correct.
@@ -229,6 +303,10 @@ scaledResidualsToLlr.naiveBayes <- function(scaledResiduals, nBins = 50) {
   # 
   # plot(nullDensity)
   # lines(alternativeDensity)
+  
+  # Calculate the number of bins given the number of null samples per bin and
+  # the total number of null residuals
+  nBins <- length(nullResiduals) / samplesPerBin
   
   # Split the null residuals in equal sized tiles, 
   # and get the break points which separate these tiles.
@@ -285,21 +363,26 @@ scaledResidualsToLlr.naiveBayes <- function(scaledResiduals, nBins = 50) {
   return(log(likelihoodRatios))
 }
 
-# Function for converting a matrix of scaled residuals to likelihood ratios.
+# Function for converting a selection of a matrix of scaled residuals to likelihood ratios.
 # This function employs a Gaussian naive Bayes method to calculate likelihoods.
 # Known problems:
 # 1. For very low log likelihoods, the value is expected to be -Inf (< -30 approximately)
 # 2. If the alternative log likelihood is -Inf as well as the null log likelihood, NaN is returned.
 #    When only the null log likelihood is -Inf. Positive infinity is returned.
-scaledResidualsToLlr.gaussianNaiveBayes <- function(scaledResiduals, group, error = 0.01) {
+scaledResidualsFilteredToLlr.gaussianNaiveBayes <- function(scaledResiduals, 
+                                                            samplesToFitInGaussian = T,
+                                                            error = 0.01) {
   
   # Extract the null-residuals; 
   # the residuals belonging to the matches that are assumed to be correct.
-  nullResiduals <- scaledResiduals[group == "null"]
+  nullResiduals <- scaledResiduals[lower.tri(scaledResiduals, diag = TRUE) 
+                                   & upper.tri(scaledResiduals, diag = TRUE)
+                                   & samplesToFitInGaussian]
   
   # Extract the alternative residuals; 
   # the residuals belonging to the matches that are assumed to be sample-swaps.
-  alternativeResiduals <- scaledResiduals[group == "alternative"]
+  alternativeResiduals <- scaledResiduals[(lower.tri(scaledResiduals) | upper.tri(scaledResiduals)) 
+                                          & samplesToFitInGaussian]
   
   # Calculate the mean of both groups of residuals.
   nullMean <- mean(nullResiduals)
@@ -311,9 +394,12 @@ scaledResidualsToLlr.gaussianNaiveBayes <- function(scaledResiduals, group, erro
   
   # Declare function for calculating the difference between two log-transformed
   # likelihoods. returns -Inf if l1 and l2 are (approximately) equal. l1 must be > l2.
-  # retrieved from: https://stats.stackexchange.com/a/383524 on 22-07-2020.
+  # adapted from: https://stats.stackexchange.com/a/383524 on 22-07-2020.
+  # using log(-expm1(...)) in comparison to log1p(-exp(...)) makes the function usable for
+  # smaller values.
   subtractLogTransformedProbabilities <- function(l1, l2) {
-    return(l1 + log1p(-exp(-(l1 - l2))))
+    # return(l1 + log1p(-exp(-(l1 - l2))))
+    return(l1 + log(-expm1(-(l1 - l2))))
   }
   
   # Declare function for calculating the log likelihood of 'value' being sampled from 
@@ -322,7 +408,7 @@ scaledResidualsToLlr.gaussianNaiveBayes <- function(scaledResiduals, group, erro
     logLikelihoods <- subtractLogTransformedProbabilities(
       pnorm(value + (error / 2), mean = mean, sd = sd, log.p = TRUE),
       pnorm(value - (error / 2), mean = mean, sd = sd, log.p = TRUE)
-      )
+    )
     
     # log likelihood is -Inf if log(p) of 
     return(logLikelihoods)
@@ -331,16 +417,61 @@ scaledResidualsToLlr.gaussianNaiveBayes <- function(scaledResiduals, group, erro
   # Calculate, for every residual, the likelihood of the residual being sampled from
   # the corresponding normal distribution of null residuals.
   nullLogLikelihoods <- gaussianLogLikelihood(
-    nullResiduals, nullMean, nullSd)
+    scaledResiduals[samplesToFitInGaussian, ], nullMean, nullSd)
   
   # Calculate, for every residual, the likelihood of the residual being sampled from
   # the corresponding normal distribution of alternative residuals.
   alternativeLogLikelihoods <- gaussianLogLikelihood(
-    alternativeResiduals, alternativeMean, alternativeSd)
-  
+    scaledResiduals[samplesToFitInGaussian, ], alternativeMean, alternativeSd)
+
   # For every residual, calculate the likelihood ratio the residual belonging to a
   # sample swap.
   logLikelihoodRatios <- alternativeLogLikelihoods - nullLogLikelihoods
+  
+  return(logLikelihoodRatios)
+}
+
+# Function for converting a matrix of scaled residuals to likelihood ratios.
+# If the response data type of a trait is categorical or dichotomous, for
+# outcome separate Gaussian curves are fitted.
+# This function employs a Gaussian naive Bayes method to calculate likelihoods.
+# Known problems:
+# 1. For very low log likelihoods, the value is expected to be -Inf (< -30 approximately)
+# 2. If the alternative log likelihood is -Inf as well as the null log likelihood, NaN is returned.
+#    When only the null log likelihood is -Inf. Positive infinity is returned.
+scaledResidualsToLlr.gaussianNaiveBayes <- function(
+  scaledResiduals, actual, responseDataType = "continuous") {
+  
+  # Store the dimensions of the scaled residual matrix, as well as rownames and colnames.
+  logLikelihoodRatios <- matrix(nrow = nrow(scaledResiduals), 
+                                ncol = ncol(scaledResiduals),
+                                dimnames = list(rownames(scaledResiduals), colnames(scaledResiduals)))
+  
+  # Check whether or not the response data type is continuous or categorical
+  if (responseDataType == "continuous") {
+    
+    # Perform Gaussian naive Bayes on the entire matrix if data is continuous,
+    # and we thus assume the response data to be normally distributed.
+    logLikelihoodRatios <- scaledResidualsFilteredToLlr.gaussianNaiveBayes(scaledResiduals)
+    
+  } else if (responseDataType == "binary" | responseDataType == "ordinal") {
+    
+    # For every category, fit separate Gaussian curves if the response data type is either
+    # set as binary or ordinal
+
+    # Loop through every category, 
+    for (categoryValue in unique(actual)) {
+      
+      # Get a logical vector indicating which rows of the scaled residuals matrix corresponds
+      # to the current category value.
+      samplesToFitInGaussian <- actual == categoryValue
+
+      # Perform a Gaussian naive Bayes method on the rows corresponding 
+      # to the current category value.
+      logLikelihoodRatios[samplesToFitInGaussian, ] <- scaledResidualsFilteredToLlr.gaussianNaiveBayes(
+        scaledResiduals = scaledResiduals, samplesToFitInGaussian = samplesToFitInGaussian)
+    }
+  }
   
   return(logLikelihoodRatios)
 }
@@ -386,8 +517,11 @@ args <- parser$parse_args(commandArgs(trailingOnly = TRUE))
 # Load table containing paths for the plink output 
 # and corresponding phenotype labels.
 traitDescriptionsTable <- read.table(
-  args$trait_gwas_mapping, quote="", header=T, sep = "\t",
-  col.names=c("trait", "traitDataType", "summaryStatistics"), stringsAsFactors=F)
+  args$trait_gwas_mapping, 
+  quote="", header=T, sep = "\t",
+  col.names=c("trait", "traitDataType", "summaryStatistics", 
+              "sampleSizeOfGwas", "numberOfCategories"), 
+  stringsAsFactors=F)
 
 # Get the paths to the polygenic scores.
 basePathWithPolygenicScores <- args$base_pgs_path
@@ -399,7 +533,7 @@ traitDescriptionsTable$polygenicScoreFilePath <- file.path(basePathWithPolygenic
 out <- args$out
 
 # Set the number of bins to use for the Naive Bayes method.
-binsNaiveBayes <- 100
+samplesPerNaiveBayesBin <- 25
 
 # Load the phenotypes 
 phenotypesFilePath <- args$phenotypes_file
@@ -426,6 +560,10 @@ if (TRUE) {
 aggregatedLlrMatrix <- matrix(nrow = nrow(link), 
                               ncol = nrow(link), 
                               dimnames = list(link$pheno, link$geno), 0)
+
+aggregatedNumberOfTraits <- matrix(nrow = nrow(link), 
+                                   ncol = nrow(link), 
+                                   dimnames = list(link$pheno, link$geno), 0)
 
 pearson.correlations <- data.frame(trait = traitDescriptionsTable$trait,
                                    pearson.not_corrected = 0.0, 
@@ -478,7 +616,7 @@ for (traitIndex in 1:nrow(traitDescriptionsTable)) {
     polygenicScoreFilePath,
     header=T) %>%
     rename(PGS = SCORESUM)
-  
+
   completeTable <- phenotypeTable %>%
     inner_join(polygenicScores, by = c("geno" = "IID"))
   
@@ -519,19 +657,32 @@ for (traitIndex in 1:nrow(traitDescriptionsTable)) {
   rownames(scaledResidualsMatrix) <- completeTable$pheno
   colnames(scaledResidualsMatrix) <- completeTable$geno
   
-  rm(completeTable)
-  gc()
-  
   write.table(scaledResidualsMatrix, file.path(out, trait, "/scaledResidualMatrix.tsv"), 
               sep = "\t", col.names = T, row.names = T, quote = F)
 
   message("    completed calculating scaled residuals")
   
   message("    calculating log likelihood ratios")
+  
   # Calculate the likelihood ratios for every residual being from the distribution of possible mix-ups.
+  # logLikelihoodRatios <- scaledResidualsToLlr.gaussianNaiveBayes(
+  #   scaledResidualsMatrix,
+  #   numberOfGaussians = 2)
+  
   logLikelihoodRatios <- scaledResidualsToLlr.naiveBayes(
     scaledResidualsMatrix,
-    nBins = binsNaiveBayes)
+    samplesPerBin = samplesPerNaiveBayesBin)
+  
+  # logLikelihoodRatios <- scaledResidualsToLlr.naiveBayes.evenWidthBins(
+  #   scaledResidualsMatrix,
+  #   averageSamplesPerBin = samplesPerNaiveBayesBin)
+  
+  # Resolve log likelihood ratios that are NaN (not a number)
+  llrIsNan <- is.nan(logLikelihoodRatios)
+  logLikelihoodRatios[llrIsNan] <- 0
+  
+  aggregatedNumberOfTraits[rownames(logLikelihoodRatios), colnames(logLikelihoodRatios)] <- 
+    aggregatedNumberOfTraits[rownames(logLikelihoodRatios), colnames(logLikelihoodRatios)] + llrIsNan
   
   write.table(logLikelihoodRatios, file.path(out, trait, "/logLikelihoodRatios.tsv"), 
               sep = "\t", col.names = T, row.names = T, quote = F)
@@ -576,7 +727,7 @@ lrProducts <- as.data.frame.table(aggregatedLlrMatrix,
 
 lrProducts$group <- "alternative"
 lrProducts$group[lrProducts$Var1 == lrProducts$Var2] <- "null"
-lrProducts$group <- factor(lrProducts$group, c("null", "alternative"))
+lrProducts$group <- factor(lrProducts$group, c("alternative", "null"))
 
 message(paste0("Calculated overall AUC: ", calculate.auc(
   lrProducts$group, lrProducts$logLikelihoodRatios)))
