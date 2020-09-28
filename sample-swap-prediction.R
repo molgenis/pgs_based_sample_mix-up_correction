@@ -12,6 +12,7 @@
 ##############################
 library(tidyverse)
 library(argparse)
+library(data.table)
 library(ROCR)
 
 ##############################
@@ -516,7 +517,7 @@ args <- parser$parse_args(commandArgs(trailingOnly = TRUE))
 
 # Load table containing paths for the plink output 
 # and corresponding phenotype labels.
-traitDescriptionsTable <- read.table(
+traitDescriptionsTable <- fread(
   args$trait_gwas_mapping, 
   quote="", header=T, sep = "\t",
   col.names=c("trait", "traitDataType", "summaryStatistics", 
@@ -537,8 +538,8 @@ samplesPerNaiveBayesBin <- 25
 
 # Load the phenotypes 
 phenotypesFilePath <- args$phenotypes_file
-phenotypesTable <- read.table(phenotypesFilePath, header=T, quote="", sep="\t",
-                              col.names = c("ID", "AGE", "SEX", "VALUE", "TRAIT")) %>%
+phenotypesTable <- fread(phenotypesFilePath, header=T, quote="", sep="\t",
+                         col.names = c("ID", "AGE", "SEX", "VALUE", "TRAIT")) %>%
   group_by(ID) %>%
   filter(!any(AGE < 18)) %>%
   ungroup()
