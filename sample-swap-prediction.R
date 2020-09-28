@@ -540,6 +540,7 @@ samplesPerNaiveBayesBin <- 25
 phenotypesFilePath <- args$phenotypes_file
 phenotypesTable <- fread(phenotypesFilePath, header=T, quote="", sep="\t",
                          col.names = c("ID", "AGE", "SEX", "VALUE", "TRAIT")) %>%
+  mutate(SEX = factor(SEX, levels = c("Female", "Male"))) %>%
   group_by(ID) %>%
   filter(!any(AGE < 18)) %>%
   ungroup()
