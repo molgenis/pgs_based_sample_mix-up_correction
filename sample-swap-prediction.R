@@ -25,7 +25,7 @@ parser$add_argument('--base-pgs-path',
                     help="path to a directory containing polygenic scores. Folder structure should be '<base-pgs-path>/<name-of-gwas-summary-statistic>/full.UGLI.pgs.profile'")
 parser$add_argument('--phenotypes-file',
                     help='path to a tab-delimited file holding all processed phenotype data.')
-parser$add_argument('--sample_coupling_file', required = FALSE,
+parser$add_argument('--sample-coupling-file', required = FALSE,
                     help=paste0('file containing genotype sample ids in the first column',
                     'and phenotype sample ids in the second column'))
 parser$add_argument('--out',
