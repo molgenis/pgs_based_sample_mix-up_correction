@@ -547,7 +547,8 @@ link <- data.frame(geno = unique(phenotypesTable$ID), pheno = unique(phenotypesT
 
 # Get the link path
 if (!is.null(args$sample_coupling_file)) {
-  link <- fread(args$sample_coupling_file, stringsAsFactors=F,
+  sampleCouplingFilePath <- args$sample_coupling_file
+  link <- fread(sampleCouplingFilePath, stringsAsFactors=F,
                 col.names = c("geno", "pheno")) %>%
     filter(pheno %in% unique(phenotypesTable$ID))
 }

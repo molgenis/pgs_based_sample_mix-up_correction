@@ -1,26 +1,26 @@
-trait	traitDataType	summaryStatistics
-Height	continuous	Meta-analysis_Wood_et_al+UKBiobank_2018.processed
-BMI	continuous	Meta-analysis_Locke_et_al+UKBiobank_2018.processed
-Diastolic blood pressure	continuous	Evangelou_30224653_DBP.processed
-Systolic blood pressure	continuous	Evangelou_30224653_SBP.processed
-eGFR	continuous	20171016_MW_eGFR_overall_ALL_nstud61.dbgap.processed
-Basophilic Granulocyte concentration	continuous	baso.processed
-Eosinophil concentration	continuous	eo.processed
-HbA1c	continuous	HbA1c_METAL_European.processed
-LDL cholesterol	continuous	GERA-LDL.processed
-Triglyceride concentration	continuous	GERA-logTG.processed
-HDL cholesterol	continuous	GERA-sqrtHDL.processed
-Total cholesterol	continuous	GERA-TC.processed
-Hematocrit concentration	continuous	hct.processed
-Hemoglobin concentration	continuous	hgb.processed
-Lymphocyte concentration	continuous	lymph.processed
-Monocyte concentration	continuous	mono.processed
-Erythrocyte concentration	continuous	rbc.processed
-Thrombocyte concentration	continuous	plt.processed
-Blondeness of hair	continuous	ukb-d-1747_1.processed
-Red hair colour	binary	ukb-d-1747_2.processed
-Type 2 diabetes	binary	T2D_European.BMIunadjusted.processed
-#Type 1 diabetes	binary	onengut_2015_25751624_t1d_efo0001359_meta_ichip.sumstats.processed
-Asthma	binary	TAGC_European_Ancestry.processed
-Coronary artery disease	binary	ebi-a-GCST005195.processed
-#Schizophrenia	binary	ieu-a-22.processed
+trait	traitDataType	summaryStatistics	sampleSizeOfGwas	numberOfCategories
+Height	continuous	Meta-analysis_Wood_et_al+UKBiobank_2018.processed	693529	1
+BMI	continuous	Meta-analysis_Locke_et_al+UKBiobank_2018.processed	681275	1
+Diastolic blood pressure	continuous	Evangelou_30224653_DBP.processed	757601	1
+Systolic blood pressure	continuous	Evangelou_30224653_SBP.processed	757601	1
+eGFR	continuous	20171016_MW_eGFR_overall_ALL_nstud61.dbgap.processed	567460	1
+Basophilic Granulocyte concentration	continuous	baso.processed	1002426	1
+Eosinophil concentration	continuous	eo.processed	1002426	1
+HbA1c	continuous	HbA1c_METAL_European.processed	88355	1
+LDL cholesterol	continuous	GERA-LDL.processed	87819	1
+Triglyceride concentration	continuous	GERA-logTG.processed	87819	1
+HDL cholesterol	continuous	GERA-sqrtHDL.processed	87819	1
+Total cholesterol	continuous	GERA-TC.processed	87819	1
+Hematocrit concentration	continuous	hct.processed	1002426	1
+Hemoglobin concentration	continuous	hgb.processed	1002426	1
+Lymphocyte concentration	continuous	lymph.processed	1002426	1
+Monocyte concentration	continuous	mono.processed	1002426	1
+Erythrocyte concentration	continuous	rbc.processed	1002426	1
+Thrombocyte concentration	continuous	plt.processed	1002426	1
+Blondeness of hair	ordinal	ukb-d-1747_1.processed	360270	3
+Red hair colour	binary	ukb-d-1747_2.processed	360270	2
+Type 2 diabetes	binary	T2D_European.BMIunadjusted.processed	452244	2
+Type 1 diabetes	binary	onengut_2015_25751624_t1d_efo0001359_meta_ichip.sumstats.processed	13193	2
+Asthma	binary	TAGC_European_Ancestry.processed	142486	2
+Coronary artery disease	binary	ebi-a-GCST005195.processed	547261	2
+Schizophrenia	binary	ieu-a-22.processed	82315	2
