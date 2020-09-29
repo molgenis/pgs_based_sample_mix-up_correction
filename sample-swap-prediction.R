@@ -241,20 +241,22 @@ scaledResidualsToLlr.naiveBayes.evenWidthBins <- function(
   nBins <- as.integer(length(nullResiduals) / averageSamplesPerBin)
   
   breaks <- adaptedEqualWidthIntervals(nullResiduals, nBins, minFrequencyInTails)
-  
-  nullTiles <- cut(nullResiduals, breaks = breaks, labels = FALSE)
+  breaks[1] <- min(scaledResiduals) - 1
+  breaks[length(breaks)] <- max(scaledResiduals) + 1
+
+    nullTiles <- cut(nullResiduals, breaks = breaks, labels = FALSE)
   alternativeTiles <- cut(alternativeResiduals, breaks = breaks, labels = FALSE)
-  
+
   # Get the density / likelihood of the null residuals for each of the bins.
   nullLikelihoods <- sapply(
-    1:nBins, 
+    1:nBins,
     function(bin) sum(nullTiles == bin) / length(nullTiles))
-  
+
   # Get the density / likelihood of the alternative residuals for each of the bins.
   alternativeLikelihoods <- sapply(
-    1:nBins, 
+    1:nBins,
     function(bin) sum(alternativeTiles == bin) / length(alternativeTiles))
-  
+
   # Remove the null and alternative tiles to clear memory.
   rm(nullTiles)
   rm(alternativeTiles)
@@ -686,6 +688,8 @@ for (traitIndex in 1:nrow(traitDescriptionsTable)) {
   
   message("    calculating log likelihood ratios")
   
+  logLikelihoodRatios <- NULL
+  
   # Calculate the likelihood ratios for every residual being from the distribution of possible mix-ups.
   if (naiveBayesMethod == "gaussian") {
     
@@ -701,14 +705,10 @@ for (traitIndex in 1:nrow(traitDescriptionsTable)) {
   } else if (naiveBayesMethod == "efi-discretization") {
     
     logLikelihoodRatios <- scaledResidualsToLlr.naiveBayes(
-      scaledResidualsMatrix,
+      scaledResiduals = scaledResidualsMatrix,
       samplesPerBin = samplesPerNaiveBayesBin)
     
   }
-  
-  # logLikelihoodRatios <- scaledResidualsToLlr.naiveBayes.evenWidthBins(
-  #   scaledResidualsMatrix,
-  #   averageSamplesPerBin = samplesPerNaiveBayesBin)
   
   # Resolve log likelihood ratios that are NaN (not a number)
   llrIsNan <- is.nan(logLikelihoodRatios)
@@ -760,7 +760,7 @@ lrProducts <- as.data.frame.table(aggregatedLlrMatrix,
 
 lrProducts$group <- "alternative"
 lrProducts$group[lrProducts$Var1 == lrProducts$Var2] <- "null"
-lrProducts$group <- factor(lrProducts$group, c("null", "alternative"))
+lrProducts$group <- factor(lrProducts$group, c("alternative", "null"))
 
 message(paste0("Calculated overall AUC: ", calculate.auc(
   lrProducts$group, lrProducts$logLikelihoodRatios)))
