@@ -236,8 +236,7 @@ scaledResidualsToLlr.naiveBayes.evenWidthBins <- function(
   nBins <- as.integer(length(nullResiduals) / averageSamplesPerBin)
   
   breaks <- adaptedEqualWidthIntervals(nullResiduals, nBins, minFrequencyInTails)
-  breaks[1] <- min(alternativeResiduals) - 1
-  breaks[length(alternativeBreaks)] <- max(alternativeResiduals) + 1
+  
   nullTiles <- cut(nullResiduals, breaks = breaks, labels = FALSE)
   alternativeTiles <- cut(alternativeResiduals, breaks = breaks, labels = FALSE)
   
