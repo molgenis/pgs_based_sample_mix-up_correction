@@ -202,12 +202,12 @@ calculate.scaledResiduals <- function(estimate, actual, covariates, responseData
 adaptedEqualWidthIntervals <- function(x, nBins, minFrequencyInTails) {
   # Get breaks for outermost null residuals, so that the outermost N null residuals
   # on each tail are represented in their respective bin.
-  n <- length(nullResiduals)
-  upperTailLowerBound <- sort(nullResiduals, partial = n - minFrequencyInTails)[n - minFrequencyInTails]
-  upperTailUpperBound <- max(nullResiduals) + 1
+  n <- length(x)
+  upperTailLowerBound <- sort(x, partial = n - minFrequencyInTails)[n - minFrequencyInTails]
+  upperTailUpperBound <- max(x) + 1
   
-  lowerTailUpperBound <- sort(nullResiduals, partial = minFrequencyInTails)[minFrequencyInTails]
-  lowerTailLowerBound <- min(nullResiduals) - 1
+  lowerTailUpperBound <- sort(x, partial = minFrequencyInTails)[minFrequencyInTails]
+  lowerTailLowerBound <- min(x) - 1
   
   # Separate the space within the outermost bins into a nBins - 2
   binSize <- (upperTailLowerBound - lowerTailUpperBound) / (nBins - 2)
@@ -691,7 +691,7 @@ for (traitIndex in 1:nrow(traitDescriptionsTable)) {
   } else if (naiveBayesMethod == "ewi-discretization") {
     
     logLikelihoodRatios <- scaledResidualsToLlr.naiveBayes.evenWidthBins(
-      scaledResidualsMatrix,
+      scaledResiduals = scaledResidualsMatrix,
       averageSamplesPerBin = samplesPerNaiveBayesBin)
     
   } else if (naiveBayesMethod == "efi-discretization") {
