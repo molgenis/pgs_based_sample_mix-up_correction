@@ -231,6 +231,11 @@ scaledResidualsToLlr.naiveBayes.evenWidthBins <- function(
   # the residuals belonging to the matches that are assumed to be sample-swaps.
   alternativeResiduals <- scaledResiduals[lower.tri(scaledResiduals) | upper.tri(scaledResiduals)]
   
+  # Store the dimensions of the scaled residual matrix, as well as rownames and colnames.
+  returnDimensions <- dim(scaledResiduals)
+  returnColumnNames <- colnames(scaledResiduals)
+  returnRowNames <- rownames(scaledResiduals)
+  
   # Calculate the number of bins given the number of null samples per bin and
   # the total number of null residuals
   nBins <- as.integer(length(nullResiduals) / averageSamplesPerBin)
