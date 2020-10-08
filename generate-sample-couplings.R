@@ -43,8 +43,6 @@ permute <- function(linkTable, nMixUpsToIntroduce) {
   # Shuffle all samples so the ones in which mix-ups are introduced are random
   shuffledSamples <- sample(linkTable$permuted)
   
-  print(shuffledSamples)
-  
   # Create a vector of booleans indicating whether or not a sample has been mixed up.
   swappedSamples <- rep(F, length(shuffledSamples))
   
