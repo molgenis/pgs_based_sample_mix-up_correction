@@ -661,7 +661,7 @@ for (traitIndex in 1:nrow(traitDescriptionsTable)) {
   phenotypeTable <- phenotypesTable %>%
     filter(TRAIT == trait) %>%
     rename(pheno = ID) %>%
-    inner_join(link[c("pheno", "geno")], by="pheno")
+    inner_join(link[,c("pheno", "geno")], by="pheno")
   
   # Give status update
   message(paste0(traitIndex, " / ", nrow(traitDescriptionsTable), 
@@ -794,7 +794,7 @@ for (traitIndex in 1:nrow(traitDescriptionsTable)) {
   
   scaledResidualsDataFrame <- 
     as.data.frame.table(scaledResidualsMatrix, responseName = "scaledResiduals") %>%
-    inner_join(link[c("pheno", "geno")], by = c("Var1" = "pheno"))
+    inner_join(link[,c("pheno", "geno")], by = c("Var1" = "pheno"))
   
   scaledResidualsDataFrame$group <- "alternative"
   scaledResidualsDataFrame$group[scaledResidualsDataFrame$geno == scaledResidualsDataFrame$Var2] <- "null"
