@@ -150,7 +150,7 @@ if (mixUpPercentage & mixUpPercentage > 0 & mixUpPercentage <= 10) {
   permutedLink <- rename(permutedLink, original = geno, geno = permuted) %>%
     select(pheno, geno, original)
   
-  write.table(permutedLink %>% filter(original == geno), 
+  write.table(permutedLink %>% filter(original != geno), 
               paste0(out, ".perm_", numberOfPermutedSamples, "mixUps.txt"),
               row.names = F, col.names = T, quote = F, sep = "\t")
   
