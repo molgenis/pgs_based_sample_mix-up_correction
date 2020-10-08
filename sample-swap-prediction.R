@@ -203,19 +203,26 @@ adaptedEqualWidthIntervals <- function(x, nBins, minFrequencyInTails) {
   # Get breaks for outermost null residuals, so that the outermost N null residuals
   # on each tail are represented in their respective bin.
   n <- length(x)
-  upperTailLowerBound <- sort(x, partial = n - minFrequencyInTails)[n - minFrequencyInTails]
-  upperTailUpperBound <- max(x) + 1
   
-  lowerTailUpperBound <- sort(x, partial = minFrequencyInTails)[minFrequencyInTails]
-  lowerTailLowerBound <- min(x) - 1
+  if (n >= (minFrequencyInTails * 2)) {
+    
+    upperTailLowerBound <- sort(x, partial = n - minFrequencyInTails)[n - minFrequencyInTails]
+    upperTailUpperBound <- max(x) + 1
+    
+    lowerTailUpperBound <- sort(x, partial = minFrequencyInTails)[minFrequencyInTails]
+    lowerTailLowerBound <- min(x) - 1
+    
+    # Separate the space within the outermost bins into a nBins - 2
+    binSize <- (upperTailLowerBound - lowerTailUpperBound) / (nBins - 2)
+    breaks <- c(lowerTailLowerBound, lowerTailUpperBound,
+                lowerTailUpperBound + binSize * (1:(nBins - 3)), 
+                upperTailLowerBound, upperTailUpperBound)
+  } else {
+    
+    breaks <- c(min(x) - 1, max(x) + 1)
+  }
   
-  # Separate the space within the outermost bins into a nBins - 2
-  binSize <- (upperTailLowerBound - lowerTailUpperBound) / (nBins - 2)
-  breaks <- c(lowerTailLowerBound, lowerTailUpperBound,
-              lowerTailUpperBound + binSize * (1:(nBins - 3)), 
-              upperTailLowerBound, upperTailUpperBound)
-  
-  return(breaks)
+  return(unique(breaks))
 }
 
 # Function for converting a matrix of scaled residuals to log likelihood ratios.
@@ -234,7 +241,7 @@ scaledResidualsFilteredToLlr.naiveBayes.evenWidthBins <- function(
   # the residuals belonging to the matches that are assumed to be sample-swaps.
   alternativeResiduals <- scaledResiduals[(lower.tri(scaledResiduals) | upper.tri(scaledResiduals)) 
                                           & samplesToFitInGaussian]
-  
+
   scaledResidualsFiltered <- scaledResiduals[samplesToFitInGaussian, ]
   
   rm(scaledResiduals)
@@ -247,13 +254,14 @@ scaledResidualsFilteredToLlr.naiveBayes.evenWidthBins <- function(
   
   # Calculate the number of bins given the number of null samples per bin and
   # the total number of null residuals
-  nBins <- as.integer(length(nullResiduals) / averageSamplesPerBin)
+  nullNBins <- as.integer(length(nullResiduals) / averageSamplesPerBin)
+  alternativeNBins <- as.integer(length(alternativeResiduals) / averageSamplesPerBin)
   
-  nullBreaks <- adaptedEqualWidthIntervals(nullResiduals, nBins, minFrequencyInTails)
+  nullBreaks <- adaptedEqualWidthIntervals(nullResiduals, nullNBins, minFrequencyInTails)
   nullBreaks[1] <- min(scaledResidualsFiltered) - 1
   nullBreaks[length(nullBreaks)] <- max(scaledResidualsFiltered) + 1
   
-  alternativeBreaks <- adaptedEqualWidthIntervals(alternativeResiduals, nBins, minFrequencyInTails)
+  alternativeBreaks <- adaptedEqualWidthIntervals(alternativeResiduals, alternativeNBins, minFrequencyInTails)
   alternativeBreaks[1] <- min(scaledResidualsFiltered) - 1
   alternativeBreaks[length(alternativeBreaks)] <- max(scaledResidualsFiltered) + 1
 
@@ -262,12 +270,12 @@ scaledResidualsFilteredToLlr.naiveBayes.evenWidthBins <- function(
 
   # Get the density / likelihood of the null residuals for each of the bins.
   nullLikelihoods <- sapply(
-    1:nBins,
+    1:nullNBins,
     function(bin) sum(nullTiles == bin) / length(nullTiles))
 
   # Get the density / likelihood of the alternative residuals for each of the bins.
   alternativeLikelihoods <- sapply(
-    1:nBins,
+    1:alternativeNBins,
     function(bin) sum(alternativeTiles == bin) / length(alternativeTiles))
 
   # Remove the null and alternative tiles to clear memory.
@@ -614,12 +622,11 @@ link <- data.frame(geno = unique(phenotypesTable$ID), pheno = unique(phenotypesT
 # Get the link path
 if (!is.null(args$sample_coupling_file)) {
   sampleCouplingFilePath <- args$sample_coupling_file
-  link <- fread(sampleCouplingFilePath, stringsAsFactors=F,
-                col.names = c("geno", "pheno")) %>%
+  link <- fread(sampleCouplingFilePath, stringsAsFactors=F, header=T) %>%
     filter(pheno %in% unique(phenotypesTable$ID))
 }
 
-if (TRUE) {
+if (FALSE) {
   link <- link %>%
     slice_sample(n = 4096, order_by = geno)
 }
@@ -654,7 +661,7 @@ for (traitIndex in 1:nrow(traitDescriptionsTable)) {
   phenotypeTable <- phenotypesTable %>%
     filter(TRAIT == trait) %>%
     rename(pheno = ID) %>%
-    inner_join(link, by="pheno")
+    inner_join(link[c("pheno", "geno")], by="pheno")
   
   # Give status update
   message(paste0(traitIndex, " / ", nrow(traitDescriptionsTable), 
@@ -686,6 +693,20 @@ for (traitIndex in 1:nrow(traitDescriptionsTable)) {
 
   completeTable <- phenotypeTable %>%
     inner_join(polygenicScores, by = c("geno" = "IID"))
+  
+  # completeTable <- tibble(VALUE = c(0, 0, 0, 0, 1, 0, 1, 0, 1, 1, 1, 1),
+  #                             PGS = c(-0.48, -0.40, -0.36, -0.20, -0.06, 0.16, 0.32, 0.56, 0.80, 0.90, 0.96, 1.12),
+  #                             AGE = c(19, 34, 56, 72, 32, 67, 23, 45, 36, 32, 71, 19),
+  #                             SEX = factor(rep(c("Female", "Male"), 6), levels = c("Female", "Male")),
+  #                             pheno = c("A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L"),
+  #                             geno = c("a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k", "l"))
+  
+  completeTable <- tibble(VALUE = c(0.1, 0.2, 0.3, 0.4, 0.6, 0.5, 0.8, 0.7, 0.9, 1, 1.1, 0.72),
+                          PGS = c(-0.48, -0.40, -0.36, -0.20, -0.06, 0.16, 0.32, 0.56, 0.80, 0.90, 0.96, 1.12),
+                          AGE = c(19, 34, 56, 72, 32, 67, 23, 45, 36, 32, 71, 19),
+                          SEX = factor(rep(c("Female", "Male"), 6), levels = c("Female", "Male")),
+                          pheno = c("A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L"),
+                          geno = c("a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k", "l"))
   
   initial.cor.test.results <- cor.test(completeTable$VALUE, completeTable$PGS)
   message(paste0("Initial R-squared of correlation = ", initial.cor.test.results$estimate ^ 2))
@@ -758,7 +779,7 @@ for (traitIndex in 1:nrow(traitDescriptionsTable)) {
   logLikelihoodRatios[llrIsNan] <- 0
   
   aggregatedNumberOfTraits[rownames(logLikelihoodRatios), colnames(logLikelihoodRatios)] <- 
-    aggregatedNumberOfTraits[rownames(logLikelihoodRatios), colnames(logLikelihoodRatios)] + llrIsNan
+    aggregatedNumberOfTraits[rownames(logLikelihoodRatios), colnames(logLikelihoodRatios)] + !llrIsNan
   
   write.table(logLikelihoodRatios, file.path(out, trait, "/logLikelihoodRatios.tsv"), 
               sep = "\t", col.names = T, row.names = T, quote = F)
@@ -771,11 +792,12 @@ for (traitIndex in 1:nrow(traitDescriptionsTable)) {
   
   message("    aggregation done!")
   
-  scaledResidualsDataFrame <- as.data.frame.table(scaledResidualsMatrix, 
-                                                  responseName = "scaledResiduals")
+  scaledResidualsDataFrame <- 
+    as.data.frame.table(scaledResidualsMatrix, responseName = "scaledResiduals") %>%
+    inner_join(link[c("pheno", "geno")], by = c("Var1" = "pheno"))
   
   scaledResidualsDataFrame$group <- "alternative"
-  scaledResidualsDataFrame$group[scaledResidualsDataFrame$Var1 == scaledResidualsDataFrame$Var2] <- "null"
+  scaledResidualsDataFrame$group[scaledResidualsDataFrame$geno == scaledResidualsDataFrame$Var2] <- "null"
   scaledResidualsDataFrame$group <- factor(scaledResidualsDataFrame$group, levels = c("null", "alternative"))
   
   rm(scaledResidualsMatrix)
@@ -798,11 +820,15 @@ for (traitIndex in 1:nrow(traitDescriptionsTable)) {
 write.table(aggregatedLlrMatrix, file.path(out, "/aggregatedLogLikelihoodRatiosMatrix.tsv"),
             sep="\t", col.names = T, row.names = T, quote = F)
 
-lrProducts <- as.data.frame.table(aggregatedLlrMatrix, 
-                                  responseName = "logLikelihoodRatios")
+write.table(aggregatedNumberOfTraits, file.path(out, "/aggregatedNumberOfTraitsMatrix.tsv"),
+            sep="\t", col.names = T, row.names = T, quote = F)
+
+lrProducts <- 
+  as.data.frame.table(aggregatedLlrMatrix, responseName = "logLikelihoodRatios") %>%
+  inner_join(link, by = c("Var1" = "pheno"))
 
 lrProducts$group <- "alternative"
-lrProducts$group[lrProducts$Var1 == lrProducts$Var2] <- "null"
+lrProducts$group[lrProducts$original == lrProducts$Var2] <- "null"
 lrProducts$group <- factor(lrProducts$group, c("alternative", "null"))
 
 message(paste0("Calculated overall AUC: ", calculate.auc(
@@ -818,6 +844,50 @@ ggplot(lrProducts, aes(x=group, y=logLikelihoodRatios)) +
   geom_boxplot() + ggtitle(paste0("Log likelihood ratio distributions comparison overall"))
 
 ggsave(file.path(out, "/likelihoodRatioBoxplot.png"), width=8, height=7)
+
+numberOfTraits <- 
+  as.data.frame.table(aggregatedNumberOfTraits, responseName = "numberOfTraits")
+
+phenoSamples <- unique(lrProducts[lrProducts$geno != lrProducts$original, "Var1"])
+
+sampledLrProducts <- lrProducts %>% 
+  inner_join(numberOfTraits, by=c("Var1", "Var2")) %>%
+  mutate(colourGroup = case_when(
+    Var2 == geno ~ 1,
+    Var2 == original ~ 2,
+    TRUE ~ 3))
+
+cols = c("2" = "blue", "1" = "red", "3" = "black")
+
+ggplot(sampledLrProducts %>% filter(is.finite(logLikelihoodRatios)), 
+       aes(y = Var1)) +
+  
+  # Add ridge lines
+  geom_density_ridges(
+    aes(x = logLikelihoodRatios, 
+        point_alpha = as.numeric(colourGroup != 3),
+        point_color = colourGroup),
+    jittered_points = TRUE,
+    position = position_points_jitter(width = 0, height = 0),
+    point_shape = '|', point_size = 3, alpha = 0.7) +
+  scale_point_color_continuous(low = "#0072B2", high = "#D55E00") +
+  #scale_discrete_manual(values = cols, aesthetics = "point_color") +
+  #scale_discrete_manual("point_color", values = cols) +
+
+  # Add annotation with number of traits, and the number of filtered likelihood ratios
+  geom_text(
+    data=sampledLrProducts %>% group_by(Var1) %>%
+      summarise(numberOfTraits = median(numberOfTraits),
+                numberOfFiltered = sum(!is.finite(logLikelihoodRatios))),
+    position=position_nudge(y=0.64), colour="red", size=3.5,
+    hjust = "inward", x = 0,
+    aes(label = sprintf("n traits: %d, n filtered: %d", numberOfTraits, numberOfFiltered))) +
+
+  # Set theme
+  theme_minimal() +
+  theme(legend.position = "none")
+
+ggsave(file.path(out, "/ridges.png"), width=8, height=20)
 
 # Pearson correlations
 # pearson.correlations <- pearson.correlations[order(pearson.correlations$pearson.corrected),]
