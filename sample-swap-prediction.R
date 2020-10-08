@@ -244,6 +244,8 @@ scaledResidualsFilteredToLlr.naiveBayes.evenWidthBins <- function(
 
   scaledResidualsFiltered <- scaledResiduals[samplesToFitInGaussian, ]
   
+  message("Extracted scaled residuals")
+  
   rm(scaledResiduals)
   gc()
   
@@ -257,6 +259,8 @@ scaledResidualsFilteredToLlr.naiveBayes.evenWidthBins <- function(
   nullNBins <- as.integer(length(nullResiduals) / averageSamplesPerBin)
   alternativeNBins <- as.integer(length(alternativeResiduals) / averageSamplesPerBin)
   
+  message("Obtaining breaks")
+  
   nullBreaks <- adaptedEqualWidthIntervals(nullResiduals, nullNBins, minFrequencyInTails)
   nullBreaks[1] <- min(scaledResidualsFiltered) - 1
   nullBreaks[length(nullBreaks)] <- max(scaledResidualsFiltered) + 1
@@ -264,9 +268,13 @@ scaledResidualsFilteredToLlr.naiveBayes.evenWidthBins <- function(
   alternativeBreaks <- adaptedEqualWidthIntervals(alternativeResiduals, alternativeNBins, minFrequencyInTails)
   alternativeBreaks[1] <- min(scaledResidualsFiltered) - 1
   alternativeBreaks[length(alternativeBreaks)] <- max(scaledResidualsFiltered) + 1
+  
+  message("Breaks created")
 
   nullTiles <- cut(nullResiduals, breaks = nullBreaks, labels = FALSE)
   alternativeTiles <- cut(alternativeResiduals, breaks = alternativeBreaks, labels = FALSE)
+  
+  message("Breaks applied")
 
   # Get the density / likelihood of the null residuals for each of the bins.
   nullLikelihoods <- sapply(
@@ -277,6 +285,8 @@ scaledResidualsFilteredToLlr.naiveBayes.evenWidthBins <- function(
   alternativeLikelihoods <- sapply(
     1:alternativeNBins,
     function(bin) sum(alternativeTiles == bin) / length(alternativeTiles))
+  
+  message("Calculated likelihoods")
 
   # Remove the null and alternative tiles to clear memory.
   rm(nullTiles)
@@ -287,6 +297,8 @@ scaledResidualsFilteredToLlr.naiveBayes.evenWidthBins <- function(
     return(alternativeLikelihoods[cut(residual, breaks = alternativeBreaks, labels = F)] / 
              nullLikelihoods[cut(residual, breaks = nullBreaks, labels = F)])
   })
+  
+  message("Calculated likelihood ratios")
 
   # Apply the same dimensions, row names and column names as where used for the input matrix.
   dim(likelihoodRatios) <- returnDimensions
@@ -310,7 +322,10 @@ scaledResidualsToLlr.naiveBayes.evenWidthBins <- function(
   if (responseDataType == "continuous") {
     
     # Perform naive Bayes on the entire matrix if data is continuous,
-    logLikelihoodRatios <- scaledResidualsFilteredToLlr.gaussianNaiveBayes(scaledResiduals)
+    logLikelihoodRatios <- scaledResidualsFilteredToLlr.naiveBayes.evenWidthBins(
+      scaledResiduals = scaledResiduals,
+      averageSamplesPerBin = averageSamplesPerBin, 
+      minFrequencyInTails = minFrequencyInTails)
     
   } else if (responseDataType == "binary" | responseDataType == "ordinal") {
     
