@@ -54,9 +54,7 @@ permute <- function(linkTable, nMixUpsToIntroduce) {
     # Swap the sample if either: the sample is not yet swapped, or
     # the i sample is the second-last sample to swap and the last sample has to be swapped still.
     mustSwapCurrent <- (!swappedSamples[i] | (i == 2 & !swappedSamples[1]))
-    print(i)
-    print(mustSwapCurrent)
-    
+
     j <- i
     
     # Set the sample to swap the current one with.
@@ -69,8 +67,6 @@ permute <- function(linkTable, nMixUpsToIntroduce) {
       # the sample to swap with should be the one of the '1'st to the 'i'th (inclusive).
       j <- sample.int(i, size = 1);
     }
-    
-    print(j)
     
     # If j is equal to i, the 'i'th sample is already swapped.
     if (j != i) {
@@ -153,10 +149,15 @@ if (mixUpPercentage & mixUpPercentage > 0 & mixUpPercentage <= 10) {
   message(paste0("Mix-ups introduced: ", numberOfPermutedSamples, "/", nrow(permutedLink), 
                  " (", numberOfPermutedSamples / nrow(permutedLink) * 100, "%)"))
   
-  permutedLink$original <- permutedLink$geno
-  permutedLink$geno <- permutedLink$permuted
+  permutedLink <- rename(permutedLink, original = geno, geno = permuted) %>%
+    select(pheno, geno, original)
   
-  write.table(permutedLink, paste0(out, ".perm_", numberOfSamples, "samples_", numberOfPermutedSamples, "mixUps.txt"), 
+  write.table(permutedLink %>% filter(original == geno), 
+              paste0(out, ".perm_", numberOfPermutedSamples, "mixUps.txt"),
+              row.names = F, col.names = T, quote = F, sep = "\t")
+  
+  write.table(permutedLink, 
+              paste0(out, ".perm_", numberOfSamples, "samples_", numberOfPermutedSamples, "mixUps.txt"), 
               row.names = F, col.names = T, quote = F, sep = "\t")
 }
 
