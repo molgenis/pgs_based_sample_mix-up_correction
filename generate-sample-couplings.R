@@ -11,21 +11,20 @@
 library(tidyverse)
 library(argparse)
 library(data.table)
-library(ROCR)
 
 ##############################
 # Define argument parser
 ##############################
 parser <- ArgumentParser(description='')
 
-parser$add_argument('--mix-up-percentage', default=FALSE, type="double",
+parser$add_argument('--mix-up-percentage', required=FALSE, type="double",
                     help=paste0('introduce mix-ups in link file',
                                 'and phenotype sample ids in the second column'))
-parser$add_argument('--sample-count', default=FALSE, type="integer", default=5120,
+parser$add_argument('--sample-count', required=FALSE, type="integer", default="5120",
                     help=paste0('number of samples to include in the coupling file'))
 parser$add_argument('--out', help='path to output prefix', required=T)
 
-inputGroup = parser$add_mutually_exclusive_group(required=T)
+inputGroup <- parser$add_mutually_exclusive_group(required=T)
 
 inputGroup$add_argument('--sample-coupling-file',
                         help=paste0('file containing genotype sample ids in the first column',
