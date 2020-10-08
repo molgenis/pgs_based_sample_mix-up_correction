@@ -701,12 +701,12 @@ for (traitIndex in 1:nrow(traitDescriptionsTable)) {
   #                             pheno = c("A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L"),
   #                             geno = c("a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k", "l"))
   
-  completeTable <- tibble(VALUE = c(0.1, 0.2, 0.3, 0.4, 0.6, 0.5, 0.8, 0.7, 0.9, 1, 1.1, 0.72),
-                          PGS = c(-0.48, -0.40, -0.36, -0.20, -0.06, 0.16, 0.32, 0.56, 0.80, 0.90, 0.96, 1.12),
-                          AGE = c(19, 34, 56, 72, 32, 67, 23, 45, 36, 32, 71, 19),
-                          SEX = factor(rep(c("Female", "Male"), 6), levels = c("Female", "Male")),
-                          pheno = c("A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L"),
-                          geno = c("a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k", "l"))
+  # completeTable <- tibble(VALUE = c(0.1, 0.2, 0.3, 0.4, 0.6, 0.5, 0.8, 0.7, 0.9, 1, 1.1, 0.72),
+  #                         PGS = c(-0.48, -0.40, -0.36, -0.20, -0.06, 0.16, 0.32, 0.56, 0.80, 0.90, 0.96, 1.12),
+  #                         AGE = c(19, 34, 56, 72, 32, 67, 23, 45, 36, 32, 71, 19),
+  #                         SEX = factor(rep(c("Female", "Male"), 6), levels = c("Female", "Male")),
+  #                         pheno = c("A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L"),
+  #                         geno = c("a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k", "l"))
   
   initial.cor.test.results <- cor.test(completeTable$VALUE, completeTable$PGS)
   message(paste0("Initial R-squared of correlation = ", initial.cor.test.results$estimate ^ 2))
