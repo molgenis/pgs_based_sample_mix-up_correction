@@ -256,35 +256,32 @@ scaledResidualsFilteredToLlr.naiveBayes.evenWidthBins <- function(
   
   # Calculate the number of bins given the number of null samples per bin and
   # the total number of null residuals
-  nullNBins <- as.integer(length(nullResiduals) / averageSamplesPerBin)
-  alternativeNBins <- as.integer(length(alternativeResiduals) / averageSamplesPerBin)
-  
+  nBins <- as.integer(length(nullResiduals) / averageSamplesPerBin)
+
   message("Obtaining breaks")
   
-  nullBreaks <- adaptedEqualWidthIntervals(nullResiduals, nullNBins, minFrequencyInTails)
-  nullBreaks[1] <- min(scaledResidualsFiltered) - 1
-  nullBreaks[length(nullBreaks)] <- max(scaledResidualsFiltered) + 1
-  
-  alternativeBreaks <- adaptedEqualWidthIntervals(alternativeResiduals, alternativeNBins, minFrequencyInTails)
-  alternativeBreaks[1] <- min(scaledResidualsFiltered) - 1
-  alternativeBreaks[length(alternativeBreaks)] <- max(scaledResidualsFiltered) + 1
+  breaks <- adaptedEqualWidthIntervals(nullResiduals, nBins, minFrequencyInTails)
+  breaks[1] <- min(scaledResidualsFiltered) - 1
+  breaks[length(breaks)] <- max(scaledResidualsFiltered) + 1
   
   message("Breaks created")
 
-  nullTiles <- cut(nullResiduals, breaks = nullBreaks, labels = FALSE)
-  alternativeTiles <- cut(alternativeResiduals, breaks = alternativeBreaks, labels = FALSE)
+  nullTiles <- cut(nullResiduals, breaks = breaks, labels = FALSE)
+  alternativeTiles <- cut(alternativeResiduals, breaks = breaks, labels = FALSE)
   
   message("Breaks applied")
 
   # Get the density / likelihood of the null residuals for each of the bins.
   nullLikelihoods <- sapply(
-    1:nullNBins,
+    1:bBins,
     function(bin) sum(nullTiles == bin) / length(nullTiles))
-
+  
   # Get the density / likelihood of the alternative residuals for each of the bins.
   alternativeLikelihoods <- sapply(
-    1:alternativeNBins,
+    1:bBins,
     function(bin) sum(alternativeTiles == bin) / length(alternativeTiles))
+  
+  message("Alternative likelihoods calculated")
   
   message("Calculated likelihoods")
 
@@ -294,8 +291,8 @@ scaledResidualsFilteredToLlr.naiveBayes.evenWidthBins <- function(
   gc()
   
   likelihoodRatios <- sapply(scaledResidualsFiltered, function(residual) {
-    return(alternativeLikelihoods[cut(residual, breaks = alternativeBreaks, labels = F)] / 
-             nullLikelihoods[cut(residual, breaks = nullBreaks, labels = F)])
+    return(alternativeLikelihoods[cut(residual, breaks = breaks, labels = F)] / 
+             nullLikelihoods[cut(residual, breaks = breaks, labels = F)])
   })
   
   message("Calculated likelihood ratios")
@@ -554,7 +551,7 @@ scaledResidualsToLlr.gaussianNaiveBayes <- function(
 
 # Define function for calculating the AUC
 calculate.auc <- function(actual, predictor) {
-  pr <- prediction(predictor, actual)
+  pr <- prediction(predictor, actual, label.ordering = levels(actual))
   
   auc <- performance(pr, measure = "auc")
   auc <- auc@y.values[[1]]
@@ -586,10 +583,11 @@ forceNormal <- function(x) {
 ##############################
 args <- parser$parse_args(commandArgs(trailingOnly = TRUE))
 # args <- parser$parse_args(c("--trait-gwas-mapping", "/groups/umcg-lld/tmp01/other-users/umcg-rwarmerdam/pgs_based_mixup_correction/scripts/r-scripts/pgs_based_sample_mix-up_correction/trait-gwas-mapping.txt",
+#                             "--sample-coupling-file", "/groups/umcg-lifelines/tmp01/projects/ugli_blood_gsa/pgs_based_mixup_correction/data/lifelines/processed/pgs.sample-coupling-file.ugli.perm_5120samples_26mixUps.txt",
 #                             "--base-pgs-path", "/groups/umcg-lifelines/tmp01/projects/ugli_blood_gsa/pgs_based_mixup_correction/output/PRScs/20200811/",
 #                             "--phenotypes-file", "/groups/umcg-lifelines/tmp01/projects/ugli_blood_gsa/pgs_based_mixup_correction/data/lifelines/processed/pgs.phenotypes.ugli.dat",
-#                             "--out", "/groups/umcg-lifelines/tmp01/projects/ugli_blood_gsa/pgs_based_mixup_correction/output/sample-swap-prediction/20200811/",
-#                             "--llr-bayes-method", "gaussian"))
+#                             "--out", "/groups/umcg-lifelines/tmp01/projects/ugli_blood_gsa/pgs_based_mixup_correction/output/sample-swap-prediction/20200811.test/",
+#                             "--llr-bayes-method", "efi-discretization", "30"))
 
 # Load table containing paths for the plink output 
 # and corresponding phenotype labels.
@@ -732,12 +730,6 @@ for (traitIndex in 1:nrow(traitDescriptionsTable)) {
   model.complete <- lm(VALUE ~ AGE + SEX + AGE * SEX, data = trait2pgs.corrected)
   trait2pgs.corrected$actual <- resid(model.complete)
   
-  # Scale both the actual and estimated traits
-  #trait2pgs.corrected$actual <- rank(trait2pgs.corrected$actual)/length(trait2pgs.corrected$actual)
-  #trait2pgs.corrected$PGS <- rank(trait2pgs.corrected$PGS)/length(trait2pgs.corrected$PGS)
-  #trait2pgs.corrected$actual <- scale(trait2pgs.corrected$actual)
-  #trait2pgs.corrected$PGS <- scale(trait2pgs.corrected$PGS)
-  
   # Output the correlation of the corrected traits
   corrected.cor.test.results <- cor.test(trait2pgs.corrected$actual, trait2pgs.corrected$PGS)
   message(paste0("R-squared of corrected traits = ", corrected.cor.test.results$estimate ^ 2))
@@ -749,6 +741,7 @@ for (traitIndex in 1:nrow(traitDescriptionsTable)) {
   pdf(file.path(out, trait, "/debugFigures.pdf"))
   par(xpd = NA)
   
+  # Calculate the scaled residuals for every combination
   scaledResidualsMatrix <- calculate.scaledResiduals(
     estimate = completeTable$PGS, 
     actual = completeTable$VALUE, 
@@ -757,9 +750,11 @@ for (traitIndex in 1:nrow(traitDescriptionsTable)) {
   
   dev.off()
   
+  # The rows correspond to phenotype samples, the cols to genotype samples (polygenic scores)
   rownames(scaledResidualsMatrix) <- completeTable$pheno
   colnames(scaledResidualsMatrix) <- completeTable$geno
   
+  # Write scaled residuals matrix
   write.table(scaledResidualsMatrix, file.path(out, trait, "/scaledResidualMatrix.tsv"), 
               sep = "\t", col.names = T, row.names = T, quote = F)
 
@@ -828,10 +823,6 @@ for (traitIndex in 1:nrow(traitDescriptionsTable)) {
   gc()
 }
 
-# zscore.sums$zscore.avg <- zscore.sums$zscore.sum / sqrt(length(zscore.list))
-# zscore.sums$zscore.avg <- zscore.sums$zscore.sum
-
-# Write these Z-scores for later.
 write.table(aggregatedLlrMatrix, file.path(out, "/aggregatedLogLikelihoodRatiosMatrix.tsv"),
             sep="\t", col.names = T, row.names = T, quote = F)
 
@@ -842,12 +833,26 @@ lrProducts <-
   as.data.frame.table(aggregatedLlrMatrix, responseName = "logLikelihoodRatios") %>%
   inner_join(link, by = c("Var1" = "pheno"))
 
+write.table(lrProducts, file.path(out, "/aggregatedLogLikelihoodRatiosDataFrame.tsv"),
+            sep="\t", col.names = T, row.names = F, quote = F)
+
 lrProducts$group <- "alternative"
 lrProducts$group[lrProducts$original == lrProducts$Var2] <- "null"
-lrProducts$group <- factor(lrProducts$group, c("alternative", "null"))
+lrProducts$group <- factor(lrProducts$group, levels = c("null", "alternative"))
+
+lrProducts <- lrProducts %>% 
+  group_by(Var1) %>%
+  mutate(scaledLlr = scale(logLikelihoodRatios))
 
 message(paste0("Calculated overall AUC: ", calculate.auc(
-  lrProducts$group, lrProducts$logLikelihoodRatios)))
+  lrProducts$group, lrProducts$scaledLlr)))
+
+permutationTestDataFrame <- lrProducts %>%
+  filter(geno == Var2)
+
+message(paste0("Confined AUC: ", calculate.auc(
+  permutationTestDataFrame$group, 
+  permutationTestDataFrame$scaledLlr)))
 
 ggplot(lrProducts, aes(x=logLikelihoodRatios, stat(density), fill=group)) +
   geom_histogram(bins = 32, alpha=.5, position="identity") +
@@ -865,44 +870,47 @@ numberOfTraits <-
 
 phenoSamples <- unique(lrProducts[lrProducts$geno != lrProducts$original, "Var1"])
 
-sampledLrProducts <- lrProducts %>% 
-  inner_join(numberOfTraits, by=c("Var1", "Var2")) %>%
-  mutate(colourGroup = case_when(
-    Var2 == geno ~ 1,
-    Var2 == original ~ 2,
-    TRUE ~ 3))
-
-cols = c("2" = "blue", "1" = "red", "3" = "black")
-
-ggplot(sampledLrProducts %>% filter(is.finite(logLikelihoodRatios)), 
-       aes(y = Var1)) +
-  
-  # Add ridge lines
-  geom_density_ridges(
-    aes(x = logLikelihoodRatios, 
-        point_alpha = as.numeric(colourGroup != 3),
-        point_color = colourGroup),
-    jittered_points = TRUE,
-    position = position_points_jitter(width = 0, height = 0),
-    point_shape = '|', point_size = 3, alpha = 0.7) +
-  scale_point_color_continuous(low = "#0072B2", high = "#D55E00") +
-  #scale_discrete_manual(values = cols, aesthetics = "point_color") +
-  #scale_discrete_manual("point_color", values = cols) +
-
-  # Add annotation with number of traits, and the number of filtered likelihood ratios
-  geom_text(
-    data=sampledLrProducts %>% group_by(Var1) %>%
-      summarise(numberOfTraits = median(numberOfTraits),
-                numberOfFiltered = sum(!is.finite(logLikelihoodRatios))),
-    position=position_nudge(y=0.64), colour="red", size=3.5,
-    hjust = "inward", x = 0,
-    aes(label = sprintf("n traits: %d, n filtered: %d", numberOfTraits, numberOfFiltered))) +
-
-  # Set theme
-  theme_minimal() +
-  theme(legend.position = "none")
-
-ggsave(file.path(out, "/ridges.png"), width=8, height=20)
+# phenoSamples <- sample(unique(lrProducts[lrProducts$geno == lrProducts$original, "Var1"]), size = 26)
+# 
+# sampledLrProducts <- lrProducts %>% 
+#   #inner_join(numberOfTraits, by=c("Var1", "Var2")) %>%
+#   mutate(colourGroup = case_when(
+#     Var2 == geno ~ 1,
+#     Var2 == original ~ 2,
+#     TRUE ~ 3)) %>%
+#   filter(Var1 %in% phenoSamples)
+# 
+# cols = c("2" = "blue", "1" = "red", "3" = "black")
+# 
+# ggplot(sampledLrProducts %>% filter(is.finite(logLikelihoodRatios)), 
+#        aes(y = Var1)) +
+#   
+#   # Add ridge lines
+#   geom_density_ridges(
+#     aes(x = logLikelihoodRatios, 
+#         point_alpha = as.numeric(colourGroup != 3),
+#         point_color = colourGroup),
+#     jittered_points = TRUE,
+#     position = position_points_jitter(width = 0, height = 0),
+#     point_shape = '|', point_size = 3, alpha = 0.7) +
+#   scale_point_color_continuous(low = "#0072B2", high = "#D55E00") +
+#   #scale_discrete_manual(values = cols, aesthetics = "point_color") +
+#   #scale_discrete_manual("point_color", values = cols) +
+# 
+#   # Add annotation with number of traits, and the number of filtered likelihood ratios
+#   # geom_text(
+#   #   data=sampledLrProducts %>% group_by(Var1) %>%
+#   #     summarise(numberOfTraits = median(numberOfTraits),
+#   #               numberOfFiltered = sum(!is.finite(logLikelihoodRatios))),
+#   #   position=position_nudge(y=0.64), colour="red", size=3.5,
+#   #   hjust = "inward", x = 0,
+#   #   aes(label = sprintf("n traits: %d, n filtered: %d", numberOfTraits, numberOfFiltered))) +
+# 
+#   # Set theme
+#   theme_minimal() +
+#   theme(legend.position = "none")
+# 
+# ggsave("~/pgs_based_mixup_correction-ugli/output/sample-swap-prediction/20200811.20201012.efi-discretization.30/ridges.png", width=8, height=20)
 
 # Pearson correlations
 # pearson.correlations <- pearson.correlations[order(pearson.correlations$pearson.corrected),]
@@ -941,3 +949,15 @@ ggsave(file.path(out, "/ridges.png"), width=8, height=20)
 #   theme(axis.text.x = element_text(angle = 90, hjust = 1))
 # 
 # ggsave(paste0(dirname(filename), "/residual_LikelihoodRatioCorrelations.png"), width=8, height=7)
+
+# sampleTraitsSummary <- sampledLrProducts %>% group_by(Var1) %>%
+#       summarise(numberOfTraits = median(numberOfTraits),
+#                 numberOfFiltered = sum(!is.finite(logLikelihoodRatios)))
+# 
+# lrProducts_Prev <- 
+#   as.data.frame.table(aggregatedLlrMatrix, responseName = "logLikelihoodRatios") %>%
+#   inner_join(link, by = c("Var1" = "pheno"))
+# 
+# lrProducts_Prev$group <- "alternative"
+# lrProducts_Prev$group[lrProducts_Prev$original == lrProducts_Prev$Var2] <- "null"
+# lrProducts_Prev$group <- factor(lrProducts_Prev$group, c("alternative", "null"))
