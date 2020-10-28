@@ -195,7 +195,7 @@ calculate.scaledResiduals <- function(estimate, actual, covariates, responseData
                  covariates = covariates))
   })
   
-  residualsMatrix <- (residualsMatrix - residuals.mean) / residuals.sd
+  #residualsMatrix <- (residualsMatrix - residuals.mean) / residuals.sd
   return(residualsMatrix)
 }
 
@@ -273,12 +273,12 @@ scaledResidualsFilteredToLlr.naiveBayes.evenWidthBins <- function(
 
   # Get the density / likelihood of the null residuals for each of the bins.
   nullLikelihoods <- sapply(
-    1:bBins,
+    1:nBins,
     function(bin) sum(nullTiles == bin) / length(nullTiles))
   
   # Get the density / likelihood of the alternative residuals for each of the bins.
   alternativeLikelihoods <- sapply(
-    1:bBins,
+    1:nBins,
     function(bin) sum(alternativeTiles == bin) / length(alternativeTiles))
   
   message("Alternative likelihoods calculated")
@@ -591,8 +591,9 @@ args <- parser$parse_args(commandArgs(trailingOnly = TRUE))
 
 # Load table containing paths for the plink output 
 # and corresponding phenotype labels.
+traitGwasMappingPath <- args$trait_gwas_mapping
 traitDescriptionsTable <- fread(
-  args$trait_gwas_mapping, 
+  traitGwasMappingPath, 
   quote="", header=T, sep = "\t",
   col.names=c("trait", "traitDataType", "summaryStatistics", 
               "sampleSizeOfGwas", "numberOfCategories"), 
@@ -674,7 +675,7 @@ for (traitIndex in 1:nrow(traitDescriptionsTable)) {
   phenotypeTable <- phenotypesTable %>%
     filter(TRAIT == trait) %>%
     rename(pheno = ID) %>%
-    inner_join(link[,c("pheno", "geno")], by="pheno")
+    inner_join(link, by="pheno")
   
   # Give status update
   message(paste0(traitIndex, " / ", nrow(traitDescriptionsTable), 
@@ -720,7 +721,7 @@ for (traitIndex in 1:nrow(traitDescriptionsTable)) {
   #                         SEX = factor(rep(c("Female", "Male"), 6), levels = c("Female", "Male")),
   #                         pheno = c("A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L"),
   #                         geno = c("a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k", "l"))
-  
+
   initial.cor.test.results <- cor.test(completeTable$VALUE, completeTable$PGS)
   message(paste0("Initial R-squared of correlation = ", initial.cor.test.results$estimate ^ 2))
   pearson.correlations[traitIndex, "pearson.not_corrected"] <- initial.cor.test.results$estimate
@@ -804,10 +805,10 @@ for (traitIndex in 1:nrow(traitDescriptionsTable)) {
   
   scaledResidualsDataFrame <- 
     as.data.frame.table(scaledResidualsMatrix, responseName = "scaledResiduals") %>%
-    inner_join(link[,c("pheno", "geno")], by = c("Var1" = "pheno"))
+    inner_join(link, by = c("Var1" = "pheno")) %>%
+    mutate(group = case_when(Var2 == geno ~ "null",
+                             TRUE ~ "alternative"))
   
-  scaledResidualsDataFrame$group <- "alternative"
-  scaledResidualsDataFrame$group[scaledResidualsDataFrame$geno == scaledResidualsDataFrame$Var2] <- "null"
   scaledResidualsDataFrame$group <- factor(scaledResidualsDataFrame$group, levels = c("null", "alternative"))
   
   rm(scaledResidualsMatrix)
@@ -815,9 +816,10 @@ for (traitIndex in 1:nrow(traitDescriptionsTable)) {
   
   ggplot(scaledResidualsDataFrame, aes(x=scaledResiduals, stat(density), fill=group)) +
     geom_histogram(bins = 72, alpha=.5, position="identity") +
-    xlab("Scaled residuals") + ggtitle(paste0("Scaled residuals for trait '", trait, "'"))
+    geom_rug(data = scaledResidualsDataFrame %>% filter(geno != original & group == "null"), aes(x=scaledResiduals), inherit.aes=F) +
+    xlab("Unscaled residuals") + ggtitle(paste0("Unscaled residuals for trait '", trait, "'"))
   
-  ggsave(file.path(out, trait, "/scaledResidualsHistogram.png"), width=8, height=7)
+  ggsave("unscaledResidualsHistogram.png", width=8, height=7)
   
   rm(logLikelihoodRatios)
   gc()
