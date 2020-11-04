@@ -33,6 +33,8 @@ parser$add_argument('--sample-coupling-file', required = FALSE,
 parser$add_argument('--llr-bayes-method', required = TRUE, nargs = "+",
                     help = paste0('the naive bayes method to use for calculating log likelihood ratios.',
                                   '<ewi-discretization | efi-discretization | gaussian> [(average) number of samples per bin]'))
+parser$add_argument('--ordinal-data-model', required = TRUE,
+                    help = paste0('the model to use for fitting ordinal data'))
 parser$add_argument('--out',
                     help='path to output directory')
 
@@ -166,10 +168,10 @@ devianceFromOrderedLogitModel <- function(estimate, actual, covariates, orderedL
 
 # Function that returns a function for calculating residuals.
 # The model determining residuals is dependent on the type of response data type.
-residualsFunConstructor <- function(estimate, actual, covariates, responseDataType = "continuous") {
+residualsFunConstructor <- function(estimate, actual, covariates, responseDataType = "continuous", useOrderedLogit = TRUE) {
   
   # Return a linear model in case 'actual', is a continuous data type.
-  if (responseDataType == "continuous") {
+  if (responseDataType == "continuous" | (responseDataType == "ordinal" & !useOrderedLogit)) {
     olsModel <- lm(actual ~ estimate + . + .^2, data = covariates)
     
     print("R-squared:")
@@ -207,7 +209,7 @@ residualsFunConstructor <- function(estimate, actual, covariates, responseDataTy
     
   # Return residuals function based on ordered logit in case 'actual' is an ordinal data type,
   # other than binary
-  } else if (responseDataType == "ordinal") {
+  } else if (responseDataType == "ordinal" & useOrderedLogit) {
     classes <- sort(unique(actual))
     actualOrdered <- factor(actual, levels = classes, ordered = TRUE)
     
@@ -234,14 +236,14 @@ residualsFunConstructor <- function(estimate, actual, covariates, responseDataTy
 
 # Define function for calculating scaled residuals.
 # Output is a matrix with rows representing actual values and columns representing expected values
-calculate.scaledResiduals <- function(estimate, actual, covariates, responseDataType = "continuous") {
+calculate.scaledResiduals <- function(estimate, actual, covariates, responseDataType = "continuous", useOrderedLogit = TRUE) {
   # Get a function that returns the deviance of an observation to the regression line.
   # This will either be the 'deviance residuals' from a logistic model when the response data type is binary,
   # or this will be the regular residuals corresponding to a linear model.
   residualsFun <- residualsFunConstructor(estimate = estimate,
                                           actual = actual,
                                           covariates = covariates,
-                                          responseDataType = responseDataType)
+                                          responseDataType = responseDataType, useOrderedLogit = useOrderedLogit)
 
   # extract residuals.
   residuals <- residualsFun(estimate = estimate, 
@@ -725,6 +727,10 @@ traitDescriptionsTable$polygenicScoreFilePath <- file.path(basePathWithPolygenic
 # Get the output path
 out <- args$out
 
+useOrderedLogit <- args$ordinal_data_model == "orderedLogit"
+message("use ordered logit?:")
+message(useOrderedLogit)
+
 # Set the number of bins to use for the Naive Bayes method.
 samplesPerNaiveBayesBin <- 25
 
@@ -794,7 +800,9 @@ for (traitIndex in 1:nrow(traitDescriptionsTable)) {
   trait <- traitDescriptionsTable$trait[traitIndex]
   responseDataType <- traitDescriptionsTable$traitDataType[traitIndex]
   
-  if (!dir.create(file.path(out, trait), recursive = T)) {
+  traitFileName <- paste(traitIndex, sub(" ", "_", trait), sep = ".")
+  
+  if (!dir.create(file.path(out, traitFileName), recursive = T)) {
     warning(paste0("Could not create directory '", file.path(out, trait), "'"))
   }
   
@@ -851,7 +859,7 @@ for (traitIndex in 1:nrow(traitDescriptionsTable)) {
   # Calculate z-score matrix based on polygenic scores and actual phenotypes,
   # using the chosen function for calculating residuals.
   
-  pdf(file.path(out, trait, "/debugFigures.pdf"))
+  pdf(file.path(out, traitFileName, "/debugFigures.pdf"))
   par(xpd = NA)
   
   # Calculate the scaled residuals for every combination
@@ -859,7 +867,8 @@ for (traitIndex in 1:nrow(traitDescriptionsTable)) {
     estimate = completeTable$PGS, 
     actual = completeTable$VALUE, 
     covariates = completeTable[c("AGE", "SEX")],
-    responseDataType = responseDataType)
+    responseDataType = responseDataType,
+    useOrderedLogit = useOrderedLogit)
   
   dev.off()
   
@@ -868,7 +877,7 @@ for (traitIndex in 1:nrow(traitDescriptionsTable)) {
   colnames(scaledResidualsMatrix) <- completeTable$geno
   
   # Write scaled residuals matrix
-  write.table(scaledResidualsMatrix, file.path(out, trait, "/scaledResidualMatrix.tsv"), 
+  write.table(scaledResidualsMatrix, file.path(out, traitFileName, "/scaledResidualMatrix.tsv"), 
               sep = "\t", col.names = T, row.names = T, quote = F)
 
   message("    completed calculating scaled residuals")
@@ -904,12 +913,10 @@ for (traitIndex in 1:nrow(traitDescriptionsTable)) {
   aggregatedNumberOfTraits[rownames(logLikelihoodRatios), colnames(logLikelihoodRatios)] <- 
     aggregatedNumberOfTraits[rownames(logLikelihoodRatios), colnames(logLikelihoodRatios)] + !llrIsNan
   
-  write.table(logLikelihoodRatios, file.path(out, trait, "/logLikelihoodRatios.tsv"), 
+  write.table(logLikelihoodRatios, file.path(out, traitFileName, "/logLikelihoodRatios.tsv"), 
               sep = "\t", col.names = T, row.names = T, quote = F)
 
   message("    completed calculating log likelihood ratios.")
-  message(paste0("Calculated AUC: ", calculate.auc(
-    logLikelihoodRatios$group, lrProducts$scaledLlr)))
   message("    summing log likelihood ratios with aggregated log likelihood ratios...")
   
   aggregatedLlrMatrix[rownames(logLikelihoodRatios), colnames(logLikelihoodRatios)] <- 
@@ -928,7 +935,7 @@ for (traitIndex in 1:nrow(traitDescriptionsTable)) {
   rm(scaledResidualsMatrix)
   gc()
   
-  pdf(file.path(out, trait, "unscaledResidualsHistogram.pdf"),
+  pdf(file.path(out, traitFileName, "unscaledResidualsHistogram.pdf"),
       width=8, height = 6, useDingbats = FALSE)
 
   par(xpd = NA)
@@ -954,6 +961,12 @@ write.table(aggregatedLlrMatrix, file.path(out, "/aggregatedLogLikelihoodRatiosM
 write.table(aggregatedNumberOfTraits, file.path(out, "/aggregatedNumberOfTraitsMatrix.tsv"),
             sep="\t", col.names = T, row.names = T, quote = F)
 
+print(dim(aggregatedLlrMatrix))
+
+aggregatedLlrMatrix <- aggregatedLlrMatrix[aggregatedNumberOfTraits[1,] > 0, aggregatedNumberOfTraits[,1] > 0]
+
+print(dim(aggregatedLlrMatrix))
+
 lrProducts <- 
   as.data.frame.table(aggregatedLlrMatrix, responseName = "logLikelihoodRatios") %>%
   inner_join(link, by = c("Var1" = "pheno"))
@@ -965,9 +978,9 @@ lrProducts$group <- "alternative"
 lrProducts$group[lrProducts$original == lrProducts$Var2] <- "null"
 lrProducts$group <- factor(lrProducts$group, levels = c("null", "alternative"))
 
-lrProducts <- lrProducts %>% 
-  group_by(Var1) %>%
-  mutate(scaledLlr = scale(logLikelihoodRatios))
+# lrProducts <- lrProducts %>% 
+#   group_by(Var1) %>%
+#   mutate(scaledLlr = scale(logLikelihoodRatios))
 
 message(paste0("Calculated overall AUC: ", calculate.auc(
   lrProducts$group, lrProducts$scaledLlr)))
