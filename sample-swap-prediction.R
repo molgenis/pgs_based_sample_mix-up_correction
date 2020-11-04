@@ -500,18 +500,18 @@ scaledResidualsFilteredToLlr.gaussianNaiveBayes <- function(scaledResiduals,
                                                             error = 0.01) {
   
   # Force the residuals into a normal distribution
-  scaledResiduals[lower.tri(scaledResiduals, diag = TRUE) 
-                  & upper.tri(scaledResiduals, diag = TRUE)
-                  & samplesToFitInGaussian] <- forceNormal(
-                    scaledResiduals[lower.tri(scaledResiduals, diag = TRUE) 
-                                    & upper.tri(scaledResiduals, diag = TRUE)
-                                    & samplesToFitInGaussian])
+  #scaledResiduals[lower.tri(scaledResiduals, diag = TRUE) 
+  #                & upper.tri(scaledResiduals, diag = TRUE)
+  #                & samplesToFitInGaussian] <- forceNormal(
+  #                  scaledResiduals[lower.tri(scaledResiduals, diag = TRUE) 
+  #                                  & upper.tri(scaledResiduals, diag = TRUE)
+  #                                  & samplesToFitInGaussian])
   
   # Force the residuals into a normal normal distribution
-  scaledResiduals[(lower.tri(scaledResiduals) | upper.tri(scaledResiduals)) 
-                  & samplesToFitInGaussian] <- forceNormal(
-                    scaledResiduals[(lower.tri(scaledResiduals) | upper.tri(scaledResiduals)) 
-                                    & samplesToFitInGaussian])
+  #scaledResiduals[(lower.tri(scaledResiduals) | upper.tri(scaledResiduals)) 
+  #                & samplesToFitInGaussian] <- forceNormal(
+  #                  scaledResiduals[(lower.tri(scaledResiduals) | upper.tri(scaledResiduals)) 
+  #                                  & samplesToFitInGaussian])
   
   # Extract the null-residuals; 
   # the residuals belonging to the matches that are assumed to be correct.
@@ -710,6 +710,8 @@ traitDescriptionsTable <- fread(
   col.names=c("trait", "traitDataType", "summaryStatistics", 
               "sampleSizeOfGwas", "numberOfCategories"), 
   stringsAsFactors=F)
+
+traitDescriptionTable <- traitDescriptionTable[traitDescriptionTable$trait == "Blondeness of hair",]
 
 message(strwrap(prefix = " ", initial = "", paste(
   "Loading polygenic scores from:\n", args$trait_gwas_mapping)))
