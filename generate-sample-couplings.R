@@ -1,7 +1,7 @@
 #!/usr/bin/env Rscript
 
 #############################################################
-## c.a.warmerdam@umcg.nl - April 2020
+## c.a.warmerdam@umcg.nl - September 2020
 ## Generates sample coupling file.
 #############################################################
 
@@ -126,12 +126,12 @@ if (!is.null(phenotypesFilePath)) {
     filter(!any(AGE < 18)) %>%
     ungroup()
   
-  link <- data.frame(geno = unique(phenotypesTable$ID), pheno = unique(phenotypesTable$ID))
+    link <- data.frame(geno = unique(phenotypesTable$ID), pheno = unique(phenotypesTable$ID))
 }
 
 if (numberOfSamples & numberOfSamples < nrow(link)) {
   link <- link %>%
-    slice_sample(n = numberOfSamples, order_by = geno)
+    slice_sample(n = numberOfSamples)
 }
 
 if (mixUpPercentage & mixUpPercentage > 0 & mixUpPercentage <= 10) {

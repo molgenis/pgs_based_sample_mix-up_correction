@@ -10,6 +10,7 @@
 ##############################
 # Load libraries
 ##############################
+library(MASS)
 library(tidyverse)
 library(argparse)
 library(data.table)
@@ -101,42 +102,80 @@ devianceFromOlsRegressionLine <- function(estimate, actual, covariates, olsModel
   return(unname(deviance))
 }
 
-# Function that takes (a set of) estimates, actual values, confounders, 
+# Function that takes (a set of) estimates, actual values, covariates, 
 # and a logistic regression model.
 
 # The function predicts actual values from the independent variables 
-# (estimates and confounders) using the given model, 
+# (estimates and covariates) using the given model, 
 # and returns the deviance of these predicted values
 # to the actual values.
 devianceFromLogitRegressionLine <- function(estimate, actual, covariates, logitModel) {
-  # Predict actual values using the given model and the supplied independent variables
+  # Predict actual values using the given model and the supplied independent variables.
   predictedActual <- predict(logitModel, 
                              cbind(estimate, covariates), 
                              type = "response")
   
   # Calculate the distance between the actual values and the predicted actual values.
-  distanceBetweenSigmoidAndActual <- actual - predictedActual
+  distanceBetweenPredictedAndActual <- actual - predictedActual
   
   # Calculate the deviance residuals from the distance between the actual values and
   # the predicted actual values.
-  deviance <- sqrt(2 * -log(1 - abs(distanceBetweenSigmoidAndActual)))
-  deviance <- sign(distanceBetweenSigmoidAndActual) * deviance
+  deviance <- sqrt(2 * -log(1 - abs(distanceBetweenPredictedAndActual)))
+  deviance <- sign(distanceBetweenPredictedAndActual) * deviance
   
   return(unname(deviance))
 }
 
+# Function that takes (a set of) estimates, actual values, covariates, 
+# and an ordered logistic regression model.
+
+# The function predicts actual values from the independent variables 
+# (estimates and covariates) using the given model, 
+# and returns the deviance of these predicted values
+# to the actual values.
+devianceFromOrderedLogitModel <- function(estimate, actual, covariates, orderedLogitModel) {
+  # Predict actual values using the given model and the supplied independent variables.
+  predictedProbabilities <- predict(orderedLogitModel, 
+                                    cbind(estimate, covariates), 
+                                    type = "probs")
+
+  # Determine the predicted probability for the actual class
+  predictedProbabilityForActualClass <- predictedProbabilities[
+    cbind(seq_len(length(actual)), actual)]
+  
+  # Set the probabilities for the actual class to 0
+  predictedProbabilities[
+    cbind(seq_len(length(actual)), actual)] <- 0
+  
+  # Get the column for which the probability is largest,
+  # excluding the column corresponding to the actual class
+  competingProbability <- max.col(predictedProbabilities, "first")
+  # Get the corresponding classes as an ordered factor
+  competingClass <- factor(levels(actual)[competingProbability], 
+                           levels = levels(actual), ordered = T)
+
+  # Calculate the deviance residuals from the probability for the actual class
+  deviance <- sqrt(2 * -log(predictedProbabilityForActualClass))
+  # Add direction:
+  # When the probabilities gravitate towards > actual class: negative direction
+  # When the probabilities gravitate towards < actual class: positive direction
+  deviance <- ((actual > competingClass) - (competingClass > actual)) * deviance
+  
+  return(deviance)
+}
+
 # Function that returns a function for calculating residuals.
-# The model determining residuals is dependant on the type of response data type.
+# The model determining residuals is dependent on the type of response data type.
 residualsFunConstructor <- function(estimate, actual, covariates, responseDataType = "continuous") {
   
   # Return a linear model in case 'actual', is a continuous data type.
-  if (responseDataType == "continuous" | responseDataType == "ordinal") {
+  if (responseDataType == "continuous") {
     olsModel <- lm(actual ~ estimate + . + .^2, data = covariates)
     
     print("R-squared:")
     print(summary(olsModel))
     
-    # Define residualsFun to use the linear regression model.
+    # Define residuals function based on the linear regression model.
     residualsFun <- function(estimate, actual, covariates) {
       return(devianceFromOlsRegressionLine(estimate = estimate, 
                                            actual = actual, 
@@ -148,18 +187,44 @@ residualsFunConstructor <- function(estimate, actual, covariates, responseDataTy
     
   # Return a logistic model in case 'actual', is a binary data type.
   } else if (responseDataType == "binary") {
-    logitModel <- glm(actual ~ estimate + . + .^2, family=binomial(link='logit'), data = covariates)
+    logitModel <- glm(actual ~ estimate + . + .^2, 
+                      family = binomial(link='logit'),
+                      data = covariates)
     
     print(summary(logitModel))
     
     plotSigmoid(estimate = estimate, actual = actual, covariates = covariates, logitModel = logitModel)
     
-    # Define residualsFun to use the logistic regression model.
+    # Define residuals function using the logistic regression model.
     residualsFun <- function(estimate, actual, covariates) {
       return(devianceFromLogitRegressionLine(estimate = estimate, 
                                              actual = actual, 
                                              covariates = covariates, 
                                              logitModel = logitModel))
+    }
+    
+    return(residualsFun)
+    
+  # Return residuals function based on ordered logit in case 'actual' is an ordinal data type,
+  # other than binary
+  } else if (responseDataType == "ordinal") {
+    classes <- sort(unique(actual))
+    actualOrdered <- factor(actual, levels = classes, ordered = TRUE)
+    
+    orderedLogitModel <- polr(actualOrdered ~ estimate + . + .^2, 
+                              method = "logistic", 
+                              data = covariates)
+    
+    print(summary(orderedLogitModel))
+    
+    # Define residuals function using the ordered logistic regression model.
+    residualsFun <- function(estimate, actual, covariates) {
+      actualOrdered <- factor(actual, levels = classes, ordered = TRUE)
+      
+      return(devianceFromOrderedLogitModel(estimate = estimate,
+                                           actual = actualOrdered,
+                                           covariates = covariates,
+                                           orderedLogitModel = orderedLogitModel))
     }
     
     return(residualsFun)
@@ -231,7 +296,7 @@ scaledResidualsFilteredToLlr.naiveBayes.evenWidthBins <- function(
   scaledResiduals, samplesToFitInGaussian = T, 
   averageSamplesPerBin = 25, minFrequencyInTails = 10) {
   
-  # Extract the null-residuals; 
+  # Extract the null-residuals;
   # the residuals belonging to the matches that are assumed to be correct.
   nullResiduals <- scaledResiduals[lower.tri(scaledResiduals, diag = TRUE) 
                                    & upper.tri(scaledResiduals, diag = TRUE)
@@ -365,18 +430,6 @@ scaledResidualsToLlr.naiveBayes <- function(scaledResiduals, samplesPerBin = 25)
   returnColumnNames <- colnames(scaledResiduals)
   returnRowNames <- rownames(scaledResiduals)
   
-  # nullDensity <- density(
-  #   nullResiduals, 
-  #   bw = "SJ",
-  #   from = 0, to = max(scaledResiduals))
-  # alternativeDensity <- density(
-  #   alternativeResiduals, 
-  #   bw = "SJ",
-  #   from = 0, to = max(scaledResiduals))
-  # 
-  # plot(nullDensity)
-  # lines(alternativeDensity)
-  
   # Calculate the number of bins given the number of null samples per bin and
   # the total number of null residuals
   nBins <- as.integer(length(nullResiduals) / samplesPerBin)
@@ -445,6 +498,20 @@ scaledResidualsToLlr.naiveBayes <- function(scaledResiduals, samplesPerBin = 25)
 scaledResidualsFilteredToLlr.gaussianNaiveBayes <- function(scaledResiduals, 
                                                             samplesToFitInGaussian = T,
                                                             error = 0.01) {
+  
+  # Force the residuals into a normal distribution
+  scaledResiduals[lower.tri(scaledResiduals, diag = TRUE) 
+                  & upper.tri(scaledResiduals, diag = TRUE)
+                  & samplesToFitInGaussian] <- forceNormal(
+                    scaledResiduals[lower.tri(scaledResiduals, diag = TRUE) 
+                                    & upper.tri(scaledResiduals, diag = TRUE)
+                                    & samplesToFitInGaussian])
+  
+  # Force the residuals into a normal normal distribution
+  scaledResiduals[(lower.tri(scaledResiduals) | upper.tri(scaledResiduals)) 
+                  & samplesToFitInGaussian] <- forceNormal(
+                    scaledResiduals[(lower.tri(scaledResiduals) | upper.tri(scaledResiduals)) 
+                                    & samplesToFitInGaussian])
   
   # Extract the null-residuals; 
   # the residuals belonging to the matches that are assumed to be correct.
@@ -578,6 +645,48 @@ forceNormal <- function(x) {
 #   return(resid(model.2))
 # }
 
+
+plotResiduals <- function(residualsDataFrame, phenotypeTable, responseDataType) {
+  
+  # Check whether or not the response data type is continuous or categorical
+  if (responseDataType == "continuous") {
+    
+    # Perform Gaussian naive Bayes on the entire matrix if data is continuous,
+    # and we thus assume the response data to be normally distributed.
+    print(ggplot(residualsDataFrame, aes(x=residuals, stat(density), fill=group)) +
+            geom_histogram(bins = 36, alpha=.5, position="identity") +
+            geom_rug(data = residualsDataFrame %>% filter(geno != original & group == "null"), 
+                     aes(x=residuals), inherit.aes=F) +
+            xlab("Unscaled residuals") + ggtitle(paste0("Unscaled residuals for trait '", trait, "'")))
+    
+  } else if (responseDataType == "binary" | responseDataType == "ordinal") {
+    
+    # For every category, fit separate Gaussian curves if the response data type is either
+    # set as binary or ordinal
+    
+    # Loop through every category, 
+    for (categoryValue in unique(phenotypeTable$VALUE)) {
+      
+      # Get a logical vector indicating which rows of the scaled residuals matrix corresponds
+      # to the current category value.
+      samplesToPlot <- phenotypeTable %>%
+        filter(VALUE == categoryValue) %>%
+        pull(pheno)
+      
+      residualsToPlot <- residualsDataFrame %>%
+        filter(Var1 %in% samplesToPlot)
+      
+      # Perform a Gaussian naive Bayes method on the rows corresponding 
+      # to the current category value.
+      print(ggplot(residualsToPlot, aes(x=residuals, stat(density), fill=group)) +
+              geom_histogram(bins = 36, alpha=.5, position="identity") +
+              geom_rug(data = residualsToPlot %>% filter(geno != original & group == "null"), 
+                       aes(x=residuals), inherit.aes=F) +
+              xlab("Unscaled residuals") + ggtitle(paste0("Unscaled residuals for trait '", trait, "'")))
+    }
+  }
+}
+
 ##############################
 # Run
 ##############################
@@ -589,6 +698,9 @@ args <- parser$parse_args(commandArgs(trailingOnly = TRUE))
 #                             "--out", "/groups/umcg-lifelines/tmp01/projects/ugli_blood_gsa/pgs_based_mixup_correction/output/sample-swap-prediction/20200811.test/",
 #                             "--llr-bayes-method", "efi-discretization", "30"))
 
+message(strwrap(prefix = " ", initial = "", paste(
+  "Loading trait-gwas-mapping:\n", args$trait_gwas_mapping)))
+
 # Load table containing paths for the plink output 
 # and corresponding phenotype labels.
 traitGwasMappingPath <- args$trait_gwas_mapping
@@ -598,6 +710,9 @@ traitDescriptionsTable <- fread(
   col.names=c("trait", "traitDataType", "summaryStatistics", 
               "sampleSizeOfGwas", "numberOfCategories"), 
   stringsAsFactors=F)
+
+message(strwrap(prefix = " ", initial = "", paste(
+  "Loading polygenic scores from:\n", args$trait_gwas_mapping)))
 
 # Get the paths to the polygenic scores.
 basePathWithPolygenicScores <- args$base_pgs_path
@@ -622,6 +737,9 @@ if ((naiveBayesMethod == "ewi-discretization" | naiveBayesMethod == "efi-discret
   samplesPerNaiveBayesBin <- as.numeric(args$llr_bayes_method[2])
 }
 
+message(strwrap(prefix = " ", initial = "", paste(
+  "Loading phenotype table:\n", args$phenotypes_file)))
+
 # Load the phenotypes 
 phenotypesFilePath <- args$phenotypes_file
 phenotypesTable <- fread(phenotypesFilePath, header=T, quote="", sep="\t",
@@ -635,9 +753,15 @@ link <- data.frame(geno = unique(phenotypesTable$ID), pheno = unique(phenotypesT
 
 # Get the link path
 if (!is.null(args$sample_coupling_file)) {
+  message(strwrap(prefix = " ", initial = "", paste(
+    "Loading sample coupling table:\n", args$sample_coupling_file)))
+  
   sampleCouplingFilePath <- args$sample_coupling_file
   link <- fread(sampleCouplingFilePath, stringsAsFactors=F, header=T) %>%
     filter(pheno %in% unique(phenotypesTable$ID))
+} else {
+  message(strwrap(prefix = " ", initial = "", 
+                  "Not using special sample coupling table"))
 }
 
 if (FALSE) {
@@ -708,20 +832,6 @@ for (traitIndex in 1:nrow(traitDescriptionsTable)) {
   completeTable <- phenotypeTable %>%
     inner_join(polygenicScores, by = c("geno" = "IID"))
   
-  # completeTable <- tibble(VALUE = c(0, 0, 0, 0, 1, 0, 1, 0, 1, 1, 1, 1),
-  #                             PGS = c(-0.48, -0.40, -0.36, -0.20, -0.06, 0.16, 0.32, 0.56, 0.80, 0.90, 0.96, 1.12),
-  #                             AGE = c(19, 34, 56, 72, 32, 67, 23, 45, 36, 32, 71, 19),
-  #                             SEX = factor(rep(c("Female", "Male"), 6), levels = c("Female", "Male")),
-  #                             pheno = c("A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L"),
-  #                             geno = c("a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k", "l"))
-  
-  # completeTable <- tibble(VALUE = c(0.1, 0.2, 0.3, 0.4, 0.6, 0.5, 0.8, 0.7, 0.9, 1, 1.1, 0.72),
-  #                         PGS = c(-0.48, -0.40, -0.36, -0.20, -0.06, 0.16, 0.32, 0.56, 0.80, 0.90, 0.96, 1.12),
-  #                         AGE = c(19, 34, 56, 72, 32, 67, 23, 45, 36, 32, 71, 19),
-  #                         SEX = factor(rep(c("Female", "Male"), 6), levels = c("Female", "Male")),
-  #                         pheno = c("A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L"),
-  #                         geno = c("a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k", "l"))
-
   initial.cor.test.results <- cor.test(completeTable$VALUE, completeTable$PGS)
   message(paste0("Initial R-squared of correlation = ", initial.cor.test.results$estimate ^ 2))
   pearson.correlations[traitIndex, "pearson.not_corrected"] <- initial.cor.test.results$estimate
@@ -796,6 +906,8 @@ for (traitIndex in 1:nrow(traitDescriptionsTable)) {
               sep = "\t", col.names = T, row.names = T, quote = F)
 
   message("    completed calculating log likelihood ratios.")
+  message(paste0("Calculated AUC: ", calculate.auc(
+    logLikelihoodRatios$group, lrProducts$scaledLlr)))
   message("    summing log likelihood ratios with aggregated log likelihood ratios...")
   
   aggregatedLlrMatrix[rownames(logLikelihoodRatios), colnames(logLikelihoodRatios)] <- 
@@ -814,12 +926,21 @@ for (traitIndex in 1:nrow(traitDescriptionsTable)) {
   rm(scaledResidualsMatrix)
   gc()
   
-  ggplot(scaledResidualsDataFrame, aes(x=scaledResiduals, stat(density), fill=group)) +
-    geom_histogram(bins = 72, alpha=.5, position="identity") +
-    geom_rug(data = scaledResidualsDataFrame %>% filter(geno != original & group == "null"), aes(x=scaledResiduals), inherit.aes=F) +
-    xlab("Unscaled residuals") + ggtitle(paste0("Unscaled residuals for trait '", trait, "'"))
+  pdf(file.path(out, trait, "unscaledResidualsHistogram.pdf"),
+      width=8, height = 6, useDingbats = FALSE)
+
+  par(xpd = NA)
+
+  plotResiduals(scaledResidualsDataFrame, phenotypeTable, responseDataType)
+
+  dev.off()
   
-  ggsave("unscaledResidualsHistogram.png", width=8, height=7)
+  # ggplot(scaledResidualsDataFrame, aes(x=scaledResiduals, stat(density), fill=group)) +
+  #   geom_histogram(bins = 72, alpha=.5, position="identity") +
+  #   geom_rug(data = scaledResidualsDataFrame %>% filter(geno != original & group == "null"), aes(x=scaledResiduals), inherit.aes=F) +
+  #   xlab("Unscaled residuals") + ggtitle(paste0("Unscaled residuals for trait '", trait, "'"))
+  
+  # ggsave("unscaledResidualsHistogram.png", width=8, height=7)
   
   rm(logLikelihoodRatios)
   gc()
