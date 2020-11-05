@@ -713,7 +713,7 @@ traitDescriptionsTable <- fread(
               "sampleSizeOfGwas", "numberOfCategories"), 
   stringsAsFactors=F)
 
-traitDescriptionTable <- traitDescriptionTable[traitDescriptionTable$trait == "Blondeness of hair",]
+traitDescriptionsTable <- traitDescriptionsTable[traitDescriptionsTable$trait == "Blondeness of hair",]
 
 message(strwrap(prefix = " ", initial = "", paste(
   "Loading polygenic scores from:\n", args$trait_gwas_mapping)))
