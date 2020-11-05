@@ -214,7 +214,7 @@ residualsFunConstructor <- function(estimate, actual, covariates, responseDataTy
     actualOrdered <- factor(actual, levels = classes, ordered = TRUE)
     
     orderedLogitModel <- polr(actualOrdered ~ estimate + . + .^2, 
-                              method = "logistic", 
+                              method = "logistic", Hess = TRUE,
                               data = covariates)
     
     print(summary(orderedLogitModel))
@@ -232,7 +232,6 @@ residualsFunConstructor <- function(estimate, actual, covariates, responseDataTy
     return(residualsFun)
   }
 }
-
 
 # Define function for calculating scaled residuals.
 # Output is a matrix with rows representing actual values and columns representing expected values
