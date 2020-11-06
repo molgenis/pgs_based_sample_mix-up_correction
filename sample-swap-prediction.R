@@ -654,10 +654,10 @@ plotResiduals <- function(residualsDataFrame, phenotypeTable, responseDataType) 
     
     # Perform Gaussian naive Bayes on the entire matrix if data is continuous,
     # and we thus assume the response data to be normally distributed.
-    print(ggplot(residualsDataFrame, aes(x=residuals, stat(density), fill=group)) +
+    print(ggplot(residualsDataFrame, aes(x=scaledResiduals, stat(density), fill=group)) +
             geom_histogram(bins = 36, alpha=.5, position="identity") +
             geom_rug(data = residualsDataFrame %>% filter(geno != original & group == "null"), 
-                     aes(x=residuals), inherit.aes=F) +
+                     aes(x=scaledResiduals), inherit.aes=F) +
             xlab("Unscaled residuals") + ggtitle(paste0("Unscaled residuals for trait '", trait, "'")))
     
   } else if (responseDataType == "binary" | responseDataType == "ordinal") {
@@ -679,10 +679,10 @@ plotResiduals <- function(residualsDataFrame, phenotypeTable, responseDataType) 
       
       # Perform a Gaussian naive Bayes method on the rows corresponding 
       # to the current category value.
-      print(ggplot(residualsToPlot, aes(x=residuals, stat(density), fill=group)) +
+      print(ggplot(residualsToPlot, aes(x=scaledResiduals, stat(density), fill=group)) +
               geom_histogram(bins = 36, alpha=.5, position="identity") +
               geom_rug(data = residualsToPlot %>% filter(geno != original & group == "null"), 
-                       aes(x=residuals), inherit.aes=F) +
+                       aes(x=scaledResiduals), inherit.aes=F) +
               xlab("Unscaled residuals") + ggtitle(paste0("Unscaled residuals for trait '", trait, "'")))
     }
   }
@@ -905,23 +905,38 @@ for (traitIndex in 1:nrow(traitDescriptionsTable)) {
     
   }
   
-  # Resolve log likelihood ratios that are NaN (not a number)
-  llrIsNan <- is.nan(logLikelihoodRatios)
-  logLikelihoodRatios[llrIsNan] <- 0
-  
-  aggregatedNumberOfTraits[rownames(logLikelihoodRatios), colnames(logLikelihoodRatios)] <- 
-    aggregatedNumberOfTraits[rownames(logLikelihoodRatios), colnames(logLikelihoodRatios)] + !llrIsNan
-  
   write.table(logLikelihoodRatios, file.path(out, traitFileName, "/logLikelihoodRatios.tsv"), 
               sep = "\t", col.names = T, row.names = T, quote = F)
-
-  message("    completed calculating log likelihood ratios.")
-  message("    summing log likelihood ratios with aggregated log likelihood ratios...")
   
-  aggregatedLlrMatrix[rownames(logLikelihoodRatios), colnames(logLikelihoodRatios)] <- 
-    aggregatedLlrMatrix[rownames(logLikelihoodRatios), colnames(logLikelihoodRatios)] + logLikelihoodRatios
+  likelihoodRatioDifferenceTest <- t.test(
+    diag(logLikelihoodRatios), 
+    logLikelihoodRatios[lower.tri(logLikelihoodRatios) | upper.tri(logLikelihoodRatios)],
+    alternative = "less")
   
-  message("    aggregation done!")
+  print(likelihoodRatioDifferenceTest)
+  
+  if (likelihoodRatioDifferenceTest$p.value < likelihoodRatioDifferenceAlpha) {
+    
+    # Resolve log likelihood ratios that are NaN (not a number)
+    llrIsNan <- is.nan(logLikelihoodRatios)
+    logLikelihoodRatios[llrIsNan] <- 0
+    
+    # Aggregate number of traits
+    aggregatedNumberOfTraits[rownames(logLikelihoodRatios), colnames(logLikelihoodRatios)] <- 
+      aggregatedNumberOfTraits[rownames(logLikelihoodRatios), colnames(logLikelihoodRatios)] + !llrIsNan
+    
+    message("    completed calculating log likelihood ratios.")
+    message("    summing log likelihood ratios with aggregated log likelihood ratios...")
+    
+    # Aggregate log likelihood ratios
+    aggregatedLlrMatrix[rownames(logLikelihoodRatios), colnames(logLikelihoodRatios)] <- 
+      aggregatedLlrMatrix[rownames(logLikelihoodRatios), colnames(logLikelihoodRatios)] + logLikelihoodRatios
+    
+    message("    aggregation done!")
+  }
+  
+  rm(logLikelihoodRatios)
+  gc()
   
   scaledResidualsDataFrame <- 
     as.data.frame.table(scaledResidualsMatrix, responseName = "scaledResiduals") %>%
@@ -949,9 +964,6 @@ for (traitIndex in 1:nrow(traitDescriptionsTable)) {
   #   xlab("Unscaled residuals") + ggtitle(paste0("Unscaled residuals for trait '", trait, "'"))
   
   # ggsave("unscaledResidualsHistogram.png", width=8, height=7)
-  
-  rm(logLikelihoodRatios)
-  gc()
 }
 
 write.table(aggregatedLlrMatrix, file.path(out, "/aggregatedLogLikelihoodRatiosMatrix.tsv"),

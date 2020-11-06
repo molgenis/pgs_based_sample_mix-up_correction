@@ -90,6 +90,13 @@ for (traitIndex in 1:nrow(traitDescriptionsTable)) {
   llrMatrix <- fread(llrMatrixPath) %>% 
     as.matrix(rownames = 1)
   
+  likelihoodRatioDifferenceTest <- t.test(
+    diag(llrMatrix), 
+    llrMatrix[lower.tri(llrMatrix) | upper.tri(llrMatrix)],
+    alternative = "less")
+  
+  print(likelihoodRatioDifferenceTest)
+  
   llrDataFrame <- 
     as.data.frame.table(llrMatrix, responseName = "logLikelihoodRatios") %>%
     inner_join(link, by = c("Var1" = "pheno")) %>%
