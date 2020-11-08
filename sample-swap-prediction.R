@@ -733,6 +733,9 @@ message(useOrderedLogit)
 # Set the number of bins to use for the Naive Bayes method.
 samplesPerNaiveBayesBin <- 25
 
+# Set the likelihood alpha
+likelihoodRatioDifferenceAlpha <- 0.05
+
 # naive bayes method
 naiveBayesMethod <- args$llr_bayes_method[1]
 stopifnot("method must be one of the following: <ewi-discretization | efi-discretization | gaussian>" = 
@@ -915,7 +918,7 @@ for (traitIndex in 1:nrow(traitDescriptionsTable)) {
   
   print(likelihoodRatioDifferenceTest)
   
-  if (likelihoodRatioDifferenceTest$p.value < likelihoodRatioDifferenceAlpha) {
+  if (likelihoodRatioDifferenceTest$p.value <= likelihoodRatioDifferenceAlpha) {
     
     # Resolve log likelihood ratios that are NaN (not a number)
     llrIsNan <- is.nan(logLikelihoodRatios)
