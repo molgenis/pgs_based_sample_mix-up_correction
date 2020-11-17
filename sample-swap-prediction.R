@@ -739,7 +739,7 @@ plotResiduals <- function(residualsDataFrame, phenotypeTable, responseDataType) 
               geom_histogram(bins = 36, alpha=.5, position="identity") +
               geom_rug(data = residualsToPlot %>% filter(geno != original & group == "null"), 
                        aes(x=scaledResiduals), inherit.aes=F) +
-              xlab("Unscaled residuals") + ggtitle(paste0("Unscaled residuals for trait '", trait, "'")))
+              xlab("Unscaled residuals") + ggtitle(paste0("Unscaled residuals for trait '", trait, "'", "(cat: ", categoryValue, ")")))
     }
   }
 }
@@ -978,9 +978,9 @@ for (traitIndex in 1:nrow(traitDescriptionsTable)) {
     
   } else if (naiveBayesMethod == "efi-discretization") {
     
-    logLikelihoodRatios <- scaledResidualsToLlr.naiveBayes(
-      scaledResiduals = scaledResidualsMatrix,
-      samplesPerBin = samplesPerNaiveBayesBin)
+    logLikelihoodRatios <- scaledResidualsToLlr.naiveBayes.equalFrequencyBins(
+      scaledResiduals = scaledResidualsMatrix, actual = completeTable$VALUE,
+      responseDataType = responseDataType, samplesPerBin = samplesPerNaiveBayesBin)
     
   }
   
