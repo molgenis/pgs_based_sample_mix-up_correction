@@ -146,22 +146,22 @@ devianceFromOrderedLogitModel <- function(estimate, actual, covariates, orderedL
     cbind(seq_len(length(actual)), actual)]
   
   # Set the probabilities for the actual class to 0
-  predictedProbabilities[
-    cbind(seq_len(length(actual)), actual)] <- 0
+  # predictedProbabilities[
+  #   cbind(seq_len(length(actual)), actual)] <- 0
   
   # Get the column for which the probability is largest,
   # excluding the column corresponding to the actual class
-  competingProbability <- max.col(predictedProbabilities, "first")
+  # competingProbability <- max.col(predictedProbabilities, "first")
   # Get the corresponding classes as an ordered factor
-  competingClass <- factor(levels(actual)[competingProbability], 
-                           levels = levels(actual), ordered = T)
+  # competingClass <- factor(levels(actual)[competingProbability], 
+  #                          levels = levels(actual), ordered = T)
 
   # Calculate the deviance residuals from the probability for the actual class
   deviance <- sqrt(2 * -log(predictedProbabilityForActualClass))
   # Add direction:
   # When the probabilities gravitate towards > actual class: negative direction
   # When the probabilities gravitate towards < actual class: positive direction
-  deviance <- ((actual > competingClass) - (competingClass > actual)) * deviance
+  # deviance <- ((actual > competingClass) - (competingClass > actual)) * deviance
   
   return(deviance)
 }
@@ -712,7 +712,8 @@ traitDescriptionsTable <- fread(
               "sampleSizeOfGwas", "numberOfCategories"), 
   stringsAsFactors=F)
 
-traitDescriptionsTable <- traitDescriptionsTable[traitDescriptionsTable$trait == "Blondeness of hair",]
+traitDescriptionsTable <- traitDescriptionsTable[
+  traitDescriptionsTable$trait == "Blondeness of hair",]
 
 message(strwrap(prefix = " ", initial = "", paste(
   "Loading polygenic scores from:\n", args$trait_gwas_mapping)))
@@ -825,7 +826,26 @@ for (traitIndex in 1:nrow(traitDescriptionsTable)) {
                    ", 1's = ", phenotypeFrequencyTable["1"], ")."))
     
     if (any(phenotypeFrequencyTable < 50)) {
-      message(paste0("Not enough samples present in group '", names(phenotypeFrequencyTable)[phenotypeFrequencyTable < 50], "'. Skipping..."))
+      message(paste0(
+        "Not enough samples present in group '", 
+        names(phenotypeFrequencyTable)[phenotypeFrequencyTable < 50], 
+        "'. Skipping..."))
+      next
+    }
+    
+  } else if (responseDataType == "ordinal") {
+    phenotypeFrequencyTable <- table(phenotypeTable$VALUE)
+    
+    message(paste0("    Available for ", nrow(phenotypeTable), 
+                   " samples (classes: ", paste0(names(phenotypeFrequencyTable), collapse = ", "), 
+                   ". with the following respective frequencies: ", 
+                   paste0(phenotypeFrequencyTable, collapse = ", "), ")."))
+    
+    if (any(phenotypeFrequencyTable < 50)) {
+      message(paste0(
+        "Not enough samples present in group '", 
+        names(phenotypeFrequencyTable)[phenotypeFrequencyTable < 50], 
+        "'. Skipping..."))
       next
     }
     
@@ -977,7 +997,8 @@ write.table(aggregatedNumberOfTraits, file.path(out, "/aggregatedNumberOfTraitsM
 
 print(dim(aggregatedLlrMatrix))
 
-aggregatedLlrMatrix <- aggregatedLlrMatrix[aggregatedNumberOfTraits[1,] > 0, aggregatedNumberOfTraits[,1] > 0]
+aggregatedLlrMatrix <- aggregatedLlrMatrix[apply(aggregatedNumberOfTraits > 0, 1, any), 
+                                           apply(aggregatedNumberOfTraits > 0, 2, any)]
 
 print(dim(aggregatedLlrMatrix))
 
@@ -997,14 +1018,14 @@ lrProducts$group <- factor(lrProducts$group, levels = c("null", "alternative"))
 #   mutate(scaledLlr = scale(logLikelihoodRatios))
 
 message(paste0("Calculated overall AUC: ", calculate.auc(
-  lrProducts$group, lrProducts$scaledLlr)))
+  lrProducts$group, lrProducts$logLikelihoodRatios)))
 
 permutationTestDataFrame <- lrProducts %>%
   filter(geno == Var2)
 
 message(paste0("Confined AUC: ", calculate.auc(
   permutationTestDataFrame$group, 
-  permutationTestDataFrame$scaledLlr)))
+  permutationTestDataFrame$logLikelihoodRatios)))
 
 ggplot(lrProducts, aes(x=logLikelihoodRatios, stat(density), fill=group)) +
   geom_histogram(bins = 32, alpha=.5, position="identity") +
