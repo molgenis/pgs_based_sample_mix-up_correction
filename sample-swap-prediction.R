@@ -416,20 +416,31 @@ scaledResidualsToLlr.naiveBayes.evenWidthBins <- function(
 
 # Function for converting a matrix of scaled residuals to log likelihood ratios.
 # Bins are selected in order to separate the null residuals in equal sized groups.
-scaledResidualsToLlr.naiveBayes <- function(scaledResiduals, samplesPerBin = 25) {
+scaledResidualsToLlr.naiveBayes <- function(
+  scaledResiduals, samplesToDiscretize = T, samplesPerBin = 25) {
 
-  # Extract the null-residuals; 
+  # Extract the null-residuals;
   # the residuals belonging to the matches that are assumed to be correct.
-  nullResiduals <- diag(scaledResiduals)
+  nullResiduals <- scaledResiduals[lower.tri(scaledResiduals, diag = TRUE) 
+                                   & upper.tri(scaledResiduals, diag = TRUE)
+                                   & samplesToDiscretize]
   
   # Extract the alternative residuals; 
   # the residuals belonging to the matches that are assumed to be sample-swaps.
-  alternativeResiduals <- scaledResiduals[lower.tri(scaledResiduals) | upper.tri(scaledResiduals)]
+  alternativeResiduals <- scaledResiduals[(lower.tri(scaledResiduals) | upper.tri(scaledResiduals)) 
+                                          & samplesToDiscretize]
+  
+  scaledResidualsFiltered <- scaledResiduals[samplesToDiscretize, ]
+  
+  message("Extracted scaled residuals")
+  
+  rm(scaledResiduals)
+  gc()
   
   # Store the dimensions of the scaled residual matrix, as well as rownames and colnames.
-  returnDimensions <- dim(scaledResiduals)
-  returnColumnNames <- colnames(scaledResiduals)
-  returnRowNames <- rownames(scaledResiduals)
+  returnDimensions <- dim(scaledResidualsFiltered)
+  returnColumnNames <- colnames(scaledResidualsFiltered)
+  returnRowNames <- rownames(scaledResidualsFiltered)
   
   # Calculate the number of bins given the number of null samples per bin and
   # the total number of null residuals
@@ -441,8 +452,8 @@ scaledResidualsToLlr.naiveBayes <- function(scaledResiduals, samplesPerBin = 25)
   breaks <- sapply(1:nBins, function(bin) min(nullResiduals[nullTiles == bin]))
   
   # Adapt the breaks to span the entire range of scaled residuals + a buffer of 1.
-  breaks[1] <- min(scaledResiduals - 1)
-  breaks <- c(breaks, max(scaledResiduals) + 1)
+  breaks[1] <- min(scaledResidualsFiltered - 1)
+  breaks <- c(breaks, max(scaledResidualsFiltered) + 1)
   
   # Split the alternative residuals in tiles according to the same break points
   # that separate the null residuals in equal sized tiles.
@@ -471,11 +482,16 @@ scaledResidualsToLlr.naiveBayes <- function(scaledResiduals, samplesPerBin = 25)
   # the ratio between the densities / likelihoods of the alternative compared to the null residuals.
   likelihoodRatioMap <- alternativeLikelihoods / nullLikelihoods
   
+  # Remove the null and alternative scaled residuals from memory.
+  rm(alternativeLikelihoods)
+  rm(nullLikelihoods)
+  gc()
+  
   # Apply breaks again on all the residuals.
-  allTiles <- cut(scaledResiduals, breaks = breaks, labels = FALSE)
+  allTiles <- cut(scaledResidualsFiltered, breaks = breaks, labels = FALSE)
   
   # Remove the scaled residuals from memory.
-  rm(scaledResiduals)
+  rm(scaledResidualsFiltered)
   gc()
   
   # Retrieve, for every of the bins / tiles, its respective likelihood ratio.
@@ -488,6 +504,46 @@ scaledResidualsToLlr.naiveBayes <- function(scaledResiduals, samplesPerBin = 25)
   
   # Return the log-transformed likelihood ratios.
   return(log(likelihoodRatios))
+}
+
+scaledResidualsToLlr.naiveBayes.equalFrequencyBins <- function(
+  scaledResiduals, actual, responseDataType = "continuous", 
+  samplesPerBin = 25) {
+  
+  # Store the dimensions of the scaled residual matrix, as well as rownames and colnames.
+  logLikelihoodRatios <- matrix(nrow = nrow(scaledResiduals), 
+                                ncol = ncol(scaledResiduals),
+                                dimnames = list(rownames(scaledResiduals), colnames(scaledResiduals)))
+  
+  # Check whether or not the response data type is continuous or categorical
+  if (responseDataType == "continuous") {
+    
+    # Perform naive Bayes on the entire matrix if data is continuous,
+    logLikelihoodRatios <- scaledResidualsToLlr.naiveBayes(
+      scaledResiduals = scaledResiduals,
+      samplesPerBin = samplesPerBin)
+    
+  } else if (responseDataType == "binary" | responseDataType == "ordinal") {
+    
+    # For every category, perform discretization separately
+    # set as binary or ordinal
+    
+    # Loop through every category, 
+    for (categoryValue in unique(actual)) {
+      
+      # Get a logical vector indicating which rows of the scaled residuals matrix corresponds
+      # to the current category value.
+      samplesToDiscretize <- actual == categoryValue
+      
+      # Perform a Gaussian naive Bayes method on the rows corresponding 
+      # to the current category value.
+      logLikelihoodRatios[samplesToDiscretize, ] <- scaledResidualsToLlr.naiveBayes(
+        scaledResiduals = scaledResiduals, samplesToDiscretize = samplesToDiscretize,
+        samplesPerBin = samplesPerBin)
+    }
+  }
+  
+  return(logLikelihoodRatios)
 }
 
 # Function for converting a selection of a matrix of scaled residuals to likelihood ratios.
