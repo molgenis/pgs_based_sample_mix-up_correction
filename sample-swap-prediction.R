@@ -35,8 +35,6 @@ parser$add_argument('--sample-coupling-file', required = FALSE,
 parser$add_argument('--llr-bayes-method', required = TRUE, nargs = "+",
                     help = paste0('the naive bayes method to use for calculating log likelihood ratios.',
                                   '<ewi-discretization | efi-discretization | gaussian> [(average) number of samples per bin]'))
-parser$add_argument('--ordinal-data-model', required = TRUE,
-                    help = paste0('the model to use for fitting ordinal data'))
 parser$add_argument('--out',
                     help='path to output directory')
 
@@ -716,13 +714,13 @@ plotResiduals <- function(residualsDataFrame, phenotypeTable, responseDataType) 
 # Run
 ##############################
 args <- parser$parse_args(commandArgs(trailingOnly = TRUE))
-args <- parser$parse_args(c("--trait-gwas-mapping", "/groups/umcg-lld/tmp01/other-users/umcg-rwarmerdam/pgs_based_mixup_correction/scripts/r-scripts/pgs_based_sample_mix-up_correction/trait-gwas-mapping.txt",
-                            "--sample-coupling-file", "/home/umcg-rwarmerdam/pgs_based_mixup_correction-ugli/data/lifelines/processed/pgs.sample-coupling-file.ugli.20201014.perm_5120samples_51mixUps.txt",
-                            "--base-pgs-path", "/groups/umcg-lifelines/tmp01/projects/ugli_blood_gsa/pgs_based_mixup_correction/output/PRScs/20200811/",
-                            "--phenotypes-file", "/groups/umcg-lifelines/tmp01/projects/ugli_blood_gsa/pgs_based_mixup_correction/data/lifelines/processed/pgs.phenotypes.ugli.dat",
-                            "--out", "/groups/umcg-lifelines/tmp01/projects/ugli_blood_gsa/pgs_based_mixup_correction/output/sample-swap-prediction/20200811.test/",
-                            "--llr-bayes-method", "efi-discretization", "40",
-                            "--ordinal-data-model", "-"))
+# args <- parser$parse_args(c("--trait-gwas-mapping", "/groups/umcg-lld/tmp01/other-users/umcg-rwarmerdam/pgs_based_mixup_correction/scripts/r-scripts/pgs_based_sample_mix-up_correction/trait-gwas-mapping.txt",
+#                             "--sample-coupling-file", "/home/umcg-rwarmerdam/pgs_based_mixup_correction-ugli/data/lifelines/processed/pgs.sample-coupling-file.ugli.20201014.perm_5120samples_51mixUps.txt",
+#                             "--base-pgs-path", "/groups/umcg-lifelines/tmp01/projects/ugli_blood_gsa/pgs_based_mixup_correction/output/PRScs/20200811/",
+#                             "--phenotypes-file", "/groups/umcg-lifelines/tmp01/projects/ugli_blood_gsa/pgs_based_mixup_correction/data/lifelines/processed/pgs.phenotypes.ugli.dat",
+#                             "--out", "/groups/umcg-lifelines/tmp01/projects/ugli_blood_gsa/pgs_based_mixup_correction/output/sample-swap-prediction/20200811.test/",
+#                             "--llr-bayes-method", "efi-discretization", "40",
+#                             "--ordinal-data-model", "-"))
 
 message(strwrap(prefix = " ", initial = "", paste(
   "Loading trait-gwas-mapping:\n", args$trait_gwas_mapping)))
@@ -752,9 +750,9 @@ traitDescriptionsTable$polygenicScoreFilePath <- file.path(basePathWithPolygenic
 # Get the output path
 out <- args$out
 
-useOrderedLogit <- args$ordinal_data_model == "orderedLogit"
-message("use ordered logit?:")
-message(useOrderedLogit)
+# useOrderedLogit <- args$ordinal_data_model == "orderedLogit"
+# message("use ordered logit?:")
+# message(useOrderedLogit)
 
 # Set the number of bins to use for the Naive Bayes method.
 samplesPerNaiveBayesBin <- 25
@@ -819,12 +817,11 @@ aggregatedNumberOfTraits <- matrix(nrow = nrow(link),
                                    ncol = nrow(link), 
                                    dimnames = list(link$pheno, link$geno), 0)
 
-pearson.correlations <- data.frame(trait = traitDescriptionsTable$trait,
-                                   pearson.not_corrected = 0.0, 
-                                   pearson.corrected.sex = 0.0,
-                                   pearson.corrected.age = 0.0,
-                                   pearson.corrected.both = 0.0)
-rownames(pearson.correlations) <- pearson.correlations$phenotype
+traitDescriptionsTable <- traitDescriptionsTable %>%
+  mutate(confinedAuc = NA_real_,
+         matrixWideAuc = NA_real_,
+         pValue = NA_real_,
+         traitOutputDir = NA_character_)
 
 # Loop trough traits
 
@@ -835,6 +832,7 @@ for (traitIndex in 1:nrow(traitDescriptionsTable)) {
   responseDataType <- traitDescriptionsTable$traitDataType[traitIndex]
   
   traitFileName <- paste(traitIndex, gsub(" ", "_", trait), sep = ".")
+  traitDescriptionsTable[traitIndex, "traitOutputDir"] <- traitFileName
   
   pgsPhenotypeModelPath <- file.path(modelBasePath, traitFileName, "pgsPhenotypeModel.rda")
   likelihoodClassifierPath <- file.path(modelBasePath, traitFileName)
@@ -929,7 +927,6 @@ for (traitIndex in 1:nrow(traitDescriptionsTable)) {
     actual = completeTable$VALUE, 
     covariates = completeTable[c("AGE", "SEX")],
     responseDataType = responseDataType,
-    useOrderedLogit = useOrderedLogit,
     modelPath = pgsPhenotypeModelPath)
   
   dev.off()
@@ -995,15 +992,24 @@ for (traitIndex in 1:nrow(traitDescriptionsTable)) {
   llrDataFrame$group[llrDataFrame$original == llrDataFrame$Var2] <- "null"
   llrDataFrame$group <- factor(llrDataFrame$group, levels = c("null", "alternative"))
   
-  message(paste0("Calculated overall AUC: ", calculate.auc(
-    llrDataFrame$group, llrDataFrame$logLikelihoodRatios)))
+  matrixWideAuc <- calculate.auc(
+    llrDataFrame$group, llrDataFrame$logLikelihoodRatios)
+  
+  message(paste0("Calculated overall AUC: ", matrixWideAuc))
   
   permutationTestDataFrame <- llrDataFrame %>%
     filter(geno == Var2)
   
-  message(paste0("Confined AUC: ", calculate.auc(
+  confinedAuc <- calculate.auc(
     llrDataFrame$group, 
-    llrDataFrame$logLikelihoodRatios)))
+    llrDataFrame$logLikelihoodRatios)
+  
+  message(paste0("Confined AUC: ", confinedAuc))
+  
+  traitDescriptionsTable[traitIndex, "confinedAuc"] <- confinedAuc
+  traitDescriptionsTable[traitIndex, "matrixWideAuc"] <- matrixWideAuc
+  traitDescriptionsTable[traitIndex, "pValue"] <- likelihoodRatioDifferenceTest$p.value
+  
   # 
   # scaledResidualsDataFrame <- 
   #   as.data.frame.table(scaledResidualsMatrix, responseName = "scaledResiduals") %>%
@@ -1033,10 +1039,14 @@ for (traitIndex in 1:nrow(traitDescriptionsTable)) {
   # ggsave("unscaledResidualsHistogram.png", width=8, height=7)
 }
 
-write.table(aggregatedLlrMatrix, file.path(out, "/aggregatedLogLikelihoodRatiosMatrix.tsv"),
+# Write the result values
+write.table(traitDescriptionsTable, file.path(out, "outputStatisticsPerTrait.tsv"),
             sep="\t", col.names = T, row.names = T, quote = F)
 
-write.table(aggregatedNumberOfTraits, file.path(out, "/aggregatedNumberOfTraitsMatrix.tsv"),
+write.table(aggregatedLlrMatrix, file.path(out, "aggregatedLogLikelihoodRatiosMatrix.tsv"),
+            sep="\t", col.names = T, row.names = T, quote = F)
+
+write.table(aggregatedNumberOfTraits, file.path(out, "aggregatedNumberOfTraitsMatrix.tsv"),
             sep="\t", col.names = T, row.names = T, quote = F)
 
 print(dim(aggregatedLlrMatrix))
