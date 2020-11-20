@@ -840,7 +840,12 @@ for (traitIndex in 1:nrow(traitDescriptionsTable)) {
   likelihoodClassifierPath <- file.path(modelBasePath, traitFileName)
   
   if (!dir.create(file.path(out, traitFileName), recursive = T)) {
-    warning(paste0("Could not create directory '", file.path(out, trait), "'"))
+    warning(paste0("Could not create directory '", file.path(out, traitFileName), "'"))
+  }
+  
+  if (modelBasePath != out 
+      & !dir.create(file.path(modelBasePath, traitFileName), recursive = T)) {
+    warning(paste0("Could not create directory '", file.path(modelBasePath, traitFileName), "'"))
   }
   
   phenotypeTable <- phenotypesTable %>%
