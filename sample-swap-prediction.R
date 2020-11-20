@@ -715,11 +715,12 @@ plotResiduals <- function(residualsDataFrame, phenotypeTable, responseDataType) 
 ##############################
 args <- parser$parse_args(commandArgs(trailingOnly = TRUE))
 # args <- parser$parse_args(c("--trait-gwas-mapping", "/groups/umcg-lld/tmp01/other-users/umcg-rwarmerdam/pgs_based_mixup_correction/scripts/r-scripts/pgs_based_sample_mix-up_correction/trait-gwas-mapping.txt",
-#                             "--sample-coupling-file", "/groups/umcg-lifelines/tmp01/projects/ugli_blood_gsa/pgs_based_mixup_correction/data/lifelines/processed/pgs.sample-coupling-file.ugli.perm_5120samples_26mixUps.txt",
+#                             "--sample-coupling-file", "/home/umcg-rwarmerdam/pgs_based_mixup_correction-ugli/data/lifelines/processed/pgs.sample-coupling-file.ugli.20201117.perm_5120samples_51mixUps.txt",
 #                             "--base-pgs-path", "/groups/umcg-lifelines/tmp01/projects/ugli_blood_gsa/pgs_based_mixup_correction/output/PRScs/20200811/",
 #                             "--phenotypes-file", "/groups/umcg-lifelines/tmp01/projects/ugli_blood_gsa/pgs_based_mixup_correction/data/lifelines/processed/pgs.phenotypes.ugli.dat",
 #                             "--out", "/groups/umcg-lifelines/tmp01/projects/ugli_blood_gsa/pgs_based_mixup_correction/output/sample-swap-prediction/20200811.test/",
-#                             "--llr-bayes-method", "efi-discretization", "30"))
+#                             "--llr-bayes-method", "efi-discretization", "30",
+#                             "--ordinal-data-model", "-"))
 
 message(strwrap(prefix = " ", initial = "", paste(
   "Loading trait-gwas-mapping:\n", args$trait_gwas_mapping)))
@@ -795,6 +796,12 @@ if (!is.null(args$sample_coupling_file)) {
 } else {
   message(strwrap(prefix = " ", initial = "", 
                   "Not using special sample coupling table"))
+}
+
+modelBasePath <- out
+
+if (!is.null(args$base_fit_model_path)) {
+  modelBasePath <- args$base_fit_model_path
 }
 
 if (FALSE) {
