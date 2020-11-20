@@ -1026,8 +1026,8 @@ for (traitIndex in 1:nrow(traitDescriptionsTable)) {
     filter(geno == Var2)
   
   confinedAuc <- calculate.auc(
-    llrDataFrame$group, 
-    llrDataFrame$logLikelihoodRatios)
+    permutationTestDataFrame$group, 
+    permutationTestDataFrame$logLikelihoodRatios)
   
   message(paste0("Confined AUC: ", confinedAuc))
   
