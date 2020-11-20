@@ -172,12 +172,12 @@ devianceFromOrderedLogitModel <- function(estimate, actual, covariates, orderedL
 # The model determining residuals is dependent on the type of response data type.
 residualsFunConstructor <- function(estimate, actual, covariates, 
                                     responseDataType = "continuous", useOrderedLogit = TRUE,
-                                    model = NULL) {
+                                    modelPath = NULL) {
   
   # If the path to write/read fitted models to already points to an existing file, load this.
   # In this case residual calculation should be performed using the loaded model
-  if (file.exists(fittedModelPath)) {
-    load(fittedModelPath)
+  if (!is.null(modelPath) && file.exists(modelPath)) {
+    load(modelPath)
   }
   
   # Return a linear model in case 'actual', is a continuous data type.
@@ -186,7 +186,7 @@ residualsFunConstructor <- function(estimate, actual, covariates,
     
     if (!exists("olsModel")) {
       olsModel <- lm(actual ~ estimate + . + .^2, data = covariates)
-      save(olsModel, file = fittedModelPath)
+      save(olsModel, file = modelPath)
     }
     
     print(summary(olsModel))
@@ -209,7 +209,7 @@ residualsFunConstructor <- function(estimate, actual, covariates,
       logitModel <- glm(actual ~ estimate + . + .^2, 
                         family = binomial(link='logit'),
                         data = covariates)
-      save(logitModel, file = fittedModelPath)
+      save(logitModel, file = modelPath)
     }
     
     print(summary(logitModel))
@@ -238,7 +238,7 @@ residualsFunConstructor <- function(estimate, actual, covariates,
       orderedLogitModel <- polr(actualOrdered ~ estimate + . + .^2, 
                                 method = "logistic", Hess = TRUE,
                                 data = covariates)
-      save(orderedLogitModel, file = fittedModelPath)
+      save(orderedLogitModel, file = modelPath)
     }
     
     print(summary(orderedLogitModel))
@@ -259,14 +259,16 @@ residualsFunConstructor <- function(estimate, actual, covariates,
 
 # Define function for calculating scaled residuals.
 # Output is a matrix with rows representing actual values and columns representing expected values
-calculate.scaledResiduals <- function(estimate, actual, covariates, responseDataType = "continuous", useOrderedLogit = TRUE) {
+calculate.scaledResiduals <- function(estimate, actual, covariates, responseDataType, modelPath, useOrderedLogit = TRUE) {
   # Get a function that returns the deviance of an observation to the regression line.
   # This will either be the 'deviance residuals' from a logistic model when the response data type is binary,
   # or this will be the regular residuals corresponding to a linear model.
   residualsFun <- residualsFunConstructor(estimate = estimate,
                                           actual = actual,
                                           covariates = covariates,
-                                          responseDataType = responseDataType, useOrderedLogit = useOrderedLogit)
+                                          responseDataType = responseDataType, 
+                                          useOrderedLogit = useOrderedLogit,
+                                          modelPath = modelPath)
 
   # extract residuals.
   residuals <- residualsFun(estimate = estimate, 
@@ -923,7 +925,7 @@ for (traitIndex in 1:nrow(traitDescriptionsTable)) {
     covariates = completeTable[c("AGE", "SEX")],
     responseDataType = responseDataType,
     useOrderedLogit = useOrderedLogit,
-    fittedModelPath = modelPath)
+    modelPath = pgsPhenotypeModelPath)
   
   dev.off()
   
