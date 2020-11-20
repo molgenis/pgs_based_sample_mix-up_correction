@@ -20,7 +20,7 @@ parser <- ArgumentParser(description='')
 parser$add_argument('--mix-up-percentage', required=FALSE, type="double",
                     help=paste0('introduce mix-ups in link file',
                                 'and phenotype sample ids in the second column'))
-parser$add_argument('--sample-count', required=FALSE, type="integer", default="5120",
+parser$add_argument('--sample-count', required=FALSE, type="integer",
                     help=paste0('number of samples to include in the coupling file'))
 parser$add_argument('--out', help='path to output prefix', required=T)
 
@@ -129,12 +129,12 @@ if (!is.null(phenotypesFilePath)) {
     link <- data.frame(geno = unique(phenotypesTable$ID), pheno = unique(phenotypesTable$ID))
 }
 
-if (numberOfSamples & numberOfSamples < nrow(link)) {
+if (numberOfSamples && numberOfSamples < nrow(link)) {
   link <- link %>%
     slice_sample(n = numberOfSamples)
 }
 
-if (mixUpPercentage & mixUpPercentage > 0 & mixUpPercentage <= 10) {
+if (mixUpPercentage && mixUpPercentage > 0 & mixUpPercentage <= 10) {
   nMixUpsToIntroduce <- round(
     nrow(link) / 100 * mixUpPercentage);
   
