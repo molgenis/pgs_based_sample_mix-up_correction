@@ -176,7 +176,7 @@ residualsFunConstructor <- function(estimate, actual, covariates,
   
   # If the path to write/read fitted models to already points to an existing file, load this.
   # In this case residual calculation should be performed using the loaded model
-  if (!is.null(modelPath) && file.exists(modelPath)) {
+  if (!is.null(modelPath) && 0 != length(modelPath) && file.exists(modelPath)) {
     load(modelPath)
   }
   
@@ -186,7 +186,9 @@ residualsFunConstructor <- function(estimate, actual, covariates,
     
     if (!exists("olsModel")) {
       olsModel <- lm(actual ~ estimate + . + .^2, data = covariates)
-      save(olsModel, file = modelPath)
+      if (0 != length(modelPath)) {
+        save(olsModel, file = modelPath)
+      }
     }
     
     print(summary(olsModel))
@@ -209,7 +211,9 @@ residualsFunConstructor <- function(estimate, actual, covariates,
       logitModel <- glm(actual ~ estimate + . + .^2, 
                         family = binomial(link='logit'),
                         data = covariates)
-      save(logitModel, file = modelPath)
+      if (0 != length(modelPath)) {
+        save(logitModel, file = modelPath)
+      }
     }
     
     print(summary(logitModel))
@@ -238,7 +242,9 @@ residualsFunConstructor <- function(estimate, actual, covariates,
       orderedLogitModel <- polr(actualOrdered ~ estimate + . + .^2, 
                                 method = "logistic", Hess = TRUE,
                                 data = covariates)
-      save(orderedLogitModel, file = modelPath)
+      if (0 != length(modelPath)) {
+        save(orderedLogitModel, file = modelPath)
+      }
     }
     
     print(summary(orderedLogitModel))
@@ -494,7 +500,7 @@ fitGaussian <- function(values) {
 # Function that calculates log likelihood ratios for a selection of a matrix
 calculate.logLikelihoodRatiosForSelection <- function(
   valueMatrix, selection = T,
-  naiveBayesMethod, samplesPerBin, classifierPath) {
+  naiveBayesMethod, samplesPerBin, classifierPath = NULL) {
   
   # Filter value matrix with selection
   valueMatrixFiltered <- valueMatrix[selection, ]
@@ -526,7 +532,9 @@ calculate.logLikelihoodRatiosForSelection <- function(
   
   # If the path to write/read fitted models to already points to an existing file, load this.
   # In this case residual calculation should be performed using the loaded model
-  if (file.exists(classifierPath)) {
+  if (!is.null(classifierPath) 
+      && 0 != length(classifierPath) 
+      && file.exists(classifierPath)) {
     load(classifierPath)
   }
   
@@ -538,7 +546,9 @@ calculate.logLikelihoodRatiosForSelection <- function(
     if (!exists("gaussianParameters")) {
       gaussianParameters <- list(null = fitGaussian(nullValues), 
                             alternative = fitGaussian(alternativeValues))
-      save(gaussianParameters, file = classifierPath)
+      if (0 != length(classifierPath)) {
+        save(gaussianParameters, file = classifierPath)
+      }
       message(paste0("Saved fitted classifier to following path: ", classifierPath))
     } else {
       message("Using prefitted classifier")
@@ -555,7 +565,9 @@ calculate.logLikelihoodRatiosForSelection <- function(
       ewiDiscretizationParameters <- fitEwiDiscretizationParameters(
         nullValues = nullValues, alternativeValues = alternativeValues, 
         averageSamplesPerBin = samplesPerBin, minFrequencyInTails = 10)
-      save(ewiDiscretizationParameters, file = classifierPath)
+      if (0 != length(classifierPath)) {
+        save(ewiDiscretizationParameters, file = classifierPath)
+      }
       message(paste0("Saved fitted classifier to following path: ", classifierPath))
     } else {
       message("Using prefitted classifier")
@@ -571,7 +583,9 @@ calculate.logLikelihoodRatiosForSelection <- function(
     if (!exists("efiDiscretizationParameters")) {
       efiDiscretizationParameters <- fitEfiDiscretizationParameters(
         nullValues = nullValues, alternativeValues = alternativeValues, samplesPerBin = samplesPerBin)
-      save(efiDiscretizationParameters, file = classifierPath)
+      if (0 != length(classifierPath)) {
+        save(efiDiscretizationParameters, file = classifierPath)
+      }
       message(paste0("Saved fitted classifier to following path: ", classifierPath))
     } else {
       message("Using prefitted classifier")
@@ -795,7 +809,7 @@ if (!is.null(args$sample_coupling_file)) {
                   "Not using special sample coupling table"))
 }
 
-modelBasePath <- out
+modelBasePath <- NULL
 
 if (!is.null(args$base_fit_model_path)) {
   modelBasePath <- args$base_fit_model_path
@@ -831,15 +845,20 @@ for (traitIndex in 1:nrow(traitDescriptionsTable)) {
   traitFileName <- paste(traitIndex, gsub(" ", "_", trait), sep = ".")
   traitDescriptionsTable[traitIndex, "traitOutputDir"] <- traitFileName
   
-  pgsPhenotypeModelPath <- file.path(modelBasePath, traitFileName, "pgsPhenotypeModel.rda")
-  likelihoodClassifierPath <- file.path(modelBasePath, traitFileName)
+  modelPath <- NULL
+  pgsPhenotypeModel <- NULL
   
+  if (!is.null(modelBasePath)) {
+    modelPath <- file.path(modelBasePath, traitFileName)
+    pgsPhenotypeModel <- file.path(modelPath, "pgsPhenotypeModel.rda")
+  }
+
   if (!dir.create(file.path(out, traitFileName), recursive = T)) {
     warning(paste0("Could not create directory '", file.path(out, traitFileName), "'"))
   }
   
-  if (modelBasePath != out 
-      & !dir.create(file.path(modelBasePath, traitFileName), recursive = T)) {
+  if (!is.null(modelBasePath) && modelBasePath != out
+      && !dir.create(file.path(modelBasePath, traitFileName), recursive = T)) {
     warning(paste0("Could not create directory '", file.path(modelBasePath, traitFileName), "'"))
   }
   
@@ -924,7 +943,7 @@ for (traitIndex in 1:nrow(traitDescriptionsTable)) {
     actual = completeTable$VALUE, 
     covariates = completeTable[c("AGE", "SEX")],
     responseDataType = responseDataType,
-    modelPath = pgsPhenotypeModelPath)
+    modelPath = pgsPhenotypeModel)
   
   dev.off()
   
@@ -948,7 +967,7 @@ for (traitIndex in 1:nrow(traitDescriptionsTable)) {
     responseDataType = responseDataType,
     naiveBayesMethod = naiveBayesMethod,
     samplesPerBin = samplesPerNaiveBayesBin,
-    classifierPath = likelihoodClassifierPath)
+    classifierPath = modelPath)
   
   rm(scaledResidualsMatrix)
   gc()
