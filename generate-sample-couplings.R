@@ -129,14 +129,14 @@ if (!is.null(phenotypesFilePath)) {
     link <- data.frame(geno = unique(phenotypesTable$ID), pheno = unique(phenotypesTable$ID))
 }
 
-if (numberOfSamples && numberOfSamples < nrow(link)) {
+if (!is.null(numberOfSamples) && numberOfSamples < nrow(link)) {
   link <- link %>%
     slice_sample(n = numberOfSamples)
 } else {
   numberOfSamples <- nrow(link)
 }
 
-if (mixUpPercentage && mixUpPercentage > 0 & mixUpPercentage <= 10) {
+if (!is.null(mixUpPercentage) && mixUpPercentage > 0 & mixUpPercentage <= 10) {
   nMixUpsToIntroduce <- round(
     nrow(link) / 100 * mixUpPercentage);
   
