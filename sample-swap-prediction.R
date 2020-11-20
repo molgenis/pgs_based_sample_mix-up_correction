@@ -598,7 +598,7 @@ calculate.logLikelihoodRatios <- function(
   # Store the dimensions of the scaled residual matrix, as well as rownames and colnames.
   logLikelihoodRatios <- matrix(nrow = nrow(valueMatrix), 
                                 ncol = ncol(valueMatrix),
-                                dimnames = list(rownames(valueMatrix), colnames(scaledResiduals)))
+                                dimnames = list(rownames(valueMatrix), colnames(valueMatrix)))
   
   message("Starting calculating log likelihood ratios...")
   
@@ -834,7 +834,7 @@ for (traitIndex in 1:nrow(traitDescriptionsTable)) {
   trait <- traitDescriptionsTable$trait[traitIndex]
   responseDataType <- traitDescriptionsTable$traitDataType[traitIndex]
   
-  traitFileName <- paste(traitIndex, sub(" ", "_", trait), sep = ".")
+  traitFileName <- paste(traitIndex, gsub(" ", "_", trait), sep = ".")
   
   pgsPhenotypeModelPath <- file.path(modelBasePath, traitFileName, "pgsPhenotypeModel.rda")
   likelihoodClassifierPath <- file.path(modelBasePath, traitFileName)
