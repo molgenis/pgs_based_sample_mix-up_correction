@@ -593,12 +593,12 @@ calculate.logLikelihoodRatiosForSelection <- function(
 
 # Function that calculates log likelihoods given a naive Bayes method.
 calculate.logLikelihoodRatios <- function(
-  valueMatrix, naiveBayesMethod, samplesPerBin, classifierPath) {
+  valueMatrix, actual, responseDataType, naiveBayesMethod, samplesPerBin, classifierPath) {
   
   # Store the dimensions of the scaled residual matrix, as well as rownames and colnames.
-  logLikelihoodRatios <- matrix(nrow = nrow(scaledResiduals), 
-                                ncol = ncol(scaledResiduals),
-                                dimnames = list(rownames(scaledResiduals), colnames(scaledResiduals)))
+  logLikelihoodRatios <- matrix(nrow = nrow(valueMatrix), 
+                                ncol = ncol(valueMatrix),
+                                dimnames = list(rownames(valueMatrix), colnames(scaledResiduals)))
   
   message("Starting calculating log likelihood ratios...")
   
@@ -946,8 +946,8 @@ for (traitIndex in 1:nrow(traitDescriptionsTable)) {
   
   message("    calculating log likelihood ratios")
   
-  logLikelihoodRatios <- calculate.LogLikelihoodRatios(
-    residuals = scaledResidualsMatrix, 
+  logLikelihoodRatios <- calculate.logLikelihoodRatios(
+    valueMatrix = scaledResidualsMatrix, 
     actual = complete$VALUE, 
     responseDataType = responseDataType,
     samplesPerBin = samplesPerNaiveBayesBin,
