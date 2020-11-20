@@ -620,7 +620,7 @@ calculate.logLikelihoodRatios <- function(
     
     message(paste0(
       "Performing log likelihood calculation separately for categories: (", 
-      unique(actual), ")"))
+      paste0(unique(actual), collapse = ", "), ")"))
     
     # Loop through every category, 
     for (categoryValue in unique(actual)) {
@@ -629,7 +629,7 @@ calculate.logLikelihoodRatios <- function(
       # to the current category value.
       selection <- actual == categoryValue
       
-      message(paste0("  (", actual, ", ", sum(selection), " / ", length(selection), ")"))
+      message(paste0("  (", categoryValue, ", ", sum(selection), " / ", length(selection), ")"))
       
       # Perform a Gaussian naive Bayes method on the rows corresponding 
       # to the current category value.
@@ -716,13 +716,13 @@ plotResiduals <- function(residualsDataFrame, phenotypeTable, responseDataType) 
 # Run
 ##############################
 args <- parser$parse_args(commandArgs(trailingOnly = TRUE))
-# args <- parser$parse_args(c("--trait-gwas-mapping", "/groups/umcg-lld/tmp01/other-users/umcg-rwarmerdam/pgs_based_mixup_correction/scripts/r-scripts/pgs_based_sample_mix-up_correction/trait-gwas-mapping.txt",
-#                             "--sample-coupling-file", "/home/umcg-rwarmerdam/pgs_based_mixup_correction-ugli/data/lifelines/processed/pgs.sample-coupling-file.ugli.20201117.perm_5120samples_51mixUps.txt",
-#                             "--base-pgs-path", "/groups/umcg-lifelines/tmp01/projects/ugli_blood_gsa/pgs_based_mixup_correction/output/PRScs/20200811/",
-#                             "--phenotypes-file", "/groups/umcg-lifelines/tmp01/projects/ugli_blood_gsa/pgs_based_mixup_correction/data/lifelines/processed/pgs.phenotypes.ugli.dat",
-#                             "--out", "/groups/umcg-lifelines/tmp01/projects/ugli_blood_gsa/pgs_based_mixup_correction/output/sample-swap-prediction/20200811.test/",
-#                             "--llr-bayes-method", "efi-discretization", "30",
-#                             "--ordinal-data-model", "-"))
+args <- parser$parse_args(c("--trait-gwas-mapping", "/groups/umcg-lld/tmp01/other-users/umcg-rwarmerdam/pgs_based_mixup_correction/scripts/r-scripts/pgs_based_sample_mix-up_correction/trait-gwas-mapping.txt",
+                            "--sample-coupling-file", "/home/umcg-rwarmerdam/pgs_based_mixup_correction-ugli/data/lifelines/processed/pgs.sample-coupling-file.ugli.20201014.perm_5120samples_51mixUps.txt",
+                            "--base-pgs-path", "/groups/umcg-lifelines/tmp01/projects/ugli_blood_gsa/pgs_based_mixup_correction/output/PRScs/20200811/",
+                            "--phenotypes-file", "/groups/umcg-lifelines/tmp01/projects/ugli_blood_gsa/pgs_based_mixup_correction/data/lifelines/processed/pgs.phenotypes.ugli.dat",
+                            "--out", "/groups/umcg-lifelines/tmp01/projects/ugli_blood_gsa/pgs_based_mixup_correction/output/sample-swap-prediction/20200811.test/",
+                            "--llr-bayes-method", "efi-discretization", "40",
+                            "--ordinal-data-model", "-"))
 
 message(strwrap(prefix = " ", initial = "", paste(
   "Loading trait-gwas-mapping:\n", args$trait_gwas_mapping)))
@@ -948,8 +948,9 @@ for (traitIndex in 1:nrow(traitDescriptionsTable)) {
   
   logLikelihoodRatios <- calculate.logLikelihoodRatios(
     valueMatrix = scaledResidualsMatrix, 
-    actual = complete$VALUE, 
+    actual = completeTable$VALUE, 
     responseDataType = responseDataType,
+    naiveBayesMethod = naiveBayesMethod,
     samplesPerBin = samplesPerNaiveBayesBin,
     classifierPath = likelihoodClassifierPath)
   
@@ -983,28 +984,46 @@ for (traitIndex in 1:nrow(traitDescriptionsTable)) {
     message("    aggregation done!")
   }
   
+  llrDataFrame <- 
+    as.data.frame.table(logLikelihoodRatios, responseName = "logLikelihoodRatios") %>%
+    inner_join(link, by = c("Var1" = "pheno"))
+  
   rm(logLikelihoodRatios)
   gc()
   
-  scaledResidualsDataFrame <- 
-    as.data.frame.table(scaledResidualsMatrix, responseName = "scaledResiduals") %>%
-    inner_join(link, by = c("Var1" = "pheno")) %>%
-    mutate(group = case_when(Var2 == geno ~ "null",
-                             TRUE ~ "alternative"))
+  llrDataFrame$group <- "alternative"
+  llrDataFrame$group[llrDataFrame$original == llrDataFrame$Var2] <- "null"
+  llrDataFrame$group <- factor(llrDataFrame$group, levels = c("null", "alternative"))
   
-  scaledResidualsDataFrame$group <- factor(scaledResidualsDataFrame$group, levels = c("null", "alternative"))
+  message(paste0("Calculated overall AUC: ", calculate.auc(
+    llrDataFrame$group, llrDataFrame$logLikelihoodRatios)))
   
-  rm(scaledResidualsMatrix)
-  gc()
+  permutationTestDataFrame <- llrDataFrame %>%
+    filter(geno == Var2)
   
-  pdf(file.path(out, traitFileName, "unscaledResidualsHistogram.pdf"),
-      width=8, height = 6, useDingbats = FALSE)
-
-  par(xpd = NA)
-
-  plotResiduals(scaledResidualsDataFrame, phenotypeTable, responseDataType)
-
-  dev.off()
+  message(paste0("Confined AUC: ", calculate.auc(
+    llrDataFrame$group, 
+    llrDataFrame$logLikelihoodRatios)))
+  # 
+  # scaledResidualsDataFrame <- 
+  #   as.data.frame.table(scaledResidualsMatrix, responseName = "scaledResiduals") %>%
+  #   inner_join(link, by = c("Var1" = "pheno")) %>%
+  #   mutate(group = case_when(Var2 == geno ~ "null",
+  #                            TRUE ~ "alternative"))
+  # 
+  # scaledResidualsDataFrame$group <- factor(scaledResidualsDataFrame$group, levels = c("null", "alternative"))
+  # 
+  # rm(scaledResidualsMatrix)
+  # gc()
+  # 
+  # pdf(file.path(out, traitFileName, "unscaledResidualsHistogram.pdf"),
+  #     width=8, height = 6, useDingbats = FALSE)
+  # 
+  # par(xpd = NA)
+  # 
+  # plotResiduals(scaledResidualsDataFrame, phenotypeTable, responseDataType)
+  # 
+  # dev.off()
   
   # ggplot(scaledResidualsDataFrame, aes(x=scaledResiduals, stat(density), fill=group)) +
   #   geom_histogram(bins = 72, alpha=.5, position="identity") +
