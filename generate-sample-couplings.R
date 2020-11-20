@@ -132,6 +132,8 @@ if (!is.null(phenotypesFilePath)) {
 if (numberOfSamples && numberOfSamples < nrow(link)) {
   link <- link %>%
     slice_sample(n = numberOfSamples)
+} else {
+  numberOfSamples <- nrow(link)
 }
 
 if (mixUpPercentage && mixUpPercentage > 0 & mixUpPercentage <= 10) {
