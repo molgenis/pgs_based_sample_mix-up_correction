@@ -21,6 +21,8 @@ library(ROCR)
 ##############################
 
 parser <- ArgumentParser(description='')
+parser$add_argument('--debug', action='store_true', 
+                    dest="debug", help="write intermediate llr and residuals files.")
 parser$add_argument('--base-fit-model-path',
                     help='path to a directory to write fitted model parmaters to, or to load fitted models from.')
 parser$add_argument('--trait-gwas-mapping',
@@ -212,7 +214,7 @@ residualsFunConstructor <- function(estimate, actual, covariates,
     
     print(summary(logitModel))
     
-    plotSigmoid(estimate = estimate, actual = actual, covariates = covariates, logitModel = logitModel)
+    #plotSigmoid(estimate = estimate, actual = actual, covariates = covariates, logitModel = logitModel)
     
     # Define residuals function using the logistic regression model.
     residualsFun <- function(estimate, actual, covariates) {
@@ -747,9 +749,7 @@ traitDescriptionsTable$polygenicScoreFilePath <- file.path(basePathWithPolygenic
 # Get the output path
 out <- args$out
 
-# useOrderedLogit <- args$ordinal_data_model == "orderedLogit"
-# message("use ordered logit?:")
-# message(useOrderedLogit)
+debug <- args$debug
 
 # Set the number of bins to use for the Naive Bayes method.
 samplesPerNaiveBayesBin <- 25
@@ -932,9 +932,11 @@ for (traitIndex in 1:nrow(traitDescriptionsTable)) {
   rownames(scaledResidualsMatrix) <- completeTable$pheno
   colnames(scaledResidualsMatrix) <- completeTable$geno
   
-  # Write scaled residuals matrix
-  write.table(scaledResidualsMatrix, file.path(out, traitFileName, "/scaledResidualMatrix.tsv"), 
-              sep = "\t", col.names = T, row.names = T, quote = F)
+  if (debug) {
+    # Write scaled residuals matrix.
+    write.table(scaledResidualsMatrix, file.path(out, traitFileName, "/scaledResidualMatrix.tsv"), 
+                sep = "\t", col.names = T, row.names = T, quote = F)
+  }
 
   message("    completed calculating scaled residuals")
   
@@ -948,8 +950,15 @@ for (traitIndex in 1:nrow(traitDescriptionsTable)) {
     samplesPerBin = samplesPerNaiveBayesBin,
     classifierPath = likelihoodClassifierPath)
   
-  write.table(logLikelihoodRatios, file.path(out, traitFileName, "/logLikelihoodRatios.tsv"), 
+  rm(scaledResidualsMatrix)
+  gc()
+  
+  if (debug) {
+    
+    # Write log likelihood ratios.
+    write.table(logLikelihoodRatios, file.path(out, traitFileName, "/logLikelihoodRatios.tsv"), 
               sep = "\t", col.names = T, row.names = T, quote = F)
+  }
   
   likelihoodRatioDifferenceTest <- t.test(
     diag(logLikelihoodRatios), 
