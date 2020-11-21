@@ -315,6 +315,18 @@ adaptedEqualWidthIntervals <- function(x, nBins, minFrequencyInTails) {
     breaks <- c(lowerTailLowerBound, lowerTailUpperBound,
                 lowerTailUpperBound + binSize * (1:(nBins - 3)), 
                 upperTailLowerBound, upperTailUpperBound)
+    
+    tiles <- cut(x, breaks = breaks)
+    
+    while (min(table(tiles)) < minFrequencyInTails) {
+      
+      minTile <- which.min(table(tiles))
+      breaks[minTile] <- mean(breaks[c(minTile, minTile + 1)])
+      breaks <- breaks[-(minTile + 1)]
+      
+      tiles <- cut(x, breaks = breaks)
+    }
+    
   } else {
     
     breaks <- c(min(x) - 1, max(x) + 1)
@@ -339,7 +351,7 @@ fitEwiDiscretizationParameters <- function(
   breaks[1] <- -Inf
   breaks[length(breaks)] <- Inf
   
-  message("Breaks created")
+  message(paste0("Breaks created: ", length(breaks)))
 
   nullTiles <- cut(nullValues, breaks = breaks, labels = FALSE)
   alternativeTiles <- cut(alternativeValues, breaks = breaks, labels = FALSE)
@@ -348,12 +360,12 @@ fitEwiDiscretizationParameters <- function(
 
   # Get the density / likelihood of the null residuals for each of the bins.
   nullLikelihoods <- sapply(
-    1:nBins, 
+    1:max(nullTiles), 
     function(bin) sum(nullTiles == bin) / length(nullTiles))
   
   # Get the density / likelihood of the alternative residuals for each of the bins.
   alternativeLikelihoods <- sapply(
-    1:nBins, 
+    1:max(nullTiles), 
     function(bin) sum(alternativeTiles == bin) / length(alternativeTiles))
   
   # Remove the null and alternative tiles to clear memory.
@@ -364,6 +376,8 @@ fitEwiDiscretizationParameters <- function(
   # Determine, for each of the bins, 
   # the ratio between the densities / likelihoods of the alternative compared to the null residuals.
   likelihoodRatioMap <- alternativeLikelihoods / nullLikelihoods
+  
+  print(any(is.infinite(likelihoodRatioMap)))
   
   return(list(breaks = breaks, likelihoodRatioMap = likelihoodRatioMap))
 }
@@ -548,8 +562,8 @@ calculate.logLikelihoodRatiosForSelection <- function(
                             alternative = fitGaussian(alternativeValues))
       if (0 != length(classifierPath)) {
         save(gaussianParameters, file = classifierPath)
+        message(paste0("Saved fitted classifier to following path: ", classifierPath))
       }
-      message(paste0("Saved fitted classifier to following path: ", classifierPath))
     } else {
       message("Using prefitted classifier")
     }
@@ -564,14 +578,16 @@ calculate.logLikelihoodRatiosForSelection <- function(
     if (!exists("ewiDiscretizationParameters")) {
       ewiDiscretizationParameters <- fitEwiDiscretizationParameters(
         nullValues = nullValues, alternativeValues = alternativeValues, 
-        averageSamplesPerBin = samplesPerBin, minFrequencyInTails = 10)
+        averageSamplesPerBin = samplesPerBin, minFrequencyInTails = 4)
       if (0 != length(classifierPath)) {
         save(ewiDiscretizationParameters, file = classifierPath)
+        message(paste0("Saved fitted classifier to following path: ", classifierPath))
       }
-      message(paste0("Saved fitted classifier to following path: ", classifierPath))
     } else {
       message("Using prefitted classifier")
     }
+    
+    print(ewiDiscretizationParameters)
     
     logLikelihoodRatios <- calculateDiscritizedLoglikelihoodRatios(
       valueMatrixFiltered, ewiDiscretizationParameters)
@@ -585,8 +601,8 @@ calculate.logLikelihoodRatiosForSelection <- function(
         nullValues = nullValues, alternativeValues = alternativeValues, samplesPerBin = samplesPerBin)
       if (0 != length(classifierPath)) {
         save(efiDiscretizationParameters, file = classifierPath)
+        message(paste0("Saved fitted classifier to following path: ", classifierPath))
       }
-      message(paste0("Saved fitted classifier to following path: ", classifierPath))
     } else {
       message("Using prefitted classifier")
     }
@@ -731,12 +747,11 @@ plotResiduals <- function(residualsDataFrame, phenotypeTable, responseDataType) 
 ##############################
 args <- parser$parse_args(commandArgs(trailingOnly = TRUE))
 # args <- parser$parse_args(c("--trait-gwas-mapping", "/groups/umcg-lld/tmp01/other-users/umcg-rwarmerdam/pgs_based_mixup_correction/scripts/r-scripts/pgs_based_sample_mix-up_correction/trait-gwas-mapping.txt",
-#                             "--sample-coupling-file", "/home/umcg-rwarmerdam/pgs_based_mixup_correction-ugli/data/lifelines/processed/pgs.sample-coupling-file.ugli.20201014.perm_5120samples_51mixUps.txt",
-#                             "--base-pgs-path", "/groups/umcg-lifelines/tmp01/projects/ugli_blood_gsa/pgs_based_mixup_correction/output/PRScs/20200811/",
+#                             "--sample-coupling-file", "/home/umcg-rwarmerdam/pgs_based_mixup_correction-ugli/data/lifelines/processed/pgs.sample-coupling-file.ugli.20201120.perm_10080samples_101mixUps.txt",
+#                             "--base-pgs-path", "/groups/umcg-lifelines/tmp01/projects/ugli_blood_gsa/pgs_based_mixup_correction/output/PRScs/20201120/",
 #                             "--phenotypes-file", "/groups/umcg-lifelines/tmp01/projects/ugli_blood_gsa/pgs_based_mixup_correction/data/lifelines/processed/pgs.phenotypes.ugli.dat",
 #                             "--out", "/groups/umcg-lifelines/tmp01/projects/ugli_blood_gsa/pgs_based_mixup_correction/output/sample-swap-prediction/20200811.test/",
-#                             "--llr-bayes-method", "efi-discretization", "40",
-#                             "--ordinal-data-model", "-"))
+#                             "--llr-bayes-method", "ewi-discretization", "40"))
 
 message(strwrap(prefix = " ", initial = "", paste(
   "Loading trait-gwas-mapping:\n", args$trait_gwas_mapping)))
