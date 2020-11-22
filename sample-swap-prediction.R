@@ -312,9 +312,9 @@ adaptedEqualWidthIntervals <- function(x, nBins, minFrequencyInTails) {
     
     # Separate the space within the outermost bins into a nBins - 2
     binSize <- (upperTailLowerBound - lowerTailUpperBound) / (nBins - 2)
-    breaks <- c(lowerTailLowerBound, lowerTailUpperBound,
+    breaks <- unique(c(lowerTailLowerBound, lowerTailUpperBound,
                 lowerTailUpperBound + binSize * (1:(nBins - 3)), 
-                upperTailLowerBound, upperTailUpperBound)
+                upperTailLowerBound, upperTailUpperBound))
     
     tiles <- cut(x, breaks = breaks)
     
@@ -322,7 +322,7 @@ adaptedEqualWidthIntervals <- function(x, nBins, minFrequencyInTails) {
       
       minTile <- which.min(table(tiles))
       breaks[minTile] <- mean(breaks[c(minTile, minTile + 1)])
-      breaks <- breaks[-(minTile + 1)]
+      breaks <- unique(breaks[-(minTile + 1)])
       
       tiles <- cut(x, breaks = breaks)
     }
