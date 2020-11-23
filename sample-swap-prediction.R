@@ -302,7 +302,11 @@ adaptedEqualWidthIntervals <- function(x, nBins, minFrequencyInTails) {
   # on each tail are represented in their respective bin.
   n <- length(x)
   
-  if (n >= (minFrequencyInTails * 2)) {
+  if (nBins == 2) {
+    
+    breaks <- c(min(x) - 1, mean(c(min(x), max(x))), max(x) + 1)
+    
+  } else if (n >= (minFrequencyInTails * 2)) {
     
     upperTailLowerBound <- sort(x, partial = n - minFrequencyInTails)[n - minFrequencyInTails]
     upperTailUpperBound <- max(x) + 1
@@ -315,7 +319,7 @@ adaptedEqualWidthIntervals <- function(x, nBins, minFrequencyInTails) {
     breaks <- unique(c(lowerTailLowerBound, lowerTailUpperBound,
                 lowerTailUpperBound + binSize * (1:(nBins - 3)), 
                 upperTailLowerBound, upperTailUpperBound))
-    
+  
     tiles <- cut(x, breaks = breaks)
     
     while (min(table(tiles)) < minFrequencyInTails) {
@@ -343,7 +347,7 @@ fitEwiDiscretizationParameters <- function(
   
   # Calculate the number of bins given the number of null samples per bin and
   # the total number of null residuals
-  nBins <- as.integer(length(nullValues) / averageSamplesPerBin)
+  nBins <- as.integer(round(length(nullValues) / averageSamplesPerBin))
 
   message("Obtaining breaks")
   
@@ -538,6 +542,8 @@ calculate.logLikelihoodRatiosForSelection <- function(
   rm(valueMatrix)
   gc()
   
+  txtboxplot(nullValues, alternativeValues)
+  
   # Store the dimensions of the scaled residual matrix, as well as rownames and colnames.
   logLikelihoodRatios <- matrix(nrow = nrow(valueMatrixFiltered), 
                                 ncol = ncol(valueMatrixFiltered),
@@ -578,7 +584,7 @@ calculate.logLikelihoodRatiosForSelection <- function(
     if (!exists("ewiDiscretizationParameters")) {
       ewiDiscretizationParameters <- fitEwiDiscretizationParameters(
         nullValues = nullValues, alternativeValues = alternativeValues, 
-        averageSamplesPerBin = samplesPerBin, minFrequencyInTails = 4)
+        averageSamplesPerBin = samplesPerBin)
       if (0 != length(classifierPath)) {
         save(ewiDiscretizationParameters, file = classifierPath)
         message(paste0("Saved fitted classifier to following path: ", classifierPath))
@@ -746,12 +752,12 @@ plotResiduals <- function(residualsDataFrame, phenotypeTable, responseDataType) 
 # Run
 ##############################
 args <- parser$parse_args(commandArgs(trailingOnly = TRUE))
-# args <- parser$parse_args(c("--trait-gwas-mapping", "/groups/umcg-lld/tmp01/other-users/umcg-rwarmerdam/pgs_based_mixup_correction/scripts/r-scripts/pgs_based_sample_mix-up_correction/trait-gwas-mapping.txt",
-#                             "--sample-coupling-file", "/home/umcg-rwarmerdam/pgs_based_mixup_correction-ugli/data/lifelines/processed/pgs.sample-coupling-file.ugli.20201120.perm_10080samples_101mixUps.txt",
-#                             "--base-pgs-path", "/groups/umcg-lifelines/tmp01/projects/ugli_blood_gsa/pgs_based_mixup_correction/output/PRScs/20201120/",
-#                             "--phenotypes-file", "/groups/umcg-lifelines/tmp01/projects/ugli_blood_gsa/pgs_based_mixup_correction/data/lifelines/processed/pgs.phenotypes.ugli.dat",
-#                             "--out", "/groups/umcg-lifelines/tmp01/projects/ugli_blood_gsa/pgs_based_mixup_correction/output/sample-swap-prediction/20200811.test/",
-#                             "--llr-bayes-method", "ewi-discretization", "40"))
+args <- parser$parse_args(c("--trait-gwas-mapping", "/groups/umcg-lld/tmp01/other-users/umcg-rwarmerdam/pgs_based_mixup_correction/scripts/r-scripts/pgs_based_sample_mix-up_correction/trait-gwas-mapping.txt",
+                            "--sample-coupling-file", "/home/umcg-rwarmerdam/pgs_based_mixup_correction-ugli/data/lifelines/processed/pgs.sample-coupling-file.ugli.20201120.perm_10080samples_101mixUps.txt",
+                            "--base-pgs-path", "/groups/umcg-lifelines/tmp01/projects/ugli_blood_gsa/pgs_based_mixup_correction/output/PRScs/20201120/",
+                            "--phenotypes-file", "/groups/umcg-lifelines/tmp01/projects/ugli_blood_gsa/pgs_based_mixup_correction/data/lifelines/processed/pgs.phenotypes.ugli.dat",
+                            "--out", "/groups/umcg-lifelines/tmp01/projects/ugli_blood_gsa/pgs_based_mixup_correction/output/sample-swap-prediction/20200811.test/",
+                            "--llr-bayes-method", "ewi-discretization", "40"))
 
 message(strwrap(prefix = " ", initial = "", paste(
   "Loading trait-gwas-mapping:\n", args$trait_gwas_mapping)))
