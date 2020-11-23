@@ -1115,9 +1115,6 @@ aggregatedLlrMatrix <- aggregatedLlrMatrix[apply(aggregatedNumberOfTraits > 0, 1
 
 print(dim(aggregatedLlrMatrix))
 
-write.table(lrProducts, file.path(out, "/aggregatedLogLikelihoodRatiosDataFrame.tsv"),
-            sep="\t", col.names = T, row.names = F, quote = F)
-
 overallOutputStatistics <- data.frame(name = "overallStatistics")
 
 likelihoodRatioDifferenceTest <- t.test(
@@ -1131,6 +1128,9 @@ overallOutputStatistics$pValue <- likelihoodRatioDifferenceTest$p.value
 llrDataFrame <- 
   as.data.frame.table(aggregatedLlrMatrix, responseName = "logLikelihoodRatios") %>%
   inner_join(link, by = c("Var1" = "pheno"))
+
+write.table(llrDataFrame, file.path(out, "/aggregatedLogLikelihoodRatiosDataFrame.tsv"),
+            sep="\t", col.names = T, row.names = F, quote = F)
 
 rm(aggregatedLlrMatrix)
 gc()
