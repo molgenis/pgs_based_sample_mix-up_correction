@@ -542,8 +542,6 @@ calculate.logLikelihoodRatiosForSelection <- function(
   rm(valueMatrix)
   gc()
   
-  txtboxplot(nullValues, alternativeValues)
-  
   # Store the dimensions of the scaled residual matrix, as well as rownames and colnames.
   logLikelihoodRatios <- matrix(nrow = nrow(valueMatrixFiltered), 
                                 ncol = ncol(valueMatrixFiltered),
@@ -688,11 +686,19 @@ calculate.logLikelihoodRatios <- function(
 
 # Define function for calculating the AUC
 calculate.auc <- function(actual, predictor) {
-  pr <- prediction(predictor, actual, label.ordering = levels(actual))
+  pr <- prediction(predictor, actual)
   
-  auc <- performance(pr, measure = "auc")
-  auc <- auc@y.values[[1]]
+  performance <- performance(pr, measure = "auc")
+  auc <- performance@y.values[[1]]
   return(auc)
+}
+
+plot.rocCurve <- function(actual, predictor) {
+  pr <- prediction(predictor, actual)
+  
+  roc_ROCR <- performance(pr, measure = "tpr", x.measure = "fpr")
+  plot(roc_ROCR, main = "ROC curve", colorize = T)
+  abline(a = 0, b = 1)
 }
 
 # Function for forcing normal distribution
@@ -828,6 +834,10 @@ if (!is.null(args$sample_coupling_file)) {
 } else {
   message(strwrap(prefix = " ", initial = "", 
                   "Not using special sample coupling table"))
+}
+
+if (!"original" %in% rownames(link)) {
+  link$original <- link$geno
 }
 
 modelBasePath <- NULL
@@ -1036,7 +1046,7 @@ for (traitIndex in 1:nrow(traitDescriptionsTable)) {
   
   llrDataFrame$group <- "alternative"
   llrDataFrame$group[llrDataFrame$original == llrDataFrame$Var2] <- "null"
-  llrDataFrame$group <- factor(llrDataFrame$group, levels = c("null", "alternative"))
+  llrDataFrame$group <- ordered(llrDataFrame$group, levels = c("null", "alternative"))
   
   matrixWideAuc <- calculate.auc(
     llrDataFrame$group, llrDataFrame$logLikelihoodRatios)
@@ -1046,15 +1056,18 @@ for (traitIndex in 1:nrow(traitDescriptionsTable)) {
   permutationTestDataFrame <- llrDataFrame %>%
     filter(geno == Var2)
   
-  confinedAuc <- calculate.auc(
-    permutationTestDataFrame$group, 
-    permutationTestDataFrame$logLikelihoodRatios)
-  
-  message(paste0("Confined AUC: ", confinedAuc))
-  
-  traitDescriptionsTable[traitIndex, "confinedAuc"] <- confinedAuc
   traitDescriptionsTable[traitIndex, "matrixWideAuc"] <- matrixWideAuc
   traitDescriptionsTable[traitIndex, "pValue"] <- likelihoodRatioDifferenceTest$p.value
+  
+  if ("alternative" %in% permutationTestDataFrame$group) {
+    
+    confinedAuc <- calculate.auc(
+      permutationTestDataFrame$group, 
+      permutationTestDataFrame$logLikelihoodRatios)
+    
+    message(paste0("Confined AUC: ", confinedAuc))
+    traitDescriptionsTable[traitIndex, "confinedAuc"] <- confinedAuc
+  }
   
   # 
   # scaledResidualsDataFrame <- 
@@ -1102,38 +1115,77 @@ aggregatedLlrMatrix <- aggregatedLlrMatrix[apply(aggregatedNumberOfTraits > 0, 1
 
 print(dim(aggregatedLlrMatrix))
 
-lrProducts <- 
-  as.data.frame.table(aggregatedLlrMatrix, responseName = "logLikelihoodRatios") %>%
-  inner_join(link, by = c("Var1" = "pheno"))
-
 write.table(lrProducts, file.path(out, "/aggregatedLogLikelihoodRatiosDataFrame.tsv"),
             sep="\t", col.names = T, row.names = F, quote = F)
 
-lrProducts$group <- "alternative"
-lrProducts$group[lrProducts$original == lrProducts$Var2] <- "null"
-lrProducts$group <- factor(lrProducts$group, levels = c("null", "alternative"))
+overallOutputStatistics <- data.frame(name = "overallStatistics")
 
-# lrProducts <- lrProducts %>% 
-#   group_by(Var1) %>%
-#   mutate(scaledLlr = scale(logLikelihoodRatios))
+likelihoodRatioDifferenceTest <- t.test(
+  diag(aggregatedLlrMatrix), 
+  aggregatedLlrMatrix[lower.tri(aggregatedLlrMatrix) | upper.tri(aggregatedLlrMatrix)],
+  alternative = "less")
 
-message(paste0("Calculated overall AUC: ", calculate.auc(
-  lrProducts$group, lrProducts$logLikelihoodRatios)))
+overallOutputStatistics$pValue <- likelihoodRatioDifferenceTest$p.value
 
-permutationTestDataFrame <- lrProducts %>%
+# Convert matrix to data frame for further processing
+llrDataFrame <- 
+  as.data.frame.table(aggregatedLlrMatrix, responseName = "logLikelihoodRatios") %>%
+  inner_join(link, by = c("Var1" = "pheno"))
+
+rm(aggregatedLlrMatrix)
+gc()
+
+llrDataFrame$group <- "alternative"
+llrDataFrame$group[llrDataFrame$original == llrDataFrame$Var2] <- "null"
+llrDataFrame$group <- ordered(llrDataFrame$group, levels = c("null", "alternative"))
+
+matrixWideAuc <- calculate.auc(
+  llrDataFrame$group, llrDataFrame$logLikelihoodRatios)
+
+message(paste0("Calculated overall AUC: ", matrixWideAuc))
+overallOutputStatistics$matrixWideAuc <- matrixWideAuc
+
+pdf(file.path(out, "ROCcurve_matrixWide.pdf"))
+par(xpd = NA)
+
+plot.rocCurve(  
+  llrDataFrame$group, 
+  llrDataFrame$logLikelihoodRatios)
+
+dev.off()
+
+# Confine ourselves to the diagonal
+permutationTestDataFrame <- llrDataFrame %>%
   filter(geno == Var2)
 
-message(paste0("Confined AUC: ", calculate.auc(
-  permutationTestDataFrame$group, 
-  permutationTestDataFrame$logLikelihoodRatios)))
+if ("alternative" %in% permutationTestDataFrame$group) {
+  confinedAuc <- calculate.auc(
+    permutationTestDataFrame$group, 
+    permutationTestDataFrame$logLikelihoodRatios)
+  
+  message(paste0("Confined AUC: ", confinedAuc))
+  overallOutputStatistics$confinedAuc <- confinedAuc
+  
+  pdf(file.path(out, "ROCcurve_diagonal.pdf"))
+  par(xpd = NA)
+  
+  plot.rocCurve(  
+    permutationTestDataFrame$group, 
+    permutationTestDataFrame$logLikelihoodRatios)
+  
+  dev.off()
+}
 
-ggplot(lrProducts, aes(x=logLikelihoodRatios, stat(density), fill=group)) +
+write.table(overallOutputStatistics, file.path(out, "overallOutputStatistics.tsv"),
+            sep="\t", col.names = T, row.names = T, quote = F)
+
+ggplot(llrDataFrame, aes(x=logLikelihoodRatios, stat(density), fill=group)) +
   geom_histogram(bins = 32, alpha=.5, position="identity") +
   xlab("Log likelihood ratios") + ggtitle(paste0("LR overall"))
 
 ggsave(file.path(out, "/likelihoodRatioHistogram.png"), width=8, height=7)
 
-ggplot(lrProducts, aes(x=group, y=logLikelihoodRatios)) +
+ggplot(llrDataFrame, aes(x=group, y=logLikelihoodRatios)) +
   geom_boxplot() + ggtitle(paste0("Log likelihood ratio distributions comparison overall"))
 
 ggsave(file.path(out, "/likelihoodRatioBoxplot.png"), width=8, height=7)
@@ -1141,7 +1193,7 @@ ggsave(file.path(out, "/likelihoodRatioBoxplot.png"), width=8, height=7)
 numberOfTraits <- 
   as.data.frame.table(aggregatedNumberOfTraits, responseName = "numberOfTraits")
 
-phenoSamples <- unique(lrProducts[lrProducts$geno != lrProducts$original, "Var1"])
+phenoSamples <- unique(llrDataFrame[llrDataFrame$geno != llrDataFrame$original, "Var1"])
 
 # phenoSamples <- sample(unique(lrProducts[lrProducts$geno == lrProducts$original, "Var1"]), size = 26)
 # 
