@@ -121,8 +121,6 @@ for (traitIndex in 1:nrow(traitDescriptionsTable)) {
   trait <- traitDescriptionsTable$trait[traitIndex]
   responseDataType <- traitDescriptionsTable$traitDataType[traitIndex]
   
-  traitDescriptionsTable[traitIndex, "traitOutputDir"] <- traitFileName
-  
   phenotypeTable <- phenotypesTable %>%
     filter(TRAIT == trait) %>%
     rename(pheno = ID) %>%
