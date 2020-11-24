@@ -79,6 +79,10 @@ traitDescriptionsTable$polygenicScoreFilePath <- file.path(basePathWithPolygenic
 # Get the output path
 out <- args$out
 
+if (!dir.create(out, recursive = T)) {
+  warning(paste0("Could not create directory '", out, "'"))
+}
+
 message(strwrap(prefix = " ", initial = "", paste(
   "Loading phenotype table:\n", args$phenotypes_file)))
 
