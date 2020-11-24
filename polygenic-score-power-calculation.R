@@ -192,7 +192,7 @@ for (traitIndex in 1:nrow(traitDescriptionsTable)) {
     cor.test(completeTable$PGS, completeTable$VALUE.CORRECTED, method = "pearson")$estimate
   traitDescriptionsTable[traitIndex, "spearmanCorrelationOnAdjustedPhenotype"] <- 
     cor.test(completeTable$PGS, completeTable$VALUE.CORRECTED, method = "spearman")$estimate
-  if (length(unique(completeTable$VALUE)) == 2) {
+  if (length(unique(completeTable$VALUE.CORRECTED)) == 2) {
     traitDescriptionsTable[traitIndex, "rocCurveAucOnAdjustedPhenotype"] <- 
       calculate.auc(predictor = completeTable$PGS, actual = completeTable$VALUE.CORRECTED)
   }
