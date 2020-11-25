@@ -14,7 +14,7 @@ library(MASS)
 library(tidyverse)
 library(argparse)
 library(data.table)
-library(ROCR)
+library(pROC)
 
 ##############################
 # Define argument parser
@@ -684,23 +684,6 @@ calculate.logLikelihoodRatios <- function(
   return(logLikelihoodRatios)
 }
 
-# Define function for calculating the AUC
-calculate.auc <- function(actual, predictor) {
-  pr <- prediction(predictor, actual)
-  
-  performance <- performance(pr, measure = "auc")
-  auc <- performance@y.values[[1]]
-  return(auc)
-}
-
-plot.rocCurve <- function(actual, predictor) {
-  pr <- prediction(predictor, actual)
-  
-  roc_ROCR <- performance(pr, measure = "tpr", x.measure = "fpr")
-  plot(roc_ROCR, main = "ROC curve", colorize = T)
-  abline(a = 0, b = 1)
-}
-
 # Function for forcing normal distribution
 forceNormal <- function(x) {
 
@@ -762,7 +745,7 @@ plotResiduals <- function(residualsDataFrame, phenotypeTable, responseDataType) 
 #                             "--base-pgs-path", "/groups/umcg-lifelines/tmp01/projects/ugli_blood_gsa/pgs_based_mixup_correction/output/PRScs/20201120/",
 #                             "--phenotypes-file", "/groups/umcg-lifelines/tmp01/projects/ugli_blood_gsa/pgs_based_mixup_correction/data/lifelines/processed/pgs.phenotypes.ugli.dat",
 #                             "--out", "/groups/umcg-lifelines/tmp01/projects/ugli_blood_gsa/pgs_based_mixup_correction/output/sample-swap-prediction/20200811.test/",
-#                             "--llr-bayes-method", "ewi-discretization", "40"))
+#                             "--llr-bayes-method", "gaussian", "40"))
 args <- parser$parse_args(commandArgs(trailingOnly = TRUE))
 
 message(strwrap(prefix = " ", initial = "", paste(
@@ -863,7 +846,10 @@ traitDescriptionsTable <- traitDescriptionsTable %>%
   mutate(confinedAuc = NA_real_,
          matrixWideAuc = NA_real_,
          pValue = NA_real_,
-         traitOutputDir = NA_character_)
+         traitOutputDir = NA_character_,
+         naiveBayesMethod = naiveBayesMethod,
+         samplesPerNaiveBayesBin = samplesPerNaiveBayesBin,
+         modelBasePath = modelBasePath)
 
 # Loop trough traits
 
@@ -1048,7 +1034,7 @@ for (traitIndex in 1:nrow(traitDescriptionsTable)) {
   llrDataFrame$group[llrDataFrame$original == llrDataFrame$Var2] <- "null"
   llrDataFrame$group <- ordered(llrDataFrame$group, levels = c("null", "alternative"))
   
-  matrixWideAuc <- calculate.auc(
+  matrixWideAuc <- auc(
     llrDataFrame$group, llrDataFrame$logLikelihoodRatios)
   
   message(paste0("Calculated overall AUC: ", matrixWideAuc))
@@ -1061,7 +1047,7 @@ for (traitIndex in 1:nrow(traitDescriptionsTable)) {
   
   if ("alternative" %in% permutationTestDataFrame$group) {
     
-    confinedAuc <- calculate.auc(
+    confinedAuc <- auc(
       permutationTestDataFrame$group, 
       permutationTestDataFrame$logLikelihoodRatios)
     
@@ -1070,7 +1056,7 @@ for (traitIndex in 1:nrow(traitDescriptionsTable)) {
   }
   
   # 
-  # scaledResidualsDataFrame <- 
+  # scaledResidualsDataFrame <-
   #   as.data.frame.table(scaledResidualsMatrix, responseName = "scaledResiduals") %>%
   #   inner_join(link, by = c("Var1" = "pheno")) %>%
   #   mutate(group = case_when(Var2 == geno ~ "null",
@@ -1139,7 +1125,7 @@ llrDataFrame$group <- "alternative"
 llrDataFrame$group[llrDataFrame$original == llrDataFrame$Var2] <- "null"
 llrDataFrame$group <- ordered(llrDataFrame$group, levels = c("null", "alternative"))
 
-matrixWideAuc <- calculate.auc(
+matrixWideAuc <- auc(
   llrDataFrame$group, llrDataFrame$logLikelihoodRatios)
 
 message(paste0("Calculated overall AUC: ", matrixWideAuc))
@@ -1148,9 +1134,9 @@ overallOutputStatistics$matrixWideAuc <- matrixWideAuc
 pdf(file.path(out, "ROCcurve_matrixWide.pdf"))
 par(xpd = NA)
 
-plot.rocCurve(  
-  llrDataFrame$group, 
-  llrDataFrame$logLikelihoodRatios)
+roc(
+  llrDataFrame$group ~ llrDataFrame$logLikelihoodRatios, plot=TRUE,
+  print.auc=TRUE,col="green",lwd =4,legacy.axes=TRUE,main="ROC Curves")
 
 dev.off()
 
@@ -1159,7 +1145,7 @@ permutationTestDataFrame <- llrDataFrame %>%
   filter(geno == Var2)
 
 if ("alternative" %in% permutationTestDataFrame$group) {
-  confinedAuc <- calculate.auc(
+  confinedAuc <- auc(
     permutationTestDataFrame$group, 
     permutationTestDataFrame$logLikelihoodRatios)
   
@@ -1169,9 +1155,9 @@ if ("alternative" %in% permutationTestDataFrame$group) {
   pdf(file.path(out, "ROCcurve_diagonal.pdf"))
   par(xpd = NA)
   
-  plot.rocCurve(  
-    permutationTestDataFrame$group, 
-    permutationTestDataFrame$logLikelihoodRatios)
+  roc(
+    permutationTestDataFrame$group ~ permutationTestDataFrame$logLikelihoodRatios, 
+    plot=TRUE, print.auc=TRUE,col="green",lwd =4,legacy.axes=TRUE,main="ROC Curves")
   
   dev.off()
 }
