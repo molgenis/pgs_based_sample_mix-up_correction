@@ -1049,7 +1049,7 @@ for (traitIndex in 1:nrow(traitDescriptionsTable)) {
       permutationTestDataFrame$logLikelihoodRatios)
     
     message(paste0("Confined AUC: ", confinedAuc))
-    traitDescriptionsTable[traitIndex, "confinedAuc"] <- confinedAuc
+    traitDescriptionsTable[traitIndex, "confinedAuc"] <- as.double(confinedAuc)
   }
   
   # 
@@ -1126,7 +1126,7 @@ matrixWideAuc <- auc(
   llrDataFrame$group, llrDataFrame$logLikelihoodRatios)
 
 message(paste0("Calculated overall AUC: ", matrixWideAuc))
-overallOutputStatistics$matrixWideAuc <- matrixWideAuc
+overallOutputStatistics$matrixWideAuc <- as.double(matrixWideAuc)
 
 pdf(file.path(out, "ROCcurve_matrixWide.pdf"))
 par(xpd = NA)
@@ -1147,7 +1147,7 @@ if ("alternative" %in% permutationTestDataFrame$group) {
     permutationTestDataFrame$logLikelihoodRatios)
   
   message(paste0("Confined AUC: ", confinedAuc))
-  overallOutputStatistics$confinedAuc <- confinedAuc
+  overallOutputStatistics$confinedAuc <- as.double(confinedAuc)
   
   pdf(file.path(out, "ROCcurve_diagonal.pdf"))
   par(xpd = NA)
