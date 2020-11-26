@@ -784,9 +784,9 @@ likelihoodRatioDifferenceAlpha <- 0.05
 # naive bayes method
 naiveBayesMethod <- args$llr_bayes_method[1]
 stopifnot("method must be one of the following: <ewi-discretization | efi-discretization | gaussian>" = 
-            naiveBayesMethod %in% c("ewi-discretization", "efi-discretization", "gaussian"))
+            naiveBayesMethod %in% c("ewi-discretization", "efi-discretization", "gaussian", "NA"))
 
-if ((naiveBayesMethod == "ewi-discretization" | naiveBayesMethod == "efi-discretization") 
+if ((naiveBayesMethod == "ewi-discretization" | naiveBayesMethod == "efi-discretization" | naiveBayesMethod == "NA") 
     & length(args$llr_bayes_method) == 2) {
   
   samplesPerNaiveBayesBin <- as.numeric(args$llr_bayes_method[2])
