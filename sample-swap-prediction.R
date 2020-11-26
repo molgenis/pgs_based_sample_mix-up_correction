@@ -847,10 +847,15 @@ traitDescriptionsTable <- traitDescriptionsTable %>%
          matrixWideAuc = NA_real_,
          pValue = NA_real_,
          traitOutputDir = NA_character_,
-         naiveBayesMethod = naiveBayesMethod,
-         samplesPerNaiveBayesBin = samplesPerNaiveBayesBin,
-         modelBasePath = modelBasePath)
-
+         modelBasePath = modelBasePath) %>%
+  group_by(trait) %>%
+  mutate(naiveBayesMethod = case_when(
+    !is.na(naiveBayesMethod) 
+    & naiveBayesMethod %in% c("gaussian, efi-discretization", "ewi-discretization") ~ naiveBayesMethod,
+    responseDataType == "continuous" ~ "gaussian",
+    responseDataType %in% c("ordinal", "binary") ~ "efi-discretization"),
+    samplesPerNaiveBayesBin = samplesPerNaiveBayesBin)
+  
 # Loop trough traits
 
 for (traitIndex in 1:nrow(traitDescriptionsTable)) {
@@ -858,6 +863,7 @@ for (traitIndex in 1:nrow(traitDescriptionsTable)) {
   polygenicScoreFilePath <- traitDescriptionsTable$polygenicScoreFilePath[traitIndex]
   trait <- traitDescriptionsTable$trait[traitIndex]
   responseDataType <- traitDescriptionsTable$traitDataType[traitIndex]
+  naiveBayesMethod <- traitDescriptionsTable$naiveBayesMethod[traitIndex]
   
   traitFileName <- paste(traitIndex, gsub(" ", "_", trait), sep = ".")
   traitDescriptionsTable[traitIndex, "traitOutputDir"] <- traitFileName
@@ -934,20 +940,6 @@ for (traitIndex in 1:nrow(traitDescriptionsTable)) {
   completeTable <- phenotypeTable %>%
     inner_join(polygenicScores, by = c("geno" = "IID"))
   
-  # initial.cor.test.results <- cor.test(completeTable$VALUE, completeTable$PGS)
-  # message(paste0("Initial R-squared of correlation = ", initial.cor.test.results$estimate ^ 2))
-  # pearson.correlations[traitIndex, "pearson.not_corrected"] <- initial.cor.test.results$estimate
-  # 
-  # Correct for age and sex
-  # trait2pgs.corrected <- completeTable
-  # model.complete <- lm(VALUE ~ AGE + SEX + AGE * SEX, data = trait2pgs.corrected)
-  # trait2pgs.corrected$actual <- resid(model.complete)
-  
-  # Output the correlation of the corrected traits
-  # corrected.cor.test.results <- cor.test(trait2pgs.corrected$actual, trait2pgs.corrected$PGS)
-  # message(paste0("R-squared of corrected traits = ", corrected.cor.test.results$estimate ^ 2))
-  # pearson.correlations[traitIndex, "pearson.corrected.both"] <- corrected.cor.test.results$estimate
-
   # Calculate z-score matrix based on polygenic scores and actual phenotypes,
   # using the chosen function for calculating residuals.
   
