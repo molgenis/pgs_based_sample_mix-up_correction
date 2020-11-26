@@ -819,8 +819,12 @@ if (!is.null(args$sample_coupling_file)) {
                   "Not using special sample coupling table"))
 }
 
+predictingInducedMixUps <- F
+
 if (!("original" %in% colnames(link))) {
   link$original <- link$geno
+} else {
+  predictingInducedMixUps <- T
 }
 
 modelBasePath <- NULL
@@ -852,8 +856,8 @@ traitDescriptionsTable <- traitDescriptionsTable %>%
   mutate(naiveBayesMethod = case_when(
     !is.na(naiveBayesMethod) 
     & naiveBayesMethod %in% c("gaussian, efi-discretization", "ewi-discretization") ~ naiveBayesMethod,
-    responseDataType == "continuous" ~ "gaussian",
-    responseDataType %in% c("ordinal", "binary") ~ "efi-discretization"),
+    traitDataType == "continuous" ~ "gaussian",
+    traitDataType %in% c("ordinal", "binary") ~ "efi-discretization"),
     samplesPerNaiveBayesBin = samplesPerNaiveBayesBin)
   
 # Loop trough traits
