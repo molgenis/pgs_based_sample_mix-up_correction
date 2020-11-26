@@ -741,11 +741,12 @@ plotResiduals <- function(residualsDataFrame, phenotypeTable, responseDataType) 
 # Run
 ##############################
 # args <- parser$parse_args(c("--trait-gwas-mapping", "/groups/umcg-lld/tmp01/other-users/umcg-rwarmerdam/pgs_based_mixup_correction/scripts/r-scripts/pgs_based_sample_mix-up_correction/trait-gwas-mapping.txt",
-#                             "--sample-coupling-file", "/home/umcg-rwarmerdam/pgs_based_mixup_correction-ugli/data/lifelines/processed/pgs.sample-coupling-file.ugli.20201014.perm_5120samples_51mixUps.txt",
+#                             "--sample-coupling-file", "/home/umcg-rwarmerdam/pgs_based_mixup_correction-ugli/data/lifelines/processed/pgs.sample-coupling-file.ugli.20201120.10080samples.txt",
 #                             "--base-pgs-path", "/groups/umcg-lifelines/tmp01/projects/ugli_blood_gsa/pgs_based_mixup_correction/output/PRScs/20201120/",
 #                             "--phenotypes-file", "/groups/umcg-lifelines/tmp01/projects/ugli_blood_gsa/pgs_based_mixup_correction/data/lifelines/processed/pgs.phenotypes.ugli.dat",
 #                             "--out", "/groups/umcg-lifelines/tmp01/projects/ugli_blood_gsa/pgs_based_mixup_correction/output/sample-swap-prediction/20200811.test/",
-#                             "--llr-bayes-method", "gaussian", "40"))
+#                             "--llr-bayes-method", "NA", "50",
+#                             "--base-fit-model-path", "/groups/umcg-lifelines/tmp01/projects/ugli_blood_gsa/pgs_based_mixup_correction/output/sample-swap-prediction/fitted-paramters/"))
 args <- parser$parse_args(commandArgs(trailingOnly = TRUE))
 
 message(strwrap(prefix = " ", initial = "", paste(
@@ -804,7 +805,7 @@ phenotypesTable <- fread(phenotypesFilePath, header=T, quote="", sep="\t",
   filter(!any(AGE < 18)) %>%
   ungroup()
 
-link <- data.frame(geno = unique(phenotypesTable$ID), pheno = unique(phenotypesTable$ID))
+link <- data.frame(geno = unique(phenotypesTable$ID), pheno = unique(phenotypesTable$ID), stringsAsFactors = F)
 
 # Get the link path
 if (!is.null(args$sample_coupling_file)) {
@@ -1020,7 +1021,7 @@ for (traitIndex in 1:nrow(traitDescriptionsTable)) {
   }
   
   llrDataFrame <- 
-    as.data.frame.table(logLikelihoodRatios, responseName = "logLikelihoodRatios") %>%
+    as.data.frame.table(logLikelihoodRatios, responseName = "logLikelihoodRatios", stringsAsFactors = FALSE) %>%
     inner_join(link, by = c("Var1" = "pheno"))
   
   rm(logLikelihoodRatios)
@@ -1038,10 +1039,10 @@ for (traitIndex in 1:nrow(traitDescriptionsTable)) {
   permutationTestDataFrame <- llrDataFrame %>%
     filter(geno == Var2)
   
-  traitDescriptionsTable[traitIndex, "matrixWideAuc"] <- matrixWideAuc
+  traitDescriptionsTable[traitIndex, "matrixWideAuc"] <- as.double(matrixWideAuc)
   traitDescriptionsTable[traitIndex, "pValue"] <- likelihoodRatioDifferenceTest$p.value
   
-  if ("alternative" %in% permutationTestDataFrame$group) {
+  if (predictingInducedMixUps && "alternative" %in% permutationTestDataFrame$group) {
     
     confinedAuc <- auc(
       permutationTestDataFrame$group, 
