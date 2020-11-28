@@ -293,7 +293,7 @@ calculate.scaledResiduals <- function(estimate, actual, covariates, responseData
                  covariates = covariates))
   })
   
-  #residualsMatrix <- (residualsMatrix - residuals.mean) / residuals.sd
+  residualsMatrix <- (residualsMatrix - residuals.mean) / residuals.sd
   return(residualsMatrix)
 }
 
@@ -475,32 +475,36 @@ gaussianNaiveBayes <- function(values,
   # adapted from: https://stats.stackexchange.com/a/383524 on 22-07-2020.
   # using log(-expm1(...)) in comparison to log1p(-exp(...)) makes the function usable for
   # smaller values.
-  # subtractLogTransformedProbabilities <- function(l1, l2) {
-  #   # return(l1 + log1p(-exp(-(l1 - l2))))
-  #   return(l1 + log(-expm1(-(l1 - l2))))
-  # }
+  subtractLogTransformedProbabilities <- function(l1, l2) {
+    # return(l1 + log1p(-exp(-(l1 - l2))))
+    return(l1 + log(-expm1(-(l1 - l2))))
+  }
   
-  # # Declare function for calculating the log likelihood of 'value' being sampled from 
-  # # a normal distribution with the given mean and standard deviation 'sd'.
-  # gaussianLogLikelihood <- function(value, mean, sd) {
-  #   logLikelihoods <- subtractLogTransformedProbabilities(
-  #     pnorm(value + (error / 2), mean = mean, sd = sd, log.p = TRUE),
-  #     pnorm(value - (error / 2), mean = mean, sd = sd, log.p = TRUE)
-  #   )
-  # 
-  #   # log likelihood is -Inf if log(p) of 
-  #   return(logLikelihoods)
-  # }
+  # Declare function for calculating the log likelihood of 'value' being sampled from
+  # a normal distribution with the given mean and standard deviation 'sd'.
+  gaussianLogLikelihood <- function(value, mean, sd) {
+    logLikelihoods <- subtractLogTransformedProbabilities(
+      pnorm(value + (error / 2), mean = mean, sd = sd, log.p = TRUE),
+      pnorm(value - (error / 2), mean = mean, sd = sd, log.p = TRUE)
+    )
+
+    # log likelihood is -Inf if log(p) of
+    return(logLikelihoods)
+  }
   
   # Calculate, for every residual, the likelihood of the residual being sampled from
   # the corresponding normal distribution of null residuals.
-  nullLogLikelihoods <- dnorm(
-    values, nullMean, nullSd, log = TRUE)
+  nullLogLikelihoods <- gaussianLogLikelihood(
+    values, nullMean, nullSd)
+  # nullLogLikelihoods <- dnorm(
+  #   values, nullMean, nullSd, log = TRUE)
   
   # Calculate, for every residual, the likelihood of the residual being sampled from
   # the corresponding normal distribution of alternative residuals.
-  alternativeLogLikelihoods <- dnorm(
-    values, alternativeMean, alternativeSd, log = TRUE)
+  alternativeLogLikelihoods <- gaussianLogLikelihood(
+    values, alternativeMean, alternativeSd)
+  # alternativeLogLikelihoods <- dnorm(
+  #   values, alternativeMean, alternativeSd, log = TRUE)
 
   # For every residual, calculate the likelihood ratio the residual belonging to a
   # sample swap.
@@ -1093,8 +1097,8 @@ write.table(aggregatedNumberOfTraits, file.path(out, "aggregatedNumberOfTraitsMa
 
 print(dim(aggregatedLlrMatrix))
 
-aggregatedLlrMatrix <- aggregatedLlrMatrix[apply(aggregatedNumberOfTraits > 0, 1, any), 
-                                           apply(aggregatedNumberOfTraits > 0, 2, any)]
+# aggregatedLlrMatrix <- aggregatedLlrMatrix[apply(aggregatedNumberOfTraits > 0, 1, any), 
+#                                            apply(aggregatedNumberOfTraits > 0, 2, any)]
 
 print(dim(aggregatedLlrMatrix))
 
