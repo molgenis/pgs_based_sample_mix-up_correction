@@ -113,9 +113,8 @@ traitDescriptionsTable <- traitDescriptionsTable %>%
   mutate(confinedAuc = NA_real_,
          matrixWideAuc = NA_real_,
          pValue = NA_real_,
-         traitOutputDir = NA_character_,
-         modelBasePath = modelBasePath)
-  
+         traitOutputDir = NA_character_)
+
 # Loop trough traits
 
 for (traitIndex in 1:nrow(traitDescriptionsTable)) {
@@ -127,7 +126,7 @@ for (traitIndex in 1:nrow(traitDescriptionsTable)) {
   traitDescriptionsTable[traitIndex, "traitOutputDir"] <- paste(traitIndex, gsub(" ", "_", trait), sep = ".")
 
   logLikelihoodRatios <- as.matrix(fread(file.path(out, traitFileName, "/logLikelihoodRatios.tsv")), rownames = 1)
-            
+
   likelihoodRatioDifferenceTest <- t.test(
     diag(logLikelihoodRatios), 
     logLikelihoodRatios[lower.tri(logLikelihoodRatios) | upper.tri(logLikelihoodRatios)],
@@ -186,6 +185,9 @@ for (traitIndex in 1:nrow(traitDescriptionsTable)) {
     message(paste0("Confined AUC: ", confinedAuc))
     traitDescriptionsTable[traitIndex, "confinedAuc"] <- as.double(confinedAuc)
   }
+  
+  rm(llrDataFrame)
+  gc()
   
   # Convert matrix to data frame for further processing
   llrDataFrame <- 
