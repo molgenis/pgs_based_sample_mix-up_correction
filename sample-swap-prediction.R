@@ -293,7 +293,7 @@ calculate.scaledResiduals <- function(estimate, actual, covariates, responseData
                  covariates = covariates))
   })
   
-  residualsMatrix <- (residualsMatrix - residuals.mean) / residuals.sd
+  #residualsMatrix <- (residualsMatrix - residuals.mean) / residuals.sd
   return(residualsMatrix)
 }
 
@@ -494,17 +494,17 @@ gaussianNaiveBayes <- function(values,
   
   # Calculate, for every residual, the likelihood of the residual being sampled from
   # the corresponding normal distribution of null residuals.
-  nullLogLikelihoods <- gaussianLogLikelihood(
-    values, nullMean, nullSd)
-  # nullLogLikelihoods <- dnorm(
-  #   values, nullMean, nullSd, log = TRUE)
+  # nullLogLikelihoods <- gaussianLogLikelihood(
+  #   values, nullMean, nullSd)
+  nullLogLikelihoods <- dnorm(
+    values, nullMean, nullSd, log = TRUE)
   
   # Calculate, for every residual, the likelihood of the residual being sampled from
   # the corresponding normal distribution of alternative residuals.
-  alternativeLogLikelihoods <- gaussianLogLikelihood(
-    values, alternativeMean, alternativeSd)
-  # alternativeLogLikelihoods <- dnorm(
-  #   values, alternativeMean, alternativeSd, log = TRUE)
+  # alternativeLogLikelihoods <- gaussianLogLikelihood(
+  #   values, alternativeMean, alternativeSd)
+  alternativeLogLikelihoods <- dnorm(
+    values, alternativeMean, alternativeSd, log = TRUE)
 
   # For every residual, calculate the likelihood ratio the residual belonging to a
   # sample swap.
