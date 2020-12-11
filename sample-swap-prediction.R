@@ -1055,6 +1055,9 @@ for (traitIndex in 1:nrow(traitDescriptionsTable)) {
     message(paste0("Confined AUC: ", confinedAuc))
     traitDescriptionsTable[traitIndex, "confinedAuc"] <- as.double(confinedAuc)
   }
+
+  newAuc <- auc(as.vector(matrix(lower.tri(aggregatedLlrMatrix) | upper.tri(aggregatedLlrMatrix))), as.vector(aggregatedLlrMatrix))
+  message(paste0("New AUC: ", newAuc))
   
   # 
   # scaledResidualsDataFrame <-
