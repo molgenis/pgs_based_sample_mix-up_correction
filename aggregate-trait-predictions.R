@@ -128,7 +128,7 @@ for (traitIndex in 1:nrow(traitDescriptionsTable)) {
   traitDescriptionsTable[traitIndex, "traitOutputDir"] <- paste(traitIndex, gsub(" ", "_", trait), sep = ".")
   
   message(paste0(traitIndex, " / ", nrow(traitDescriptionsTable), 
-                 ": '", trait, "' (", responseDataType, ")."))
+                 ": '", trait, ")."))
   
   if (!file.exists(file.path(out, traitFileName, "/logLikelihoodRatios.tsv"))) {
     message(paste0(
@@ -145,7 +145,7 @@ for (traitIndex in 1:nrow(traitDescriptionsTable)) {
   
   print(likelihoodRatioDifferenceTest)
   
-  if (likelihoodRatioDifferenceTest$p.value <= likelihoodRatioDifferenceAlpha) {
+  if (likelihoodRatioDifferenceTest$p.value <= 1) {
     
     # Resolve log likelihood ratios that are NaN (not a number)
     llrIsNan <- is.nan(logLikelihoodRatios)
