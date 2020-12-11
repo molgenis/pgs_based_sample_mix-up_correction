@@ -49,6 +49,8 @@ args <- parser$parse_args(commandArgs(trailingOnly = TRUE))
 message(strwrap(prefix = " ", initial = "", paste(
   "Loading trait-gwas-mapping:\n", args$trait_gwas_mapping)))
 
+out <- args$out
+
 # Load table containing paths for the plink output 
 # and corresponding phenotype labels.
 traitGwasMappingPath <- args$trait_gwas_mapping
