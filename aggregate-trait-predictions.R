@@ -114,14 +114,7 @@ traitDescriptionsTable <- traitDescriptionsTable %>%
          matrixWideAuc = NA_real_,
          pValue = NA_real_,
          traitOutputDir = NA_character_,
-         modelBasePath = modelBasePath) %>%
-  group_by(trait) %>%
-  mutate(naiveBayesMethod = case_when(
-    !is.na(naiveBayesMethod) 
-    & naiveBayesMethod %in% c("gaussian, efi-discretization", "ewi-discretization") ~ naiveBayesMethod,
-    traitDataType == "continuous" ~ "gaussian",
-    traitDataType %in% c("ordinal", "binary") ~ "efi-discretization"),
-    samplesPerNaiveBayesBin = samplesPerNaiveBayesBin)
+         modelBasePath = modelBasePath)
   
 # Loop trough traits
 
@@ -193,6 +186,19 @@ for (traitIndex in 1:nrow(traitDescriptionsTable)) {
     message(paste0("Confined AUC: ", confinedAuc))
     traitDescriptionsTable[traitIndex, "confinedAuc"] <- as.double(confinedAuc)
   }
+  
+  # Convert matrix to data frame for further processing
+  llrDataFrame <- 
+    as.data.frame.table(aggregatedLlrMatrix, responseName = "logLikelihoodRatios") %>%
+    inner_join(link, by = c("Var1" = "pheno"))
+  
+  llrDataFrame$group <- "alternative"
+  llrDataFrame$group[llrDataFrame$original == llrDataFrame$Var2] <- "null"
+  llrDataFrame$group <- ordered(llrDataFrame$group, levels = c("null", "alternative"))
+  
+  newAuc <- auc(
+    llrDataFrame$group, llrDataFrame$logLikelihoodRatios)
+  message(paste0("Calculated overall AUC: ", newAuc))
 }
 
 # Write the result values
