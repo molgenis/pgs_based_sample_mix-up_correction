@@ -126,6 +126,15 @@ for (traitIndex in 1:nrow(traitDescriptionsTable)) {
   #traitFileName <- paste(traitIndex, gsub(" ", "_", trait), sep = ".")
   traitFileName <- trait
   traitDescriptionsTable[traitIndex, "traitOutputDir"] <- paste(traitIndex, gsub(" ", "_", trait), sep = ".")
+  
+  message(paste0(traitIndex, " / ", nrow(traitDescriptionsTable), 
+                 ": '", trait, "' (", responseDataType, ")."))
+  
+  if (!file.exists(file.path(out, traitFileName, "/logLikelihoodRatios.tsv"))) {
+    message(paste0(
+      "Likelihood ratio matrix not present. Skipping..."))
+    next
+  }
 
   logLikelihoodRatios <- as.matrix(fread(file.path(out, traitFileName, "/logLikelihoodRatios.tsv")), rownames = 1)
 
