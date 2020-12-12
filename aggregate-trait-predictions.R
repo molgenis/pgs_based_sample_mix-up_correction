@@ -218,8 +218,8 @@ for (traitIndex in 1:nrow(traitDescriptionsTable)) {
 # write.table(traitDescriptionsTable, file.path(out, "outputStatisticsPerTrait.tsv"),
 #             sep="\t", col.names = T, row.names = T, quote = F)
 # 
-# write.table(aggregatedLlrMatrix, file.path(out, "aggregatedLogLikelihoodRatiosMatrix.tsv"),
-#             sep="\t", col.names = T, row.names = T, quote = F)
+write.table(aggregatedLlrMatrix, file.path(out, "revaluated_aggregatedLogLikelihoodRatiosMatrix.tsv"),
+            sep="\t", col.names = T, row.names = T, quote = F)
 # 
 # write.table(aggregatedNumberOfTraits, file.path(out, "aggregatedNumberOfTraitsMatrix.tsv"),
 #             sep="\t", col.names = T, row.names = T, quote = F)
