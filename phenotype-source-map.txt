@@ -1,45 +1,46 @@
-Name	Description	ColumnIdentifier	Path	FileName
-Diastolic blood pressure	Diastolic Blood Pressure adjusted for blood pressure lowering medications use at baseline (T0)	DBPadj.1	/groups/umcg-lifelines/tmp01/releases/pheno_lifelines_restructured/v1	bloodpressure_hypertension/data/labels/Blood_pressure and HTN (T0 and T1).txt
-Systolic blood pressure	Systolic Blood Pressure adjusted for blood pressure lowering medications use at baseline (T0)	SBPadj.1	/groups/umcg-lifelines/tmp01/releases/pheno_lifelines_restructured/v1	bloodpressure_hypertension/data/labels/Blood_pressure and HTN (T0 and T1).txt
-Hematocrit		HT	/groups/umcg-lifelines/tmp01/projects/phenotypes/tab_seperated_labels	Laboratory_assessment_Blood.dat
-Hemoglobin		HB	/groups/umcg-lifelines/tmp01/projects/phenotypes/tab_seperated_labels	Laboratory_assessment_Blood.dat
-Basophilic Granulocytes		BA	/groups/umcg-lifelines/tmp01/projects/phenotypes/tab_seperated_labels	Laboratory_assessment_Blood.dat
-Eosinophil concentration		EO	/groups/umcg-lifelines/tmp01/projects/phenotypes/tab_seperated_labels	Laboratory_assessment_Blood.dat
-Cholesterol		CHO	/groups/umcg-lifelines/tmp01/projects/phenotypes/tab_seperated_labels	Laboratory_assessment_Blood.dat
-Leukocytes		LEU	/groups/umcg-lifelines/tmp01/projects/phenotypes/tab_seperated_labels	Laboratory_assessment_Blood.dat
-Lymphocytes		LY	/groups/umcg-lifelines/tmp01/projects/phenotypes/tab_seperated_labels	Laboratory_assessment_Blood.dat
-Monocytes		MO	/groups/umcg-lifelines/tmp01/projects/phenotypes/tab_seperated_labels	Laboratory_assessment_Blood.dat
-LDL Cholesterol		LDC	/groups/umcg-lifelines/tmp01/projects/phenotypes/tab_seperated_labels	Laboratory_assessment_Blood.dat
-HbA1c		HBAC	/groups/umcg-lifelines/tmp01/projects/phenotypes/tab_seperated_labels	Laboratory_assessment_Blood.dat
-Height		LENGTE	/groups/umcg-lifelines/tmp01/projects/phenotypes/tab_seperated_labels	Measurement_Anthropometry.dat
-BMI		BMI	/groups/umcg-lifelines/tmp01/projects/phenotypes/tab_seperated_labels	Measurement_Anthropometry.dat
-Erythrocytes		ER	/groups/umcg-lifelines/tmp01/projects/phenotypes/tab_seperated_labels	Laboratory_assessment_Blood.dat
-Neutrophil Granulocytes		GR	/groups/umcg-lifelines/tmp01/projects/phenotypes/tab_seperated_labels	Laboratory_assessment_Blood.dat
-Thrombocytes		TR	/groups/umcg-lifelines/tmp01/projects/phenotypes/tab_seperated_labels	Laboratory_assessment_Blood.dat
-Creatinine		BKR	/groups/umcg-lifelines/tmp01/projects/phenotypes/tab_seperated_labels	Laboratory_assessment_Blood.dat
-Triglycerides		TGL	/groups/umcg-lifelines/tmp01/projects/phenotypes/tab_seperated_labels	Laboratory_assessment_Blood.dat
-HDL Cholesterol		HDC	/groups/umcg-lifelines/tmp01/projects/phenotypes/tab_seperated_labels	Laboratory_assessment_Blood.dat
-Sex		GESLACHT	/groups/umcg-lifelines/tmp01/projects/phenotypes/tab_seperated_labels	Participant (Pa_99_G).dat
-Type 1 diabetes		T1D.10	/groups/umcg-lifelines/tmp01/releases/pheno_lifelines_restructured/v1	diabetes/data/labels/diabetes first and second screening_final.txt
-Type 2 diabetes		T2D.10	/groups/umcg-lifelines/tmp01/releases/pheno_lifelines_restructured/v1	diabetes/data/labels/diabetes first and second screening_final.txt
-Asthma		asthma_baseline	/groups/umcg-lifelines/tmp01/releases/pheno_lifelines_restructured/v1	asthma/data/labels/asthma.txt
-Natural hair colour now		HAIR1	/groups/umcg-lifelines/tmp01/projects/phenotypes/tab_seperated_labels	Questionnaire_Hair.dat
-Schizophrenia		HEALTH72I9	/groups/umcg-lifelines/tmp01/projects/ugli_blood_gsa/pgs_based_mixup_correction/data/lifelines/phenotypes/v1/tab_separated_labels	Questionnaire_Health_General.cleaned.dat
-Heart attack		HEALTH19	/groups/umcg-lifelines/tmp01/projects/ugli_blood_gsa/pgs_based_mixup_correction/data/lifelines/phenotypes/v1/tab_separated_labels	Questionnaire_Health.cleaned.dat
-Since last questionnaire: heart attack		HEALTH100B1	/groups/umcg-lifelines/tmp01/projects/ugli_blood_gsa/pgs_based_mixup_correction/data/lifelines/phenotypes/v1/tab_separated_labels	Questionnaire_Health_General.cleaned.dat
-Balloon angioplasty/bypass surgery		HEALTH23	/groups/umcg-lifelines/tmp01/projects/ugli_blood_gsa/pgs_based_mixup_correction/data/lifelines/phenotypes/v1/tab_separated_labels	Questionnaire_Health.cleaned.dat
-Balloon angioplasty since last questionnaire		HEALTH101M1	/groups/umcg-lifelines/tmp01/projects/ugli_blood_gsa/pgs_based_mixup_correction/data/lifelines/phenotypes/v1/tab_separated_labels	Questionnaire_Health.cleaned.dat
-Liver cirrhosis		HEALTH72C6	/groups/umcg-lifelines/tmp01/projects/ugli_blood_gsa/pgs_based_mixup_correction/data/lifelines/phenotypes/v1/tab_separated_labels	Questionnaire_Health_General.cleaned.dat
-Renal failure		HEALTH_72K	/groups/umcg-lifelines/tmp01/projects/ugli_blood_gsa/pgs_based_mixup_correction/data/lifelines/phenotypes/v1/tab_separated_labels	Questionnaire_Health.cleaned.dat
-Cancer		HEALTH16A	/groups/umcg-lifelines/tmp01/projects/ugli_blood_gsa/pgs_based_mixup_correction/data/lifelines/phenotypes/v1/tab_separated_labels	Questionnaire_Health.cleaned.dat
-Cancer, cured		HEALTH16D	/groups/umcg-lifelines/tmp01/projects/ugli_blood_gsa/pgs_based_mixup_correction/data/lifelines/phenotypes/v1/tab_separated_labels	Questionnaire_Health.cleaned.dat
-Cancer Followup		HEALTH100C	/groups/umcg-lifelines/tmp01/projects/ugli_blood_gsa/pgs_based_mixup_correction/data/lifelines/phenotypes/v1/tab_separated_labels	Questionnaire_Health_General.cleaned.dat
-Pregnancy Followup		FAM24C	/groups/umcg-lifelines/tmp01/projects/phenotypes/tab_seperated_labels	Questionnaire_Family.dat
-Pregnancy Baseline		FEM4	/groups/umcg-lifelines/tmp01/projects/phenotypes/tab_seperated_labels	Questionnaire_Questions_for_females.dat
-Age 1A1		AGE_1A1	/groups/umcg-lifelines/tmp01/projects/phenotypes/tab_seperated_labels	Participant (Pa_99_G).dat
-Age 1A2		AGE_1A2	/groups/umcg-lifelines/tmp01/projects/phenotypes/tab_seperated_labels	Participant (Pa_99_G).dat
-Age 1A3		AGE_1A3	/groups/umcg-lifelines/tmp01/projects/phenotypes/tab_seperated_labels	Participant (Pa_99_G).dat
-Age 1B		AGE_1B	/groups/umcg-lifelines/tmp01/projects/phenotypes/tab_seperated_labels	Participant (Pa_99_G).dat
-Age 1C		AGE_1C	/groups/umcg-lifelines/tmp01/projects/phenotypes/tab_seperated_labels	Participant (Pa_99_G).dat
-Age 2A1		AGE_2A1	/groups/umcg-lifelines/tmp01/projects/phenotypes/tab_seperated_labels	Participant (Pa_99_G).dat
-Age 2A2		AGE_2A2	/groups/umcg-lifelines/tmp01/projects/phenotypes/tab_seperated_labels	Participant (Pa_99_G).dat
+Name	Description	ColumnIdentifier	Path	FileName	TargetTrait
+Diastolic blood pressure	Diastolic Blood Pressure adjusted for blood pressure lowering medications use at baseline (T0)	DBPadj.1	/groups/umcg-lifelines/tmp01/releases/pheno_lifelines_restructured/v1	bloodpressure_hypertension/data/labels/Blood_pressure and HTN (T0 and T1).txt	Diastolic blood pressure
+Systolic blood pressure	Systolic Blood Pressure adjusted for blood pressure lowering medications use at baseline (T0)	SBPadj.1	/groups/umcg-lifelines/tmp01/releases/pheno_lifelines_restructured/v1	bloodpressure_hypertension/data/labels/Blood_pressure and HTN (T0 and T1).txt	Systolic blodd pressure
+Hematocrit		HT	/groups/umcg-lifelines/tmp01/projects/phenotypes/tab_seperated_labels	Laboratory_assessment_Blood.dat	Hematocrit concentration
+Hemoglobin		HB	/groups/umcg-lifelines/tmp01/projects/phenotypes/tab_seperated_labels	Laboratory_assessment_Blood.dat	Hemoglobin concentration
+Basophilic Granulocytes		BA	/groups/umcg-lifelines/tmp01/projects/phenotypes/tab_seperated_labels	Laboratory_assessment_Blood.dat	Basophilic Granulocyte concentration
+Eosinophil concentration		EO	/groups/umcg-lifelines/tmp01/projects/phenotypes/tab_seperated_labels	Laboratory_assessment_Blood.dat	Eosinophil concentration
+Cholesterol		CHO	/groups/umcg-lifelines/tmp01/projects/phenotypes/tab_seperated_labels	Laboratory_assessment_Blood.dat	Total cholesterol
+Leukocytes		LEU	/groups/umcg-lifelines/tmp01/projects/phenotypes/tab_seperated_labels	Laboratory_assessment_Blood.dat	Blood traits
+Lymphocytes		LY	/groups/umcg-lifelines/tmp01/projects/phenotypes/tab_seperated_labels	Laboratory_assessment_Blood.dat	Lymphocyte concentration
+Monocytes		MO	/groups/umcg-lifelines/tmp01/projects/phenotypes/tab_seperated_labels	Laboratory_assessment_Blood.dat	Monocyte concentration
+LDL Cholesterol		LDC	/groups/umcg-lifelines/tmp01/projects/phenotypes/tab_seperated_labels	Laboratory_assessment_Blood.dat	LDL cholesterol
+HbA1c		HBAC	/groups/umcg-lifelines/tmp01/projects/phenotypes/tab_seperated_labels	Laboratory_assessment_Blood.dat	HbA1c
+Height		LENGTE	/groups/umcg-lifelines/tmp01/projects/phenotypes/tab_seperated_labels	Measurement_Anthropometry.dat	Height
+BMI		BMI	/groups/umcg-lifelines/tmp01/projects/phenotypes/tab_seperated_labels	Measurement_Anthropometry.dat	BMI
+Erythrocytes		ER	/groups/umcg-lifelines/tmp01/projects/phenotypes/tab_seperated_labels	Laboratory_assessment_Blood.dat	Erythrocyte concentration
+Neutrophil Granulocytes		GR	/groups/umcg-lifelines/tmp01/projects/phenotypes/tab_seperated_labels	Laboratory_assessment_Blood.dat	
+Thrombocytes		TR	/groups/umcg-lifelines/tmp01/projects/phenotypes/tab_seperated_labels	Laboratory_assessment_Blood.dat	Thrombocyte concentration
+Creatinine		BKR	/groups/umcg-lifelines/tmp01/projects/phenotypes/tab_seperated_labels	Laboratory_assessment_Blood.dat	eGFR
+Triglycerides		TGL	/groups/umcg-lifelines/tmp01/projects/phenotypes/tab_seperated_labels	Laboratory_assessment_Blood.dat	Triglyceride concentration
+HDL Cholesterol		HDC	/groups/umcg-lifelines/tmp01/projects/phenotypes/tab_seperated_labels	Laboratory_assessment_Blood.dat	HDL cholesterol
+Highest completed education		EDUCATION	/groups/umcg-lifelines/tmp01/projects/ugli_blood_gsa/pgs_based_mixup_correction/data/lifelines/phenotypes/v1/tab_separated_labels	Questionnaire_Demographics.cleaned.dat	EduYears
+Sex		GESLACHT	/groups/umcg-lifelines/tmp01/projects/phenotypes/tab_seperated_labels	Participant (Pa_99_G).dat	
+Type 1 diabetes		T1D.10	/groups/umcg-lifelines/tmp01/releases/pheno_lifelines_restructured/v1	diabetes/data/labels/diabetes first and second screening_final.txt	Type 1 diabetes
+Type 2 diabetes		T2D.10	/groups/umcg-lifelines/tmp01/releases/pheno_lifelines_restructured/v1	diabetes/data/labels/diabetes first and second screening_final.txt	Type 2 diabetes
+Asthma		asthma_baseline	/groups/umcg-lifelines/tmp01/releases/pheno_lifelines_restructured/v1	asthma/data/labels/asthma.txt	Asthma
+Natural hair colour now		HAIR1	/groups/umcg-lifelines/tmp01/projects/phenotypes/tab_seperated_labels	Questionnaire_Hair.dat	Red hair colour, Blondeness of hair
+Schizophrenia		HEALTH72I9	/groups/umcg-lifelines/tmp01/projects/ugli_blood_gsa/pgs_based_mixup_correction/data/lifelines/phenotypes/v1/tab_separated_labels	Questionnaire_Health_General.cleaned.dat	
+Heart attack		HEALTH19	/groups/umcg-lifelines/tmp01/projects/ugli_blood_gsa/pgs_based_mixup_correction/data/lifelines/phenotypes/v1/tab_separated_labels	Questionnaire_Health.cleaned.dat	Coronary artery disease
+Since last questionnaire: heart attack		HEALTH100B1	/groups/umcg-lifelines/tmp01/projects/ugli_blood_gsa/pgs_based_mixup_correction/data/lifelines/phenotypes/v1/tab_separated_labels	Questionnaire_Health_General.cleaned.dat	Coronary artery disease
+Balloon angioplasty/bypass surgery		HEALTH23	/groups/umcg-lifelines/tmp01/projects/ugli_blood_gsa/pgs_based_mixup_correction/data/lifelines/phenotypes/v1/tab_separated_labels	Questionnaire_Health.cleaned.dat	Coronary artery disease
+Balloon angioplasty since last questionnaire		HEALTH101M1	/groups/umcg-lifelines/tmp01/projects/ugli_blood_gsa/pgs_based_mixup_correction/data/lifelines/phenotypes/v1/tab_separated_labels	Questionnaire_Health.cleaned.dat	Coronary artery disease
+Liver cirrhosis		HEALTH72C6	/groups/umcg-lifelines/tmp01/projects/ugli_blood_gsa/pgs_based_mixup_correction/data/lifelines/phenotypes/v1/tab_separated_labels	Questionnaire_Health_General.cleaned.dat	Blood traits
+Renal failure		HEALTH_72K	/groups/umcg-lifelines/tmp01/projects/ugli_blood_gsa/pgs_based_mixup_correction/data/lifelines/phenotypes/v1/tab_separated_labels	Questionnaire_Health.cleaned.dat	Blood traits
+Cancer		HEALTH16A	/groups/umcg-lifelines/tmp01/projects/ugli_blood_gsa/pgs_based_mixup_correction/data/lifelines/phenotypes/v1/tab_separated_labels	Questionnaire_Health.cleaned.dat	Blood traits
+Cancer, cured		HEALTH16D	/groups/umcg-lifelines/tmp01/projects/ugli_blood_gsa/pgs_based_mixup_correction/data/lifelines/phenotypes/v1/tab_separated_labels	Questionnaire_Health.cleaned.dat	Blood traits
+Cancer Followup		HEALTH100C	/groups/umcg-lifelines/tmp01/projects/ugli_blood_gsa/pgs_based_mixup_correction/data/lifelines/phenotypes/v1/tab_separated_labels	Questionnaire_Health_General.cleaned.dat	Blood traits
+Pregnancy Followup		FAM24C	/groups/umcg-lifelines/tmp01/projects/phenotypes/tab_seperated_labels	Questionnaire_Family.dat	Blood traits
+Pregnancy Baseline		FEM4	/groups/umcg-lifelines/tmp01/projects/phenotypes/tab_seperated_labels	Questionnaire_Questions_for_females.dat	Blood traits
+Age 1A1		AGE_1A1	/groups/umcg-lifelines/tmp01/projects/phenotypes/tab_seperated_labels	Participant (Pa_99_G).dat	
+Age 1A2		AGE_1A2	/groups/umcg-lifelines/tmp01/projects/phenotypes/tab_seperated_labels	Participant (Pa_99_G).dat	
+Age 1A3		AGE_1A3	/groups/umcg-lifelines/tmp01/projects/phenotypes/tab_seperated_labels	Participant (Pa_99_G).dat	
+Age 1B		AGE_1B	/groups/umcg-lifelines/tmp01/projects/phenotypes/tab_seperated_labels	Participant (Pa_99_G).dat	
+Age 1C		AGE_1C	/groups/umcg-lifelines/tmp01/projects/phenotypes/tab_seperated_labels	Participant (Pa_99_G).dat	
+Age 2A1		AGE_2A1	/groups/umcg-lifelines/tmp01/projects/phenotypes/tab_seperated_labels	Participant (Pa_99_G).dat	
+Age 2A2		AGE_2A2	/groups/umcg-lifelines/tmp01/projects/phenotypes/tab_seperated_labels	Participant (Pa_99_G).dat	
