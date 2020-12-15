@@ -462,6 +462,21 @@ getLatestValueFromRawPhenotypeTable <- function(phenotypeSources, phenotypeTable
            select(PSEUDOIDEXT, AGE, SEX, VALUE))
 }
 
+getEduYears <- function(phenotypeSources, phenotypeTables, correctionTable) {
+  return(getLatestValueFromRawPhenotypeTable(
+    phenotypeSources, phenotypeTables, correctionTable, "Highest completed education") %>%
+      mutate(VALUE = case_when(
+          VALUE == "Junior general secondary education (such as MAVO, (M)ULO, MBO-short, VMBO-t)" ~ 10L,
+          VALUE == "lower or preparatory secondary vocational education (such as LTS, LEAO, LHNO, VMBO)" ~ 10L,
+          VALUE == "No education (did not finish primary school)" ~ 1L,
+          VALUE == "Primary education (primary school, special needs primary school)" ~ 7L,
+          VALUE == "Secondary vocational education or work-based learning pathway (such as MBO-long, VWO, Atheneum, Gymnasium, INAS)" ~ 15L,
+          VALUE == "Senior general secondary education, pre-university secondary education (such as HAVO, VWO, Atheneum, gymnasium, HBS, MMS" ~ 13L,
+          VALUE == "Higher vocational education (such as HBO, HTS, HEAO, doctoral university education, Bachelor's)" ~ 22L,
+          VALUE == "University education" ~ 22L
+        )))
+}
+
 getValueFromBloodTraitPhenotypesTable <- function(
   bloodTraitPhenotypesTable, name) {
   
@@ -719,6 +734,10 @@ traitList[["Coronary artery disease"]] <- getCoronaryArteryDiseaseValues(
 # Schizophrenia
 message("    Schizophrenia...")
 traitList[["Schizophrenia"]] <- getSchizophreniaValues(
+  phenotypeSources, phenotypeTables, correctionTable)
+
+message("    EduYears...")
+traitList[["EduYears"]] <- getEduYears(
   phenotypeSources, phenotypeTables, correctionTable)
 
 rm(phenotypeTables)
