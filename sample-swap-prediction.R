@@ -761,10 +761,9 @@ message(strwrap(prefix = " ", initial = "", paste(
 traitGwasMappingPath <- args$trait_gwas_mapping
 traitDescriptionsTable <- fread(
   traitGwasMappingPath, 
-  quote="", header=T, sep = "\t",
-  col.names=c("trait", "traitDataType", "summaryStatistics", 
-              "sampleSizeOfGwas", "numberOfCategories"), 
-  stringsAsFactors=F)
+  quote="", header=T, sep = "\t", 
+  stringsAsFactors=F) %>%
+  filter(trait == "EduYears")
 
 message(strwrap(prefix = " ", initial = "", paste(
   "Loading polygenic scores from:\n", args$trait_gwas_mapping)))
