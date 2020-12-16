@@ -453,7 +453,7 @@ getLatestValueFromRawPhenotypeTable <- function(phenotypeSources, phenotypeTable
   return(phenotypeTables[[phenotypeSources$filePath[phenotypeSources$Name == name]]] %>%
            mutate(VALUE = get(columnIdentifier),
                   VMID = if("VMID" %in% colnames(.)) VMID else getVmidFromEncountercode(ENCOUNTERCODE)) %>%
-           filter(!is.na(VALUE)) %>%
+           filter(!is.na(VALUE) & VALUE != "") %>%
            inner_join(correctionTable, by = c("PSEUDOIDEXT", "VMID")) %>%
            
            # Per PSEUDOIDEXT, get the row with the 'latest' VMID that is not NA
@@ -474,7 +474,8 @@ getEduYears <- function(phenotypeSources, phenotypeTables, correctionTable) {
           VALUE == "Senior general secondary education, pre-university secondary education (such as HAVO, VWO, Atheneum, gymnasium, HBS, MMS" ~ 13L,
           VALUE == "Higher vocational education (such as HBO, HTS, HEAO, doctoral university education, Bachelor's)" ~ 22L,
           VALUE == "University education" ~ 22L
-        )))
+        )) %>%
+      filter(!is.na(VALUE)))
 }
 
 getValueFromBloodTraitPhenotypesTable <- function(
@@ -576,7 +577,7 @@ plotPhenotype <- function(name, tbl) {
 
 args <- parser$parse_args(commandArgs(trailingOnly = TRUE))
 
-# args <- parser$parse_args(c("--gsa-linkage-file", "/groups/umcg-lifelines/tmp01/releases/gsa_linkage_files/v1/gsa_linkage_file.dat","--out", "/groups/umcg-lifelines/tmp01/projects/ugli_blood_gsa/pgs_based_mixup_correction/data/lifelines/processed/UGLI.pgs.phenotypes.dat","--phenotype-source-map", "/home/umcg-rwarmerdam/pgs_based_mixup_correction/scripts/r-scripts/pgs_based_sample_mix-up_correction/phenotype-source-map.txt"))
+# args <- parser$parse_args(c("--gsa-linkage-file", "/groups/umcg-lifelines/tmp01/releases/gsa_linkage_files/v1/gsa_linkage_file.dat","--out", "/groups/umcg-lifelines/tmp01/projects/ugli_blood_gsa/pgs_based_mixup_correction/data/lifelines/processed/UGLI.pgs.phenotypes_tmp.dat","--phenotype-source-map", "/home/umcg-rwarmerdam/pgs_based_mixup_correction/scripts/r-scripts/pgs_based_sample_mix-up_correction/phenotype-source-map.txt"))
 
 message("Started.")
 # Load GSA linkage file
