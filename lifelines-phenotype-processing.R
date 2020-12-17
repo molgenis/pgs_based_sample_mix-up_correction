@@ -478,7 +478,7 @@ getEduYears <- function(phenotypeSources, phenotypeTables, correctionTable) {
           VALUE == "Higher vocational education (such as HBO, HTS, HEAO, doctoral university education, Bachelor's)" ~ 22L,
           VALUE == "University education" ~ 22L
         )) %>%
-      filter(!is.na(VALUE)))
+      filter(!is.na(VALUE) & AGE >= 30))
 }
 
 getValueFromBloodTraitPhenotypesTable <- function(
