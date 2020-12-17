@@ -113,10 +113,11 @@ getCorrectionTable <- function(phenotypeSources, phenotypeTables) {
     "Second assessment, questionnaire 2" = "Age 2A2"
   )
   
+  # Get columns that contain ages for every VMID
   vmidAgeColumnMap <- sapply(vmidAgeNameMap, function(name) phenotypeSources$ColumnIdentifier[phenotypeSources$Name == name], USE.NAMES=T)
-  
+  # Get the column identifier for the sex of individuals
   sexColumnIdentifier <- phenotypeSources$ColumnIdentifier[phenotypeSources$Name == "Sex"]
-  
+
   correctionColumnIdentifiers <- c(vmidAgeColumnMap, sexColumnIdentifier)
   tableNamesWithCorrectionValues <- unique(phenotypeSources$filePath[phenotypeSources$Name %in% c(vmidAgeNameMap, "Sex")])
   
@@ -447,7 +448,9 @@ extractPhenotypeTables <- function(phenotypeSources, phenotypeTables, names) {
   return(phenotypeTableList)
 }
 
-getLatestValueFromRawPhenotypeTable <- function(phenotypeSources, phenotypeTables, correctionTable, name) {
+getLatestValueFromRawPhenotypeTable <- function(phenotypeSources, phenotypeTables, correctionTable, name, 
+                                                correctionColumns = c("AGE", "SEX")) {
+  
   columnIdentifier <- phenotypeSources$ColumnIdentifier[phenotypeSources$Name == name]
   
   return(phenotypeTables[[phenotypeSources$filePath[phenotypeSources$Name == name]]] %>%
@@ -459,7 +462,7 @@ getLatestValueFromRawPhenotypeTable <- function(phenotypeSources, phenotypeTable
            # Per PSEUDOIDEXT, get the row with the 'latest' VMID that is not NA
            group_by(PSEUDOIDEXT) %>%
            slice_max(as.numeric(VMID)) %>%
-           select(PSEUDOIDEXT, AGE, SEX, VALUE))
+           select(PSEUDOIDEXT, all_of(correctionColumns), VALUE))
 }
 
 getEduYears <- function(phenotypeSources, phenotypeTables, correctionTable) {
@@ -577,7 +580,7 @@ plotPhenotype <- function(name, tbl) {
 
 args <- parser$parse_args(commandArgs(trailingOnly = TRUE))
 
-# args <- parser$parse_args(c("--gsa-linkage-file", "/groups/umcg-lifelines/tmp01/releases/gsa_linkage_files/v1/gsa_linkage_file.dat","--out", "/groups/umcg-lifelines/tmp01/projects/ugli_blood_gsa/pgs_based_mixup_correction/data/lifelines/processed/UGLI.pgs.phenotypes_tmp.dat","--phenotype-source-map", "/home/umcg-rwarmerdam/pgs_based_mixup_correction/scripts/r-scripts/pgs_based_sample_mix-up_correction/phenotype-source-map.txt"))
+args <- parser$parse_args(c("--gsa-linkage-file", "/groups/umcg-lifelines/tmp01/releases/gsa_linkage_files/v1/gsa_linkage_file.dat","--out", "/groups/umcg-lifelines/tmp01/projects/ugli_blood_gsa/pgs_based_mixup_correction/data/lifelines/processed/UGLI.pgs.phenotypes_tmp.dat","--phenotype-source-map", "/home/umcg-rwarmerdam/pgs_based_mixup_correction/scripts/r-scripts/pgs_based_sample_mix-up_correction/phenotype-source-map.txt"))
 
 message("Started.")
 # Load GSA linkage file
@@ -765,10 +768,12 @@ ugliPhenotypeTable <- lifelinesPhenotypeTable %>%
   select(UGLI_ID, AGE, SEX, VALUE, TRAIT)
 
 message("Writing output tables...")
-write.table(lifelinesPhenotypeTable, paste0(args$out, ".lifelines.dat"), row.names=F, col.names=T, quote=F, sep="\t")
+write.table(lifelinesPhenotypeTable %>% rename(ID = PSEUDOIDEXT), 
+            paste0(args$out, ".lifelines.dat"), row.names=F, col.names=T, quote=F, sep="\t")
 message(paste0("Output written to '", args$out, ".lifelines.dat", "'."))
 
-write.table(ugliPhenotypeTable, paste0(args$out, ".ugli.dat"), row.names=F, col.names=T, quote=F, sep="\t")
+write.table(ugliPhenotypeTable %>% rename(ID = UGLI_ID), 
+            paste0(args$out, ".ugli.dat"), row.names=F, col.names=T, quote=F, sep="\t")
 message(paste0("Output written to '", args$out, ".ugli.dat", "'."))
 
 message(paste0("DONE!"))

@@ -745,7 +745,7 @@ plotResiduals <- function(residualsDataFrame, phenotypeTable, responseDataType) 
 # Run
 ##############################
 # args <- parser$parse_args(c("--trait-gwas-mapping", "/groups/umcg-lld/tmp01/other-users/umcg-rwarmerdam/pgs_based_mixup_correction/scripts/r-scripts/pgs_based_sample_mix-up_correction/trait-gwas-mapping.txt",
-#                             "--sample-coupling-file", "/home/umcg-rwarmerdam/pgs_based_mixup_correction-ugli/data/lifelines/processed/pgs.sample-coupling-file.ugli.20201120.10080samples.txt",
+#                             "--sample-coupling-file", "/groups/umcg-lifelines/tmp01/projects/ugli_blood_gsa/pgs_based_mixup_correction/data/lifelines/processed/pgs.sample-coupling-file.ugli.20201014.perm_5120samples_51mixUps.txt",
 #                             "--base-pgs-path", "/groups/umcg-lifelines/tmp01/projects/ugli_blood_gsa/pgs_based_mixup_correction/output/PRScs/20201120/",
 #                             "--phenotypes-file", "/groups/umcg-lifelines/tmp01/projects/ugli_blood_gsa/pgs_based_mixup_correction/data/lifelines/processed/pgs.phenotypes_20201215.ugli.dat",
 #                             "--out", "/groups/umcg-lifelines/tmp01/projects/ugli_blood_gsa/pgs_based_mixup_correction/output/sample-swap-prediction/20200811.test/",
@@ -762,8 +762,7 @@ traitGwasMappingPath <- args$trait_gwas_mapping
 traitDescriptionsTable <- fread(
   traitGwasMappingPath, 
   quote="", header=T, sep = "\t", 
-  stringsAsFactors=F) %>%
-  filter(trait == "EduYears")
+  stringsAsFactors=F)
 
 message(strwrap(prefix = " ", initial = "", paste(
   "Loading polygenic scores from:\n", args$trait_gwas_mapping)))
@@ -801,8 +800,8 @@ message(strwrap(prefix = " ", initial = "", paste(
 
 # Load the phenotypes 
 phenotypesFilePath <- args$phenotypes_file
-phenotypesTable <- fread(phenotypesFilePath, header=T, quote="", sep="\t",
-                         col.names = c("ID", "AGE", "SEX", "VALUE", "TRAIT")) %>%
+phenotypesTable <- fread(phenotypesFilePath, header=T, quote="", sep="\t") %>%
+  rename_all(recode, "UGLI_ID" = "ID") %>%
   mutate(SEX = factor(SEX, levels = c("Female", "Male"))) %>%
   group_by(ID) %>%
   filter(!any(AGE < 18)) %>%
@@ -977,7 +976,7 @@ for (traitIndex in 1:nrow(traitDescriptionsTable)) {
   message("    completed calculating scaled residuals")
   
   message("    calculating log likelihood ratios")
-  
+
   logLikelihoodRatios <- calculate.logLikelihoodRatios(
     valueMatrix = scaledResidualsMatrix, 
     actual = completeTable$VALUE, 

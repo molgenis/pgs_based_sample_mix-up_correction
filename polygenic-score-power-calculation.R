@@ -12,7 +12,7 @@
 library(tidyverse)
 library(argparse)
 library(data.table)
-library(ROCR)
+library(pROC)
 
 ##############################
 # Define argument parser
@@ -88,11 +88,10 @@ message(strwrap(prefix = " ", initial = "", paste(
 
 # Load the phenotypes 
 phenotypesFilePath <- args$phenotypes_file
-phenotypesTable <- fread(phenotypesFilePath, header=T, quote="", sep="\t",
-                         col.names = c("ID", "AGE", "SEX", "VALUE", "TRAIT")) %>%
+phenotypesTable <- fread(phenotypesFilePath, header=T, quote="", sep="\t") %>%
   mutate(SEX = factor(SEX, levels = c("Female", "Male"))) %>%
   group_by(ID) %>%
-  filter(!any(AGE < 18)) %>%
+  filter(!any(AGE < 18) & !is.na(VALUE)) %>%
   ungroup()
 
 link <- data.frame(geno = unique(phenotypesTable$ID), pheno = unique(phenotypesTable$ID))
@@ -186,7 +185,7 @@ for (traitIndex in 1:nrow(traitDescriptionsTable)) {
     cor.test(completeTable$PGS, completeTable$VALUE, method = "spearman")$estimate
   if (length(unique(completeTable$VALUE)) == 2) {
     traitDescriptionsTable[traitIndex, "rocCurveAuc"] <- 
-      calculate.auc(predictor = completeTable$PGS, actual = completeTable$VALUE)
+      auc(completeTable$VALUE, completeTable$PGS)
   }
   
   correctionModel <- lm(VALUE ~ AGE + SEX + AGE:SEX, data = completeTable)
@@ -198,7 +197,7 @@ for (traitIndex in 1:nrow(traitDescriptionsTable)) {
     cor.test(completeTable$PGS, completeTable$VALUE.CORRECTED, method = "spearman")$estimate
   if (length(unique(completeTable$VALUE.CORRECTED)) == 2) {
     traitDescriptionsTable[traitIndex, "rocCurveAucOnAdjustedPhenotype"] <- 
-      calculate.auc(predictor = completeTable$PGS, actual = completeTable$VALUE.CORRECTED)
+      auc(completeTable$VALUE, completeTable$PGS)
   }
 }
 
