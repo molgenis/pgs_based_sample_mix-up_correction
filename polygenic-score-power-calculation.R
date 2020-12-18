@@ -87,6 +87,7 @@ message(strwrap(prefix = " ", initial = "", paste(
 # Load the phenotypes 
 phenotypesFilePath <- args$phenotypes_file
 phenotypesTable <- fread(phenotypesFilePath, header=T, quote="", sep="\t") %>%
+  rename_all(recode, "PSEUDOIDEXT" = "ID") %>%
   mutate(SEX = factor(SEX, levels = c("Female", "Male"))) %>%
   group_by(ID) %>%
   filter(!any(AGE < 18) & !is.na(VALUE)) %>%
