@@ -62,9 +62,7 @@ message(strwrap(prefix = " ", initial = "", paste(
 traitGwasMappingPath <- args$trait_gwas_mapping
 traitDescriptionsTable <- fread(
   traitGwasMappingPath, 
-  quote="", header=T, sep = "\t",
-  col.names=c("trait", "traitDataType", "summaryStatistics", 
-              "sampleSizeOfGwas", "numberOfCategories"), 
+  quote="", header=T, sep = "\t", 
   stringsAsFactors=F)
 
 message(strwrap(prefix = " ", initial = "", paste(
