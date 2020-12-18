@@ -93,7 +93,7 @@ phenotypesTable <- fread(phenotypesFilePath, header=T, quote="", sep="\t") %>%
   filter(!any(AGE < 18) & !is.na(VALUE)) %>%
   ungroup()
 
-link <- data.frame(geno = unique(phenotypesTable$ID), pheno = unique(phenotypesTable$ID))
+link <- data.frame(geno = unique(phenotypesTable$ID), pheno = unique(phenotypesTable$ID), stringsAsFactors = F)
 
 # Get the link path
 if (!is.null(args$sample_coupling_file)) {
