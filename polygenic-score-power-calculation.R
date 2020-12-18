@@ -52,6 +52,11 @@ calculate.auc <- function(actual, predictor) {
 #                             "--base-pgs-path", "/groups/umcg-lifelines/tmp01/projects/ugli_blood_gsa/pgs_based_mixup_correction/output/PRScs/20201120/",
 #                             "--phenotypes-file", "/groups/umcg-lifelines/tmp01/projects/ugli_blood_gsa/pgs_based_mixup_correction/data/lifelines/processed/pgs.phenotypes.ugli.dat",
 #                             "--out", "/groups/umcg-lifelines/tmp01/projects/ugli_blood_gsa/pgs_based_mixup_correction/output/sample-swap-prediction/20200811.test/"))
+args <- parser$parse_args(c("--trait-gwas-mapping", "/groups/umcg-lld/tmp01/other-users/umcg-rwarmerdam/pgs_based_mixup_correction/scripts/r-scripts/pgs_based_sample_mix-up_correction/trait-gwas-mapping.txt",
+                            "--base-pgs-path", "/groups/umcg-lifelines/tmp01/projects/ugli_blood_gsa/pgs_based_mixup_correction/output/PRScs/20201120/",
+                            "--phenotypes-file", "/groups/umcg-lifelines/tmp01/projects/ugli_blood_gsa/pgs_based_mixup_correction/data/lifelines/processed/pgs.phenotypes_20201215.ugli.dat",
+                            "--out", "/groups/umcg-lifelines/tmp01/projects/ugli_blood_gsa/pgs_based_mixup_correction/output/polygenic-score-power-calculation/20201120.20201218/"))
+
 args <- parser$parse_args(commandArgs(trailingOnly = TRUE))
 
 message(strwrap(prefix = " ", initial = "", paste(
@@ -87,7 +92,7 @@ message(strwrap(prefix = " ", initial = "", paste(
 # Load the phenotypes 
 phenotypesFilePath <- args$phenotypes_file
 phenotypesTable <- fread(phenotypesFilePath, header=T, quote="", sep="\t") %>%
-  rename_all(recode, "PSEUDOIDEXT" = "ID") %>%
+  rename_all(recode, "UGLI_ID" = "ID") %>%
   mutate(SEX = factor(SEX, levels = c("Female", "Male"))) %>%
   group_by(ID) %>%
   filter(!any(AGE < 18) & !is.na(VALUE)) %>%
