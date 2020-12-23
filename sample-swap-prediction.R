@@ -678,7 +678,7 @@ calculate.logLikelihoodRatios <- function(
         samplesPerBin = samplesPerBin,
         classifierPath = file.path(classifierPath, 
           paste0("likelihoodClassifier", "_category", categoryValue, ".rda")))
-          
+
       message("")
     }
   }
@@ -858,7 +858,7 @@ traitDescriptionsTable <- traitDescriptionsTable %>%
   group_by(trait) %>%
   mutate(naiveBayesMethod = case_when(
     !is.na(naiveBayesMethod) 
-    & naiveBayesMethod %in% c("gaussian, efi-discretization", "ewi-discretization") ~ naiveBayesMethod,
+    & naiveBayesMethod %in% c("gaussian", "efi-discretization", "ewi-discretization") ~ naiveBayesMethod,
     traitDataType == "continuous" ~ "gaussian",
     traitDataType %in% c("ordinal", "binary") ~ "efi-discretization"),
     samplesPerNaiveBayesBin = samplesPerNaiveBayesBin)
@@ -1127,6 +1127,15 @@ llrDataFrame$group <- "alternative"
 llrDataFrame$group[llrDataFrame$original == llrDataFrame$Var2] <- "null"
 llrDataFrame$group <- ordered(llrDataFrame$group, levels = c("null", "alternative"))
 
+llrDataFrame <- llrDataFrame %>% 
+  group_by(Var1) %>%
+  mutate(scaledLlrPhen = scale(logLikelihoodRatios)[,1],
+         ranksPhen = rank(logLikelihoodRatios)) %>%
+  ungroup() %>%
+  group_by(Var2) %>%
+  mutate(scaledLlrGen = scale(logLikelihoodRatios)[,1],
+         ranksGen = rank(logLikelihoodRatios))
+
 matrixWideAuc <- auc(
   llrDataFrame$group, llrDataFrame$logLikelihoodRatios)
 
@@ -1151,17 +1160,34 @@ if ("alternative" %in% permutationTestDataFrame$group) {
     permutationTestDataFrame$group, 
     permutationTestDataFrame$logLikelihoodRatios)
   
+  confinedAucOnScaledLlr <- auc(
+    permutationTestDataFrame$group, 
+    permutationTestDataFrame$scaledLlr)
+
   message(paste0("Confined AUC: ", confinedAuc))
   overallOutputStatistics$confinedAuc <- as.double(confinedAuc)
+    
+  message(paste0("Confined AUC on scaled log likelihood ratios: ", confinedAucOnScaledLlr))
+  # overallOutputStatistics$confinedAuc <- as.double(confinedAucOnScaledLlr)
   
-  pdf(file.path(out, "ROCcurve_diagonal.pdf"))
+  pdf(file.path(out, "ROCcurve_diagonal_scaled.pdf"))
   par(xpd = NA)
-  
+
   roc(
     permutationTestDataFrame$group ~ permutationTestDataFrame$logLikelihoodRatios, 
     plot=TRUE, print.auc=TRUE,col="green",lwd =4,legacy.axes=TRUE,main="ROC Curves")
+    
+  roc(
+    permutationTestDataFrame$group ~ permutationTestDataFrame$scaledLlr, 
+    plot=TRUE, print.auc=TRUE,col="green",lwd =4,legacy.axes=TRUE,main="ROC Curves on scaled LLR")
   
   dev.off()
+  
+  ggplot(permutationTestDataFrame, aes(x=scaledLlr, stat(density), fill=group)) +
+    geom_histogram(bins = 32, alpha=.5, position="identity") +
+    xlab("Log likelihood ratios") + ggtitle(paste0("scaled LLR overall"))
+  
+  ggsave(file.path(out, "/scaledlikelihoodRatioHistogram.png"), width=8, height=7)
 }
 
 write.table(overallOutputStatistics, file.path(out, "overallOutputStatistics.tsv"),
