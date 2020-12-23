@@ -39,6 +39,7 @@ parser$add_argument('--llr-bayes-method', required = TRUE, nargs = "+",
                                   '<ewi-discretization | efi-discretization | gaussian> [(average) number of samples per bin]'))
 parser$add_argument('--out',
                     help='path to output directory')
+parser$add_argument('--seize-after-traits', help='seize after having analyzed traits', action='store_true')
 
 ##############################
 # Define functions
@@ -749,7 +750,7 @@ plotResiduals <- function(residualsDataFrame, phenotypeTable, responseDataType) 
 #                             "--base-pgs-path", "/groups/umcg-lifelines/tmp01/projects/ugli_blood_gsa/pgs_based_mixup_correction/output/PRScs/20201120/",
 #                             "--phenotypes-file", "/groups/umcg-lifelines/tmp01/projects/ugli_blood_gsa/pgs_based_mixup_correction/data/lifelines/processed/pgs.phenotypes_20201215.ugli.dat",
 #                             "--out", "/groups/umcg-lifelines/tmp01/projects/ugli_blood_gsa/pgs_based_mixup_correction/output/sample-swap-prediction/20200811.test/",
-#                             "--llr-bayes-method", "gaussian", "50")
+#                             "--llr-bayes-method", "gaussian", "50", "--intermediate-residuals", "--seize-at-step", "2"))
 #                             "--base-fit-model-path", "/groups/umcg-lifelines/tmp01/projects/ugli_blood_gsa/pgs_based_mixup_correction/output/sample-swap-prediction/fitted-paramters/"))
 args <- parser$parse_args(commandArgs(trailingOnly = TRUE))
 
@@ -778,8 +779,10 @@ out <- args$out
 
 debug <- args$debug
 
+seizeAfterTraits <- args$seize_after_traits
+
 # Set the number of bins to use for the Naive Bayes method.
-samplesPerNaiveBayesBin <- 25
+# samplesPerNaiveBayesBin <- 25
 
 # Set the likelihood alpha
 likelihoodRatioDifferenceAlpha <- 0.05
@@ -851,6 +854,7 @@ aggregatedNumberOfTraits <- matrix(nrow = nrow(link),
 
 traitDescriptionsTable <- traitDescriptionsTable %>%
   mutate(confinedAuc = NA_real_,
+         confinedAucOnScaledLlr = NA_real_,
          matrixWideAuc = NA_real_,
          pValue = NA_real_,
          traitOutputDir = NA_character_,
@@ -947,14 +951,14 @@ for (traitIndex in 1:nrow(traitDescriptionsTable)) {
   completeTable <- phenotypeTable %>%
     inner_join(polygenicScores, by = c("geno" = "IID"))
   
-  # Calculate z-score matrix based on polygenic scores and actual phenotypes,
+  # Calculate residuals matrix based on polygenic scores and actual phenotypes,
   # using the chosen function for calculating residuals.
   
   pdf(file.path(out, traitFileName, "/debugFigures.pdf"))
   par(xpd = NA)
   
   # Calculate the scaled residuals for every combination
-  scaledResidualsMatrix <- calculate.scaledResiduals(
+  residualsMatrix <- calculate.scaledResiduals(
     estimate = completeTable$PGS, 
     actual = completeTable$VALUE, 
     covariates = completeTable[c("AGE", "SEX")],
@@ -964,12 +968,12 @@ for (traitIndex in 1:nrow(traitDescriptionsTable)) {
   dev.off()
   
   # The rows correspond to phenotype samples, the cols to genotype samples (polygenic scores)
-  rownames(scaledResidualsMatrix) <- completeTable$pheno
-  colnames(scaledResidualsMatrix) <- completeTable$geno
-  
+  rownames(residualsMatrix) <- completeTable$pheno
+  colnames(residualsMatrix) <- completeTable$geno
+
   if (debug) {
     # Write scaled residuals matrix.
-    write.table(scaledResidualsMatrix, file.path(out, traitFileName, "/scaledResidualMatrix.tsv"), 
+    write.table(residualsMatrix, file.path(out, traitFileName, "/scaledResidualMatrix.tsv"), 
                 sep = "\t", col.names = T, row.names = T, quote = F)
   }
 
@@ -978,14 +982,14 @@ for (traitIndex in 1:nrow(traitDescriptionsTable)) {
   message("    calculating log likelihood ratios")
 
   logLikelihoodRatios <- calculate.logLikelihoodRatios(
-    valueMatrix = scaledResidualsMatrix, 
+    valueMatrix = residualsMatrix, 
     actual = completeTable$VALUE, 
     responseDataType = responseDataType,
     naiveBayesMethod = naiveBayesMethod,
     samplesPerBin = samplesPerNaiveBayesBin,
     classifierPath = modelPath)
   
-  rm(scaledResidualsMatrix)
+  rm(residualsMatrix)
   gc()
   
   if (debug) {
@@ -1033,6 +1037,10 @@ for (traitIndex in 1:nrow(traitDescriptionsTable)) {
   llrDataFrame$group[llrDataFrame$original == llrDataFrame$Var2] <- "null"
   llrDataFrame$group <- ordered(llrDataFrame$group, levels = c("null", "alternative"))
   
+  llrDataFrame <- llrDataFrame %>% 
+    group_by(Var1) %>%
+    mutate(scaledLlr = scale(logLikelihoodRatios)[,1])
+  
   matrixWideAuc <- auc(
     llrDataFrame$group, llrDataFrame$logLikelihoodRatios)
   
@@ -1050,12 +1058,20 @@ for (traitIndex in 1:nrow(traitDescriptionsTable)) {
       permutationTestDataFrame$group, 
       permutationTestDataFrame$logLikelihoodRatios)
     
+    confinedAucOnScaledLlr <- auc(
+      permutationTestDataFrame$group, 
+      permutationTestDataFrame$scaledLlr)
+    
     message(paste0("Confined AUC: ", confinedAuc))
     traitDescriptionsTable[traitIndex, "confinedAuc"] <- as.double(confinedAuc)
+    
+    message(paste0("Confined AUC on scaled log likelihood ratios: ", confinedAucOnScaledLlr))
+    traitDescriptionsTable[traitIndex, "confinedAucOnScaledLlr"] <- as.double(confinedAucOnScaledLlr)
   }
 
-  newAuc <- auc(as.vector(matrix(lower.tri(aggregatedLlrMatrix) | upper.tri(aggregatedLlrMatrix))), as.vector(aggregatedLlrMatrix))
-  message(paste0("New AUC: ", newAuc))
+  #
+  #newAuc <- auc(as.vector(matrix(lower.tri(aggregatedLlrMatrix) | upper.tri(aggregatedLlrMatrix))), as.vector(aggregatedLlrMatrix))
+  #message(paste0("New AUC: ", newAuc))
   
   # 
   # scaledResidualsDataFrame <-
@@ -1098,6 +1114,10 @@ write.table(aggregatedNumberOfTraits, file.path(out, "aggregatedNumberOfTraitsMa
 
 print(dim(aggregatedLlrMatrix))
 
+if (seizeAfterTraits) {
+  stop("exiting...")
+}
+
 # aggregatedLlrMatrix <- aggregatedLlrMatrix[apply(aggregatedNumberOfTraits > 0, 1, any), 
 #                                            apply(aggregatedNumberOfTraits > 0, 2, any)]
 
@@ -1129,12 +1149,7 @@ llrDataFrame$group <- ordered(llrDataFrame$group, levels = c("null", "alternativ
 
 llrDataFrame <- llrDataFrame %>% 
   group_by(Var1) %>%
-  mutate(scaledLlrPhen = scale(logLikelihoodRatios)[,1],
-         ranksPhen = rank(logLikelihoodRatios)) %>%
-  ungroup() %>%
-  group_by(Var2) %>%
-  mutate(scaledLlrGen = scale(logLikelihoodRatios)[,1],
-         ranksGen = rank(logLikelihoodRatios))
+  mutate(scaledLlr = scale(logLikelihoodRatios)[,1])
 
 matrixWideAuc <- auc(
   llrDataFrame$group, llrDataFrame$logLikelihoodRatios)
@@ -1204,35 +1219,35 @@ ggplot(llrDataFrame, aes(x=group, y=logLikelihoodRatios)) +
 
 ggsave(file.path(out, "/likelihoodRatioBoxplot.png"), width=8, height=7)
 
-numberOfTraits <- 
-  as.data.frame.table(aggregatedNumberOfTraits, responseName = "numberOfTraits")
+# numberOfTraits <- 
+#   as.data.frame.table(aggregatedNumberOfTraits, responseName = "numberOfTraits")
 
-phenoSamples <- unique(llrDataFrame[llrDataFrame$geno != llrDataFrame$original, "Var1"])
+# phenoSamples <- unique(llrDataFrame[llrDataFrame$geno != llrDataFrame$original, "Var1"])
 
 # phenoSamples <- sample(unique(lrProducts[lrProducts$geno == lrProducts$original, "Var1"]), size = 26)
 # 
-# sampledLrProducts <- lrProducts %>% 
+# sampledLrProducts <- llrDataFrame %>%
 #   #inner_join(numberOfTraits, by=c("Var1", "Var2")) %>%
 #   mutate(colourGroup = case_when(
 #     Var2 == geno ~ 1,
 #     Var2 == original ~ 2,
 #     TRUE ~ 3)) %>%
 #   filter(Var1 %in% phenoSamples)
-# 
+# # 
 # cols = c("2" = "blue", "1" = "red", "3" = "black")
-# 
-# ggplot(sampledLrProducts %>% filter(is.finite(logLikelihoodRatios)), 
+# # 
+# ggplot(sampledLrProducts %>% filter(is.finite(logLikelihoodRatios)),
 #        aes(y = Var1)) +
-#   
+# 
 #   # Add ridge lines
 #   geom_density_ridges(
-#     aes(x = logLikelihoodRatios, 
+#     aes(x = logLikelihoodRatios,
 #         point_alpha = as.numeric(colourGroup != 3),
 #         point_color = colourGroup),
 #     jittered_points = TRUE,
 #     position = position_points_jitter(width = 0, height = 0),
 #     point_shape = '|', point_size = 3, alpha = 0.7) +
-#   scale_point_color_continuous(low = "#0072B2", high = "#D55E00") +
+#   scale_point_color_continuous(high = "#0072B2", low = "#D55E00") +
 #   #scale_discrete_manual(values = cols, aesthetics = "point_color") +
 #   #scale_discrete_manual("point_color", values = cols) +
 # 
@@ -1246,7 +1261,6 @@ phenoSamples <- unique(llrDataFrame[llrDataFrame$geno != llrDataFrame$original, 
 #   #   aes(label = sprintf("n traits: %d, n filtered: %d", numberOfTraits, numberOfFiltered))) +
 # 
 #   # Set theme
-#   theme_minimal() +
 #   theme(legend.position = "none")
 # 
 # ggsave("~/pgs_based_mixup_correction-ugli/output/sample-swap-prediction/20200811.20201012.efi-discretization.30/ridges.png", width=8, height=20)
