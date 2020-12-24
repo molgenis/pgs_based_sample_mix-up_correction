@@ -37,6 +37,7 @@ parser$add_argument('--sample-coupling-file', required = FALSE,
 parser$add_argument('--llr-bayes-method', required = TRUE, nargs = "+",
                     help = paste0('the naive bayes method to use for calculating log likelihood ratios.',
                                   '<ewi-discretization | efi-discretization | gaussian> [(average) number of samples per bin]'))
+parser$add_argument('--loop-bayes-methods', action='store_true')
 parser$add_argument('--out',
                     help='path to output directory')
 parser$add_argument('--seize-after-traits', help='seize after having analyzed traits', action='store_true')
@@ -781,6 +782,8 @@ debug <- args$debug
 
 seizeAfterTraits <- args$seize_after_traits
 
+loopBayesMethods <- args$loop_bayes_methods
+
 # Set the number of bins to use for the Naive Bayes method.
 # samplesPerNaiveBayesBin <- 25
 
@@ -853,12 +856,6 @@ aggregatedNumberOfTraits <- matrix(nrow = nrow(link),
                                    dimnames = list(link$pheno, link$geno), 0)
 
 traitDescriptionsTable <- traitDescriptionsTable %>%
-  mutate(confinedAuc = NA_real_,
-         confinedAucOnScaledLlr = NA_real_,
-         matrixWideAuc = NA_real_,
-         pValue = NA_real_,
-         traitOutputDir = NA_character_,
-         modelBasePath = modelBasePath) %>%
   group_by(trait) %>%
   mutate(naiveBayesMethod = case_when(
     !is.na(naiveBayesMethod) 
@@ -866,7 +863,26 @@ traitDescriptionsTable <- traitDescriptionsTable %>%
     traitDataType == "continuous" ~ "gaussian",
     traitDataType %in% c("ordinal", "binary") ~ "efi-discretization"),
     samplesPerNaiveBayesBin = samplesPerNaiveBayesBin)
+
+traitOutputTable <- traitDescriptionsTable %>%
+  mutate(confinedAuc = NA_real_,
+         confinedAucOnScaledLlr = NA_real_,
+         matrixWideAuc = NA_real_,
+         pValue = NA_real_,
+         traitOutputDir = NA_character_,
+         modelBasePath = modelBasePath)
+
+if (loopBayesMethods) {
+   
+  traitOutputTable <- traitOutputTable %>%
+    select(-naiveBayesMethod, -samplesPerNaiveBayesBin) %>%
+    distinct() %>%
+    full_join(tibble(naiveBayesMethod = c("gaussian", rep("efi-discretization", 4), rep("ewi-discretization", 4)),
+                     samplesPerNaiveBayesBin = c(NA_integer_, rep(c(20, 30, 50, 80), 2))), by = character()) %>%
+    mutate(naiveBayesParameters = paste0(naiveBayesMethod, ".", samplesPerNaiveBayesBin))
+}
   
+
 # Loop trough traits
 
 for (traitIndex in 1:nrow(traitDescriptionsTable)) {
@@ -874,17 +890,15 @@ for (traitIndex in 1:nrow(traitDescriptionsTable)) {
   polygenicScoreFilePath <- traitDescriptionsTable$polygenicScoreFilePath[traitIndex]
   trait <- traitDescriptionsTable$trait[traitIndex]
   responseDataType <- traitDescriptionsTable$traitDataType[traitIndex]
-  naiveBayesMethod <- traitDescriptionsTable$naiveBayesMethod[traitIndex]
   
   traitFileName <- paste(traitIndex, gsub(" ", "_", trait), sep = ".")
-  traitDescriptionsTable[traitIndex, "traitOutputDir"] <- traitFileName
+  traitOutputTable[traitOutputTable$trait == trait, "traitOutputDir"] <- traitFileName
   
   modelPath <- NULL
   pgsPhenotypeModel <- NULL
   
   if (!is.null(modelBasePath)) {
-    modelPath <- file.path(modelBasePath, traitFileName)
-    pgsPhenotypeModel <- file.path(modelPath, "pgsPhenotypeModel.rda")
+    pgsPhenotypeModel <- file.path(modelBasePath, traitFileName, "pgsPhenotypeModel.rda")
   }
 
   if (!dir.create(file.path(out, traitFileName), recursive = T)) {
@@ -980,93 +994,105 @@ for (traitIndex in 1:nrow(traitDescriptionsTable)) {
   message("    completed calculating scaled residuals")
   
   message("    calculating log likelihood ratios")
+  
+  for (naiveBayesParameters in traitOutputTable$naiveBayesParameters[traitOutputTable$trait == trait]) {
+    naiveBayesMethod <- traitOutputTable[traitOutputTable$trait == trait & traitOutputTable$naiveBayesParameters == naiveBayesParameters, 
+                                         "naiveBayesMethod"]
+    samplesPerNaiveBayesBin <- traitOutputTable[traitOutputTable$trait == trait & traitOutputTable$naiveBayesParameters == naiveBayesParameters, 
+                                         "samplesPerNaiveBayesBin"]
+    
+    if (!is.null(modelBasePath)) {
+      modelPath <- file.path(modelBasePath, traitFileName, naiveBayesParameters)
+    }
 
-  logLikelihoodRatios <- calculate.logLikelihoodRatios(
-    valueMatrix = residualsMatrix, 
-    actual = completeTable$VALUE, 
-    responseDataType = responseDataType,
-    naiveBayesMethod = naiveBayesMethod,
-    samplesPerBin = samplesPerNaiveBayesBin,
-    classifierPath = modelPath)
-  
-  rm(residualsMatrix)
-  gc()
-  
-  if (debug) {
+    logLikelihoodRatios <- calculate.logLikelihoodRatios(
+      valueMatrix = residualsMatrix, 
+      actual = completeTable$VALUE, 
+      responseDataType = responseDataType,
+      naiveBayesMethod = naiveBayesMethod,
+      samplesPerBin = samplesPerNaiveBayesBin,
+      classifierPath = modelPath)
     
-    # Write log likelihood ratios.
-    write.table(logLikelihoodRatios, file.path(out, traitFileName, "/logLikelihoodRatios.tsv"), 
-              sep = "\t", col.names = T, row.names = T, quote = F)
-  }
-  
-  likelihoodRatioDifferenceTest <- t.test(
-    diag(logLikelihoodRatios), 
-    logLikelihoodRatios[lower.tri(logLikelihoodRatios) | upper.tri(logLikelihoodRatios)],
-    alternative = "less")
-  
-  print(likelihoodRatioDifferenceTest)
-  
-  if (likelihoodRatioDifferenceTest$p.value <= likelihoodRatioDifferenceAlpha) {
+    if (debug) {
+      
+      # Write log likelihood ratios.
+      write.table(logLikelihoodRatios, file.path(out, traitFileName, paste0(naiveBayesParameters, ".", "logLikelihoodRatios.tsv")), 
+                sep = "\t", col.names = T, row.names = T, quote = F)
+    }
     
-    # Resolve log likelihood ratios that are NaN (not a number)
-    llrIsNan <- is.nan(logLikelihoodRatios)
-    logLikelihoodRatios[llrIsNan] <- 0
+    likelihoodRatioDifferenceTest <- t.test(
+      diag(logLikelihoodRatios), 
+      logLikelihoodRatios[lower.tri(logLikelihoodRatios) | upper.tri(logLikelihoodRatios)],
+      alternative = "less")
     
-    # Aggregate number of traits
-    aggregatedNumberOfTraits[rownames(logLikelihoodRatios), colnames(logLikelihoodRatios)] <- 
-      aggregatedNumberOfTraits[rownames(logLikelihoodRatios), colnames(logLikelihoodRatios)] + !llrIsNan
+    print(likelihoodRatioDifferenceTest)
     
-    message("    completed calculating log likelihood ratios.")
-    message("    summing log likelihood ratios with aggregated log likelihood ratios...")
+    if (likelihoodRatioDifferenceTest$p.value <= likelihoodRatioDifferenceAlpha & !loopBayesMethods) {
+      
+      # Resolve log likelihood ratios that are NaN (not a number)
+      llrIsNan <- is.nan(logLikelihoodRatios)
+      logLikelihoodRatios[llrIsNan] <- 0
+      
+      # Aggregate number of traits
+      aggregatedNumberOfTraits[rownames(logLikelihoodRatios), colnames(logLikelihoodRatios)] <- 
+        aggregatedNumberOfTraits[rownames(logLikelihoodRatios), colnames(logLikelihoodRatios)] + !llrIsNan
+      
+      message("    completed calculating log likelihood ratios.")
+      message("    summing log likelihood ratios with aggregated log likelihood ratios...")
+      
+      # Aggregate log likelihood ratios
+      aggregatedLlrMatrix[rownames(logLikelihoodRatios), colnames(logLikelihoodRatios)] <- 
+        aggregatedLlrMatrix[rownames(logLikelihoodRatios), colnames(logLikelihoodRatios)] + logLikelihoodRatios
+      
+      message("    aggregation done!")
+    }
     
-    # Aggregate log likelihood ratios
-    aggregatedLlrMatrix[rownames(logLikelihoodRatios), colnames(logLikelihoodRatios)] <- 
-      aggregatedLlrMatrix[rownames(logLikelihoodRatios), colnames(logLikelihoodRatios)] + logLikelihoodRatios
+    llrDataFrame <- 
+      as.data.frame.table(logLikelihoodRatios, responseName = "logLikelihoodRatios", stringsAsFactors = FALSE) %>%
+      inner_join(link, by = c("Var1" = "pheno"))
     
-    message("    aggregation done!")
-  }
-  
-  llrDataFrame <- 
-    as.data.frame.table(logLikelihoodRatios, responseName = "logLikelihoodRatios", stringsAsFactors = FALSE) %>%
-    inner_join(link, by = c("Var1" = "pheno"))
-  
-  rm(logLikelihoodRatios)
-  gc()
-  
-  llrDataFrame$group <- "alternative"
-  llrDataFrame$group[llrDataFrame$original == llrDataFrame$Var2] <- "null"
-  llrDataFrame$group <- ordered(llrDataFrame$group, levels = c("null", "alternative"))
-  
-  llrDataFrame <- llrDataFrame %>% 
-    group_by(Var1) %>%
-    mutate(scaledLlr = scale(logLikelihoodRatios)[,1])
-  
-  matrixWideAuc <- auc(
-    llrDataFrame$group, llrDataFrame$logLikelihoodRatios)
-  
-  message(paste0("Calculated overall AUC: ", matrixWideAuc))
-  
-  permutationTestDataFrame <- llrDataFrame %>%
-    filter(geno == Var2)
-  
-  traitDescriptionsTable[traitIndex, "matrixWideAuc"] <- as.double(matrixWideAuc)
-  traitDescriptionsTable[traitIndex, "pValue"] <- likelihoodRatioDifferenceTest$p.value
-  
-  if (predictingInducedMixUps && "alternative" %in% permutationTestDataFrame$group) {
+    rm(logLikelihoodRatios)
+    gc()
     
-    confinedAuc <- auc(
-      permutationTestDataFrame$group, 
-      permutationTestDataFrame$logLikelihoodRatios)
+    llrDataFrame$group <- "alternative"
+    llrDataFrame$group[llrDataFrame$original == llrDataFrame$Var2] <- "null"
+    llrDataFrame$group <- ordered(llrDataFrame$group, levels = c("null", "alternative"))
     
-    confinedAucOnScaledLlr <- auc(
-      permutationTestDataFrame$group, 
-      permutationTestDataFrame$scaledLlr)
+    llrDataFrame <- llrDataFrame %>% 
+      group_by(Var1) %>%
+      mutate(scaledLlr = scale(logLikelihoodRatios)[,1])
     
-    message(paste0("Confined AUC: ", confinedAuc))
-    traitDescriptionsTable[traitIndex, "confinedAuc"] <- as.double(confinedAuc)
+    matrixWideAuc <- auc(
+      llrDataFrame$group, llrDataFrame$logLikelihoodRatios)
     
-    message(paste0("Confined AUC on scaled log likelihood ratios: ", confinedAucOnScaledLlr))
-    traitDescriptionsTable[traitIndex, "confinedAucOnScaledLlr"] <- as.double(confinedAucOnScaledLlr)
+    message(paste0("Calculated overall AUC: ", matrixWideAuc))
+    
+    permutationTestDataFrame <- llrDataFrame %>%
+      filter(geno == Var2)
+    
+    traitOutputTable[traitOutputTable$trait == trait & traitOutputTable$naiveBayesParameters == naiveBayesParameters, "matrixWideAuc"] <- 
+      as.double(matrixWideAuc)
+    traitOutputTable[traitOutputTable$trait == trait & traitOutputTable$naiveBayesParameters == naiveBayesParameters, "pValue"] <- 
+      likelihoodRatioDifferenceTest$p.value
+    
+    if (predictingInducedMixUps && "alternative" %in% permutationTestDataFrame$group) {
+      
+      confinedAuc <- auc(
+        permutationTestDataFrame$group, 
+        permutationTestDataFrame$logLikelihoodRatios)
+      
+      confinedAucOnScaledLlr <- auc(
+        permutationTestDataFrame$group, 
+        permutationTestDataFrame$scaledLlr)
+      
+      message(paste0("Confined AUC: ", confinedAuc))
+      traitOutputTable[traitOutputTable$trait == trait & traitOutputTable$naiveBayesParameters == naiveBayesParameters, "confinedAuc"] <- 
+        as.double(confinedAuc)
+      
+      message(paste0("Confined AUC on scaled log likelihood ratios: ", confinedAucOnScaledLlr))
+      traitOutputTable[traitOutputTable$trait == trait & traitOutputTable$naiveBayesParameters == naiveBayesParameters, "confinedAucOnScaledLlr"] <- 
+        as.double(confinedAucOnScaledLlr)
+    }
   }
 
   #
@@ -1103,7 +1129,7 @@ for (traitIndex in 1:nrow(traitDescriptionsTable)) {
 }
 
 # Write the result values
-write.table(traitDescriptionsTable, file.path(out, "outputStatisticsPerTrait.tsv"),
+write.table(traitOutputTable, file.path(out, "outputStatisticsPerTrait.tsv"),
             sep="\t", col.names = T, row.names = T, quote = F)
 
 write.table(aggregatedLlrMatrix, file.path(out, "aggregatedLogLikelihoodRatiosMatrix.tsv"),
@@ -1114,7 +1140,7 @@ write.table(aggregatedNumberOfTraits, file.path(out, "aggregatedNumberOfTraitsMa
 
 print(dim(aggregatedLlrMatrix))
 
-if (seizeAfterTraits) {
+if (loopBayesMethods) {
   stop("exiting...")
 }
 
