@@ -751,7 +751,7 @@ plotResiduals <- function(residualsDataFrame, phenotypeTable, responseDataType) 
 #                             "--base-pgs-path", "/groups/umcg-lifelines/tmp01/projects/ugli_blood_gsa/pgs_based_mixup_correction/output/PRScs/20201120/",
 #                             "--phenotypes-file", "/groups/umcg-lifelines/tmp01/projects/ugli_blood_gsa/pgs_based_mixup_correction/data/lifelines/processed/pgs.phenotypes_20201215.ugli.dat",
 #                             "--out", "/groups/umcg-lifelines/tmp01/projects/ugli_blood_gsa/pgs_based_mixup_correction/output/sample-swap-prediction/20200811.test/",
-#                             "--llr-bayes-method", "gaussian", "50", "--intermediate-residuals", "--seize-at-step", "2"))
+#                             "--llr-bayes-method", "NA", "NA", "--loop-bayes-methods"))
 #                             "--base-fit-model-path", "/groups/umcg-lifelines/tmp01/projects/ugli_blood_gsa/pgs_based_mixup_correction/output/sample-swap-prediction/fitted-paramters/"))
 args <- parser$parse_args(commandArgs(trailingOnly = TRUE))
 
@@ -793,7 +793,7 @@ likelihoodRatioDifferenceAlpha <- 0.05
 # naive bayes method
 naiveBayesMethod <- args$llr_bayes_method[1]
 stopifnot("method must be one of the following: <ewi-discretization | efi-discretization | gaussian>" = 
-            naiveBayesMethod %in% c("ewi-discretization", "efi-discretization", "gaussian", "NA"))
+          is.na(naiveBayesMethod) || naiveBayesMethod %in% c("ewi-discretization", "efi-discretization", "gaussian", "NA"))
 
 if ((naiveBayesMethod == "ewi-discretization" | naiveBayesMethod == "efi-discretization" | naiveBayesMethod == "NA") 
     & length(args$llr_bayes_method) == 2) {
