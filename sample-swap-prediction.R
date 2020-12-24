@@ -862,7 +862,7 @@ traitDescriptionsTable <- traitDescriptionsTable %>%
   group_by(trait) %>%
   mutate(naiveBayesMethod = case_when(
     !is.na(naiveBayesMethod) 
-    & naiveBayesMethod %in% c("gaussian", "efi-discretization", "ewi-discretization") ~ naiveBayesMethod,
+    & naiveBayesMethod %in% c("gaussian", "efi-discretization", "ewi-discretization") ~ as.character(naiveBayesMethod),
     traitDataType == "continuous" ~ "gaussian",
     traitDataType %in% c("ordinal", "binary") ~ "efi-discretization"),
     samplesPerNaiveBayesBin = samplesPerNaiveBayesBin)
