@@ -864,7 +864,7 @@ traitDescriptionsTable <- traitDescriptionsTable %>%
     !is.na(naiveBayesMethod) 
     & naiveBayesMethod %in% c("gaussian", "efi-discretization", "ewi-discretization") ~ as.character(naiveBayesMethod),
     traitDataType == "continuous" ~ "gaussian",
-    traitDataType %in% c("ordinal", "binary") ~ "efi-discretization"),
+    traitDataType %in% c("ordinal", "binary") ~ "ewi-discretization"),
     samplesPerNaiveBayesBin = samplesPerNaiveBayesBin)
 
 traitOutputTable <- traitDescriptionsTable %>%
