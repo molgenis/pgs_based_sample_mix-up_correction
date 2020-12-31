@@ -972,7 +972,7 @@ for (traitIndex in 1:nrow(traitDescriptionsTable)) {
   # Calculate residuals matrix based on polygenic scores and actual phenotypes,
   # using the chosen function for calculating residuals.
   
-  pdf(file.path(out, traitFileName, "/debugFigures.pdf"))
+  pdf(file.path(out, traitFileName, "debugFigures.pdf"))
   par(xpd = NA)
   
   # Calculate the scaled residuals for every combination
@@ -991,7 +991,7 @@ for (traitIndex in 1:nrow(traitDescriptionsTable)) {
 
   if (debug) {
     # Write scaled residuals matrix.
-    write.table(residualsMatrix, file.path(out, traitFileName, "/scaledResidualMatrix.tsv"), 
+    write.table(residualsMatrix, file.path(out, traitFileName, "scaledResidualMatrix.tsv"), 
                 sep = "\t", col.names = T, row.names = T, quote = F)
   }
 
@@ -1008,6 +1008,9 @@ for (traitIndex in 1:nrow(traitDescriptionsTable)) {
     
     if (!is.null(modelBasePath)) {
       modelPath <- file.path(modelBasePath, traitFileName, naiveBayesParameters)
+      if (!dir.create(modelPath, recursive = T)) {
+        warning(paste0("Could not create directory '", modelPath, "'"))
+      }
     }
 
     logLikelihoodRatios <- calculate.logLikelihoodRatios(
