@@ -865,7 +865,8 @@ traitDescriptionsTable <- traitDescriptionsTable %>%
     & naiveBayesMethod %in% c("gaussian", "efi-discretization", "ewi-discretization") ~ as.character(naiveBayesMethod),
     traitDataType == "continuous" ~ "gaussian",
     traitDataType %in% c("ordinal", "binary") ~ "ewi-discretization"),
-    samplesPerNaiveBayesBin = samplesPerNaiveBayesBin)
+    samplesPerNaiveBayesBin = samplesPerNaiveBayesBin,
+    naiveBayesParameters = paste0(naiveBayesMethod, ".", samplesPerNaiveBayesBin))
 
 traitOutputTable <- traitDescriptionsTable %>%
   mutate(confinedAuc = NA_real_,
@@ -996,13 +997,14 @@ for (traitIndex in 1:nrow(traitDescriptionsTable)) {
 
   message("    completed calculating scaled residuals")
   
-  message("    calculating log likelihood ratios")
-  
   for (naiveBayesParameters in traitOutputTable$naiveBayesParameters[traitOutputTable$trait == trait]) {
+    
     naiveBayesMethod <- traitOutputTable[traitOutputTable$trait == trait & traitOutputTable$naiveBayesParameters == naiveBayesParameters, 
                                          "naiveBayesMethod"]
     samplesPerNaiveBayesBin <- traitOutputTable[traitOutputTable$trait == trait & traitOutputTable$naiveBayesParameters == naiveBayesParameters, 
                                          "samplesPerNaiveBayesBin"]
+    
+    message(paste0("    calculating log likelihood ratios: ", naiveBayesMethod, ", ", samplesPerNaiveBayesBin))
     
     if (!is.null(modelBasePath)) {
       modelPath <- file.path(modelBasePath, traitFileName, naiveBayesParameters)
