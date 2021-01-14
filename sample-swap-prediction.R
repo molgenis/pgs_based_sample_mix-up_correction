@@ -28,66 +28,31 @@ parser$add_argument('--base-fit-model-path',
 parser$add_argument('--trait-gwas-mapping',
                     help='path to a tab-delimited file that maps traits to the GWAS summary statistics')
 parser$add_argument('--base-pgs-path',
-                    help="path to a directory containing polygenic scores. Folder structure should be '<base-pgs-path>/<name-of-gwas-summary-statistic>/full.UGLI.pgs.profile'")
+                    help="path to a directory containing polygenic scores. Folder structure should be '<base-pgs-path>/<name-of-gwas-summary-statistic>/<pgs-file-name>'")
+parser$add_argument('--pgs-file-name',
+                    help="name of files that hold polygenic scores", default = "full.UGLI.pgs.profile")
 parser$add_argument('--phenotypes-file',
                     help='path to a tab-delimited file holding all processed phenotype data.')
 parser$add_argument('--sample-coupling-file', required = FALSE,
                     help=paste0('file containing genotype sample ids in the first column',
                     'and phenotype sample ids in the second column'))
-parser$add_argument('--llr-bayes-method', required = TRUE, nargs = "+",
+parser$add_argument('--llr-bayes-method', required = FALSE, default = c("NA", "80"), nargs = "+",
                     help = paste0('the naive bayes method to use for calculating log likelihood ratios.',
-                                  '<ewi-discretization | efi-discretization | gaussian> [(average) number of samples per bin]'))
-parser$add_argument('--loop-bayes-methods', action='store_true')
+                                  'If NA, the method will be based on the data type for each trait',
+                                  '<ewi-discretization | efi-discretization | gaussian | NA> [(average) number of samples per bin]'))
+parser$add_argument('--bayes-method-sweep-mode', action='store_true', help = paste0(
+  'special mode to perform a sweep over a series of naive bayes methods'))
 parser$add_argument('--out',
                     help='path to output directory')
-parser$add_argument('--seize-after-traits', help='seize after having analyzed traits', action='store_true')
+parser$add_argument('--likelihood-ratio-alpha', default = 0.05, help=paste0(
+  'the t-test alpha to use for selecting traits',
+  'based on the difference in log likelihoods between the provided and permuted samples'))
+parser$add_argument('--output-intermediate-statistics', action='store_true', default = T,
+                    help = 'Setting this to false will prevent intermediate AUC calculations, requiring less memory.')
 
 ##############################
 # Define functions
 ##############################
-
-plotSigmoid <- function(estimate, actual, covariates, logitModel) {
-  
-  covariateLabels <- colnames(covariates)
-  
-  newData <- data.frame(
-    estimate=seq(floor(min(estimate)), ceiling(max(estimate)), 0.05))
-
-  for (lab in covariateLabels) {
-
-    if (is.factor(covariates %>% pull(lab))) {
-      newData[, lab] <- sample_n(covariates[, lab], nrow(newData), replace = T)
-    }
-    else {
-      newData[, lab] <- mean(covariates %>% pull(lab))
-    }
-  }
-  
-  dat <- data.frame(estimate, actual)
-  
-  h <-  data.frame(estimate, actual) %>% group_by(actual) %>%
-    mutate(breaks = cut(estimate, 
-                        breaks=seq(floor(min(estimate)) - 0.025, ceiling(max(estimate)) + 0.025, 0.05), 
-                        labels=seq(floor(min(estimate)), ceiling(max(estimate)), 0.05), 
-                        include.lowest=TRUE),
-           breaks = as.numeric(as.character(breaks))) %>%
-    group_by(actual, breaks) %>% 
-    summarise(n = n()) %>%
-    mutate(pct = ifelse(actual==0, n/sum(n), 1 - n/sum(n))) 
-  
-  sigmoid <- ggplot() +
-    geom_segment(data=h, size=4, show.legend=FALSE,
-                 aes(x=breaks, xend=breaks, y=actual, yend=pct, colour=factor(actual))) +
-    geom_segment(dat=dat[dat$actual==0,], aes(x=estimate, xend=estimate, y=0, yend=-0.04), size=0.2, colour="grey30") +
-    geom_segment(dat=dat[dat$actual==1,], aes(x=estimate, xend=estimate, y=1, yend=1.04), size=0.2, colour="grey30") +
-    geom_line(data=data.frame(x=seq(floor(min(estimate)), ceiling(max(estimate)), 0.05), 
-                              y=predict(logitModel, 
-                                        newdata=newData,
-                                        type="response")), 
-              aes(x,y), colour="grey50", lwd=1) +
-    theme_bw(base_size=12)
-  print(sigmoid)
-}
 
 # Function that takes (a set of) estimates, actual values, confounders, 
 # and a linear model.
@@ -220,8 +185,6 @@ residualsFunConstructor <- function(estimate, actual, covariates,
     
     print(summary(logitModel))
     
-    #plotSigmoid(estimate = estimate, actual = actual, covariates = covariates, logitModel = logitModel)
-    
     # Define residuals function using the logistic regression model.
     residualsFun <- function(estimate, actual, covariates) {
       return(devianceFromLogitRegressionLine(estimate = estimate, 
@@ -299,6 +262,12 @@ calculate.scaledResiduals <- function(estimate, actual, covariates, responseData
   return(residualsMatrix)
 }
 
+# Function that attempts to creates adapted equal width intervals:
+# - 'minFrequencyInTails' values in the outer tails are put in a bin for both tails.
+# - the remaining values are split into 'nBins - 2' bins with equal widths.
+# - bins that contain less than 'minFrequencyInTails' elements are devided in the centre, 
+#   with both sides being added to their closest neighbour bin, until all bins contain at
+#   least 'minFrequencyInTails' elements.
 adaptedEqualWidthIntervals <- function(x, nBins, minFrequencyInTails) {
   # Get breaks for outermost null residuals, so that the outermost N null residuals
   # on each tail are represented in their respective bin.
@@ -437,6 +406,8 @@ fitEfiDiscretizationParameters <- function(
   return(list(breaks = breaks, likelihoodRatioMap = likelihoodRatioMap))
 }
 
+# Function that takes a series of values, separates them in bins and finds
+# likelihood ratios corresponding to each of these bins.
 calculateDiscritizedLoglikelihoodRatios <- function(
   values, parameters) {
   
@@ -456,13 +427,8 @@ calculateDiscritizedLoglikelihoodRatios <- function(
 
 # Function for converting a selection of a matrix of scaled residuals to likelihood ratios.
 # This function employs a Gaussian naive Bayes method to calculate likelihoods.
-# Known problems:
-# 1. For very low log likelihoods, the value is expected to be -Inf (< -30 approximately)
-# 2. If the alternative log likelihood is -Inf as well as the null log likelihood, NaN is returned.
-#    When only the null log likelihood is -Inf. Positive infinity is returned.
 gaussianNaiveBayes <- function(values, 
-                               parameters,
-                               error = 0.01) {
+                               parameters) {
   
   # Calculate the mean of both groups of residuals.
   nullMean <- parameters$null$mean
@@ -485,6 +451,7 @@ gaussianNaiveBayes <- function(values,
   # Declare function for calculating the log likelihood of 'value' being sampled from
   # a normal distribution with the given mean and standard deviation 'sd'.
   gaussianLogLikelihood <- function(value, mean, sd) {
+    error = 0.01
     logLikelihoods <- subtractLogTransformedProbabilities(
       pnorm(value + (error / 2), mean = mean, sd = sd, log.p = TRUE),
       pnorm(value - (error / 2), mean = mean, sd = sd, log.p = TRUE)
@@ -746,13 +713,6 @@ plotResiduals <- function(residualsDataFrame, phenotypeTable, responseDataType) 
 ##############################
 # Run
 ##############################
-# args <- parser$parse_args(c("--trait-gwas-mapping", "/groups/umcg-lld/tmp01/other-users/umcg-rwarmerdam/pgs_based_mixup_correction/scripts/r-scripts/pgs_based_sample_mix-up_correction/trait-gwas-mapping.txt",
-#                             "--sample-coupling-file", "/groups/umcg-lifelines/tmp01/projects/ugli_blood_gsa/pgs_based_mixup_correction/data/lifelines/processed/pgs.sample-coupling-file.ugli.20201014.perm_5120samples_51mixUps.txt",
-#                             "--base-pgs-path", "/groups/umcg-lifelines/tmp01/projects/ugli_blood_gsa/pgs_based_mixup_correction/output/PRScs/20201120/",
-#                             "--phenotypes-file", "/groups/umcg-lifelines/tmp01/projects/ugli_blood_gsa/pgs_based_mixup_correction/data/lifelines/processed/pgs.phenotypes_20201215.ugli.dat",
-#                             "--out", "/groups/umcg-lifelines/tmp01/projects/ugli_blood_gsa/pgs_based_mixup_correction/output/sample-swap-prediction/20200811.test/",
-#                             "--llr-bayes-method", "NA", "NA", "--loop-bayes-methods"))
-#                             "--base-fit-model-path", "/groups/umcg-lifelines/tmp01/projects/ugli_blood_gsa/pgs_based_mixup_correction/output/sample-swap-prediction/fitted-paramters/"))
 args <- parser$parse_args(commandArgs(trailingOnly = TRUE))
 
 message(strwrap(prefix = " ", initial = "", paste(
@@ -771,30 +731,32 @@ message(strwrap(prefix = " ", initial = "", paste(
 
 # Get the paths to the polygenic scores.
 basePathWithPolygenicScores <- args$base_pgs_path
+pgsFileName <- args$pgs_file_name
 traitDescriptionsTable$polygenicScoreFilePath <- file.path(basePathWithPolygenicScores, 
                                                  traitDescriptionsTable$summaryStatistics, 
-                                                 "full.UGLI.pgs.profile")
+                                                 pgsFileName)
 
 # Get the output path
 out <- args$out
 
+# Should we use debug mode?
 debug <- args$debug
 
-seizeAfterTraits <- args$seize_after_traits
+# Should we perform a sweep over bayes / likelihood methods for all traits?
+loopBayesMethods <- args$bayes_method_sweep_mode
 
-loopBayesMethods <- args$loop_bayes_methods
-
-# Set the number of bins to use for the Naive Bayes method.
-# samplesPerNaiveBayesBin <- 25
+# Output intermediate AUCs?
+outputIntermediateStatistics <- args$output_intermediate_statistics
 
 # Set the likelihood alpha
-likelihoodRatioDifferenceAlpha <- 0.05
+likelihoodRatioDifferenceAlpha <- arts$likelihood_ratio_alpha
 
-# naive bayes method
+# naive bayes / likelihood method
 naiveBayesMethod <- args$llr_bayes_method[1]
 stopifnot("method must be one of the following: <ewi-discretization | efi-discretization | gaussian>" = 
           is.na(naiveBayesMethod) || naiveBayesMethod %in% c("ewi-discretization", "efi-discretization", "gaussian", "NA"))
 
+# naive bayes / likelihood samples per bin
 if (is.na(naiveBayesMethod) 
     || (naiveBayesMethod == "ewi-discretization" 
         || naiveBayesMethod == "efi-discretization" 
@@ -828,7 +790,7 @@ if (!is.null(args$sample_coupling_file)) {
     filter(pheno %in% unique(phenotypesTable$ID))
 } else {
   message(strwrap(prefix = " ", initial = "", 
-                  "Not using special sample coupling table"))
+                  "Generating sample coupling table from phenotypes file."))
 }
 
 predictingInducedMixUps <- F
@@ -914,6 +876,7 @@ for (traitIndex in 1:nrow(traitDescriptionsTable)) {
     warning(paste0("Could not create directory '", file.path(modelBasePath, traitFileName), "'"))
   }
   
+  # Link the phenotypes table to the sample coupling file
   phenotypeTable <- phenotypesTable %>%
     filter(TRAIT == trait) %>%
     rename(pheno = ID) %>%
@@ -966,14 +929,12 @@ for (traitIndex in 1:nrow(traitDescriptionsTable)) {
     header=T) %>%
     rename(PGS = SCORESUM)
 
+  # Merge the PGSs with actual phenotype data
   completeTable <- phenotypeTable %>%
     inner_join(polygenicScores, by = c("geno" = "IID"))
   
   # Calculate residuals matrix based on polygenic scores and actual phenotypes,
   # using the chosen function for calculating residuals.
-  
-  pdf(file.path(out, traitFileName, "debugFigures.pdf"))
-  par(xpd = NA)
   
   # Calculate the scaled residuals for every combination
   residualsMatrix <- calculate.scaledResiduals(
@@ -982,8 +943,6 @@ for (traitIndex in 1:nrow(traitDescriptionsTable)) {
     covariates = completeTable[c("AGE", "SEX")],
     responseDataType = responseDataType,
     modelPath = pgsPhenotypeModel)
-  
-  dev.off()
   
   # The rows correspond to phenotype samples, the cols to genotype samples (polygenic scores)
   rownames(residualsMatrix) <- completeTable$pheno
@@ -1055,177 +1014,144 @@ for (traitIndex in 1:nrow(traitDescriptionsTable)) {
       message("    aggregation done!")
     }
     
-    llrDataFrame <- 
-      as.data.frame.table(logLikelihoodRatios, responseName = "logLikelihoodRatios", stringsAsFactors = FALSE) %>%
-      inner_join(link, by = c("Var1" = "pheno"))
+    # If output of intermediate statistics is requested, calculate these.
+    if (outputIntermediateStatistics) {
     
-    rm(logLikelihoodRatios)
-    gc()
-    
-    llrDataFrame$group <- "alternative"
-    llrDataFrame$group[llrDataFrame$original == llrDataFrame$Var2] <- "null"
-    llrDataFrame$group <- ordered(llrDataFrame$group, levels = c("null", "alternative"))
-    
-    llrDataFrame <- llrDataFrame %>% 
-      group_by(Var1) %>%
-      mutate(scaledLlr = scale(logLikelihoodRatios)[,1])
-    
-    matrixWideAuc <- auc(
-      llrDataFrame$group, llrDataFrame$logLikelihoodRatios)
-    
-    message(paste0("Calculated overall AUC: ", matrixWideAuc))
-    
-    permutationTestDataFrame <- llrDataFrame %>%
-      filter(geno == Var2)
-    
-    traitOutputTable[traitOutputTable$trait == trait & traitOutputTable$naiveBayesParameters == naiveBayesParameters, "matrixWideAuc"] <- 
-      as.double(matrixWideAuc)
-    traitOutputTable[traitOutputTable$trait == trait & traitOutputTable$naiveBayesParameters == naiveBayesParameters, "pValue"] <- 
-      likelihoodRatioDifferenceTest$p.value
-    
-    if (predictingInducedMixUps && "alternative" %in% permutationTestDataFrame$group) {
+      llrDataFrame <- 
+        as.data.frame.table(logLikelihoodRatios, responseName = "logLikelihoodRatios", stringsAsFactors = FALSE) %>%
+        inner_join(link, by = c("Var1" = "pheno"))
       
-      confinedAuc <- auc(
-        permutationTestDataFrame$group, 
-        permutationTestDataFrame$logLikelihoodRatios)
+      rm(logLikelihoodRatios)
+      gc()
       
-      confinedAucOnScaledLlr <- auc(
-        permutationTestDataFrame$group, 
-        permutationTestDataFrame$scaledLlr)
+      llrDataFrame$group <- "alternative"
+      llrDataFrame$group[llrDataFrame$original == llrDataFrame$Var2] <- "null"
+      llrDataFrame$group <- ordered(llrDataFrame$group, levels = c("null", "alternative"))
       
-      message(paste0("Confined AUC: ", confinedAuc))
-      traitOutputTable[traitOutputTable$trait == trait & traitOutputTable$naiveBayesParameters == naiveBayesParameters, "confinedAuc"] <- 
-        as.double(confinedAuc)
+      llrDataFrame <- llrDataFrame %>% 
+        group_by(Var1) %>%
+        mutate(scaledLlr = scale(logLikelihoodRatios)[,1])
       
-      message(paste0("Confined AUC on scaled log likelihood ratios: ", confinedAucOnScaledLlr))
-      traitOutputTable[traitOutputTable$trait == trait & traitOutputTable$naiveBayesParameters == naiveBayesParameters, "confinedAucOnScaledLlr"] <- 
-        as.double(confinedAucOnScaledLlr)
+      matrixWideAuc <- auc(
+        llrDataFrame$group, llrDataFrame$logLikelihoodRatios)
+      
+      message(paste0("Calculated overall AUC: ", matrixWideAuc))
+      
+      permutationTestDataFrame <- llrDataFrame %>%
+        filter(geno == Var2)
+      
+      traitOutputTable[traitOutputTable$trait == trait & traitOutputTable$naiveBayesParameters == naiveBayesParameters, "matrixWideAuc"] <- 
+        as.double(matrixWideAuc)
+      traitOutputTable[traitOutputTable$trait == trait & traitOutputTable$naiveBayesParameters == naiveBayesParameters, "pValue"] <- 
+        likelihoodRatioDifferenceTest$p.value
+      
+      if (predictingInducedMixUps && "alternative" %in% permutationTestDataFrame$group) {
+        
+        confinedAuc <- auc(
+          permutationTestDataFrame$group, 
+          permutationTestDataFrame$logLikelihoodRatios)
+        
+        confinedAucOnScaledLlr <- auc(
+          permutationTestDataFrame$group, 
+          permutationTestDataFrame$scaledLlr)
+        
+        message(paste0("Confined AUC: ", confinedAuc))
+        traitOutputTable[traitOutputTable$trait == trait & traitOutputTable$naiveBayesParameters == naiveBayesParameters, "confinedAuc"] <- 
+          as.double(confinedAuc)
+        
+        message(paste0("Confined AUC on scaled log likelihood ratios: ", confinedAucOnScaledLlr))
+        traitOutputTable[traitOutputTable$trait == trait & traitOutputTable$naiveBayesParameters == naiveBayesParameters, "confinedAucOnScaledLlr"] <- 
+          as.double(confinedAucOnScaledLlr)
+      }
     }
   }
-
-  #
-  #newAuc <- auc(as.vector(matrix(lower.tri(aggregatedLlrMatrix) | upper.tri(aggregatedLlrMatrix))), as.vector(aggregatedLlrMatrix))
-  #message(paste0("New AUC: ", newAuc))
-  
-  # 
-  # scaledResidualsDataFrame <-
-  #   as.data.frame.table(scaledResidualsMatrix, responseName = "scaledResiduals") %>%
-  #   inner_join(link, by = c("Var1" = "pheno")) %>%
-  #   mutate(group = case_when(Var2 == geno ~ "null",
-  #                            TRUE ~ "alternative"))
-  # 
-  # scaledResidualsDataFrame$group <- factor(scaledResidualsDataFrame$group, levels = c("null", "alternative"))
-  # 
-  # rm(scaledResidualsMatrix)
-  # gc()
-  # 
-  # pdf(file.path(out, traitFileName, "unscaledResidualsHistogram.pdf"),
-  #     width=8, height = 6, useDingbats = FALSE)
-  # 
-  # par(xpd = NA)
-  # 
-  # plotResiduals(scaledResidualsDataFrame, phenotypeTable, responseDataType)
-  # 
-  # dev.off()
-  
-  # ggplot(scaledResidualsDataFrame, aes(x=scaledResiduals, stat(density), fill=group)) +
-  #   geom_histogram(bins = 72, alpha=.5, position="identity") +
-  #   geom_rug(data = scaledResidualsDataFrame %>% filter(geno != original & group == "null"), aes(x=scaledResiduals), inherit.aes=F) +
-  #   xlab("Unscaled residuals") + ggtitle(paste0("Unscaled residuals for trait '", trait, "'"))
-  
-  # ggsave("unscaledResidualsHistogram.png", width=8, height=7)
 }
 
 # Write the result values
+message(paste0("Exporting output statistics per trait: 'outputStatisticsPerTrait.tsv'"))
 write.table(traitOutputTable, file.path(out, "outputStatisticsPerTrait.tsv"),
             sep="\t", col.names = T, row.names = T, quote = F)
 
+message(paste0("Exporting raw aggregated log likelihood ratio matrix: 'aggregatedLogLikelihoodRatiosMatrix.tsv'"))
 write.table(aggregatedLlrMatrix, file.path(out, "aggregatedLogLikelihoodRatiosMatrix.tsv"),
             sep="\t", col.names = T, row.names = T, quote = F)
 
+message(paste0("Exporting number of traits for every phenotype-genotype combination: 'aggregatedNumberOfTraitsMatrix.tsv'"))
 write.table(aggregatedNumberOfTraits, file.path(out, "aggregatedNumberOfTraitsMatrix.tsv"),
             sep="\t", col.names = T, row.names = T, quote = F)
-
-print(dim(aggregatedLlrMatrix))
 
 if (loopBayesMethods) {
   stop("exiting...")
 }
 
-# aggregatedLlrMatrix <- aggregatedLlrMatrix[apply(aggregatedNumberOfTraits > 0, 1, any), 
-#                                            apply(aggregatedNumberOfTraits > 0, 2, any)]
-
-print(dim(aggregatedLlrMatrix))
-
+# Define a table to write statistics to
 overallOutputStatistics <- data.frame(name = "overallStatistics")
-
-likelihoodRatioDifferenceTest <- t.test(
-  diag(aggregatedLlrMatrix), 
-  aggregatedLlrMatrix[lower.tri(aggregatedLlrMatrix) | upper.tri(aggregatedLlrMatrix)],
-  alternative = "less")
-
-overallOutputStatistics$pValue <- likelihoodRatioDifferenceTest$p.value
 
 # Convert matrix to data frame for further processing
 llrDataFrame <- 
   as.data.frame.table(aggregatedLlrMatrix, responseName = "logLikelihoodRatios") %>%
-  inner_join(link, by = c("Var1" = "pheno"))
-
-write.table(llrDataFrame, file.path(out, "/aggregatedLogLikelihoodRatiosDataFrame.tsv"),
-            sep="\t", col.names = T, row.names = F, quote = F)
-
-rm(aggregatedLlrMatrix)
-gc()
-
-llrDataFrame$group <- "alternative"
-llrDataFrame$group[llrDataFrame$original == llrDataFrame$Var2] <- "null"
-llrDataFrame$group <- ordered(llrDataFrame$group, levels = c("null", "alternative"))
-
-llrDataFrame <- llrDataFrame %>% 
+  inner_join(link, by = c("Var1" = "pheno")) %>%
+  mutate(
+    diag = case_when(
+      geno == Var2 ~ T,
+      geno != Var2 ~ F),
+    mixUp = case_when(
+      geno == original & diag ~ F,
+      geno != original & diag ~ T),
+    group = case_when(diag & mixUp ~ "inducedMixUp",
+                      diag & !mixUp ~ "provided",
+                      !diag ~ "permuted")) %>%
   group_by(Var1) %>%
   mutate(scaledLlr = scale(logLikelihoodRatios)[,1])
 
-matrixWideAuc <- auc(
-  llrDataFrame$group, llrDataFrame$logLikelihoodRatios)
+message(paste0("Exporting output matrix: 'aggregatedLogLikelihoodRatiosDataFrame.tsv'"))
 
-message(paste0("Calculated overall AUC: ", matrixWideAuc))
-overallOutputStatistics$matrixWideAuc <- as.double(matrixWideAuc)
+# Export the log likelihood data frame with scaled values
+write.table(llrDataFrame, file.path(out, "aggregatedLogLikelihoodRatiosDataFrame.tsv"),
+            sep="\t", col.names = T, row.names = F, quote = F)
 
-pdf(file.path(out, "ROCcurve_matrixWide.pdf"))
+# Remove the aggregated llr matrix in favour of the data frame
+rm(aggregatedLlrMatrix)
+gc()
+
+message(paste0("Exporting matrix-wide ROC curve: 'ROCcurve_matrixWide_scaled.pdf'"))
+
+pdf(file.path(out, "ROCcurve_matrixWide_scaled.pdf"))
 par(xpd = NA)
 
+# Calculate plot
 roc(
-  llrDataFrame$group ~ llrDataFrame$logLikelihoodRatios, plot=TRUE,
+  llrDataFrame$group ~ llrDataFrame$scaledLlr, plot=TRUE, 
   print.auc=TRUE,col="green",lwd =4,legacy.axes=TRUE,main="ROC Curves")
 
 dev.off()
 
 # Confine ourselves to the diagonal
 permutationTestDataFrame <- llrDataFrame %>%
-  filter(geno == Var2)
+  filter(geno == Var2) %>%
+  mutate(numberOfTraits = diag(aggregatedNumberOfTraits))
 
-if ("alternative" %in% permutationTestDataFrame$group) {
-  confinedAuc <- auc(
-    permutationTestDataFrame$group, 
-    permutationTestDataFrame$logLikelihoodRatios)
+message(paste0("Exporting output matrix: 'providedSampleDataFrame.tsv'"))
+
+# Export the log likelihood data frame with scaled values
+write.table(permutationTestDataFrame, file.path(out, "providedSampleDataFrame.tsv"),
+            sep="\t", col.names = T, row.names = F, quote = F)
+
+# Calculate the mix-ups
+if ("inducedMixUp" %in% permutationTestDataFrame$group) {
   
   confinedAucOnScaledLlr <- auc(
     permutationTestDataFrame$group, 
     permutationTestDataFrame$scaledLlr)
-
-  message(paste0("Confined AUC: ", confinedAuc))
-  overallOutputStatistics$confinedAuc <- as.double(confinedAuc)
     
   message(paste0("Confined AUC on scaled log likelihood ratios: ", confinedAucOnScaledLlr))
-  # overallOutputStatistics$confinedAuc <- as.double(confinedAucOnScaledLlr)
+  overallOutputStatistics$confinedAuc <- as.double(confinedAucOnScaledLlr)
+  
+  message(paste0("Exporting ROC curve for provided samples: 'ROCcurve_diagonal_scaled.pdf'"))
   
   pdf(file.path(out, "ROCcurve_diagonal_scaled.pdf"))
   par(xpd = NA)
 
-  roc(
-    permutationTestDataFrame$group ~ permutationTestDataFrame$logLikelihoodRatios, 
-    plot=TRUE, print.auc=TRUE,col="green",lwd =4,legacy.axes=TRUE,main="ROC Curves")
-    
   roc(
     permutationTestDataFrame$group ~ permutationTestDataFrame$scaledLlr, 
     plot=TRUE, print.auc=TRUE,col="green",lwd =4,legacy.axes=TRUE,main="ROC Curves on scaled LLR")
@@ -1236,115 +1162,10 @@ if ("alternative" %in% permutationTestDataFrame$group) {
     geom_histogram(bins = 32, alpha=.5, position="identity") +
     xlab("Log likelihood ratios") + ggtitle(paste0("scaled LLR overall"))
   
-  ggsave(file.path(out, "/scaledlikelihoodRatioHistogram.png"), width=8, height=7)
+  ggsave(file.path(out, "scaledlikelihoodRatioHistogram.png"), width=8, height=7)
 }
 
 write.table(overallOutputStatistics, file.path(out, "overallOutputStatistics.tsv"),
             sep="\t", col.names = T, row.names = T, quote = F)
 
-ggplot(llrDataFrame, aes(x=logLikelihoodRatios, stat(density), fill=group)) +
-  geom_histogram(bins = 32, alpha=.5, position="identity") +
-  xlab("Log likelihood ratios") + ggtitle(paste0("LR overall"))
-
-ggsave(file.path(out, "/likelihoodRatioHistogram.png"), width=8, height=7)
-
-ggplot(llrDataFrame, aes(x=group, y=logLikelihoodRatios)) +
-  geom_boxplot() + ggtitle(paste0("Log likelihood ratio distributions comparison overall"))
-
-ggsave(file.path(out, "/likelihoodRatioBoxplot.png"), width=8, height=7)
-
-# numberOfTraits <- 
-#   as.data.frame.table(aggregatedNumberOfTraits, responseName = "numberOfTraits")
-
-# phenoSamples <- unique(llrDataFrame[llrDataFrame$geno != llrDataFrame$original, "Var1"])
-
-# phenoSamples <- sample(unique(lrProducts[lrProducts$geno == lrProducts$original, "Var1"]), size = 26)
-# 
-# sampledLrProducts <- llrDataFrame %>%
-#   #inner_join(numberOfTraits, by=c("Var1", "Var2")) %>%
-#   mutate(colourGroup = case_when(
-#     Var2 == geno ~ 1,
-#     Var2 == original ~ 2,
-#     TRUE ~ 3)) %>%
-#   filter(Var1 %in% phenoSamples)
-# # 
-# cols = c("2" = "blue", "1" = "red", "3" = "black")
-# # 
-# ggplot(sampledLrProducts %>% filter(is.finite(logLikelihoodRatios)),
-#        aes(y = Var1)) +
-# 
-#   # Add ridge lines
-#   geom_density_ridges(
-#     aes(x = logLikelihoodRatios,
-#         point_alpha = as.numeric(colourGroup != 3),
-#         point_color = colourGroup),
-#     jittered_points = TRUE,
-#     position = position_points_jitter(width = 0, height = 0),
-#     point_shape = '|', point_size = 3, alpha = 0.7) +
-#   scale_point_color_continuous(high = "#0072B2", low = "#D55E00") +
-#   #scale_discrete_manual(values = cols, aesthetics = "point_color") +
-#   #scale_discrete_manual("point_color", values = cols) +
-# 
-#   # Add annotation with number of traits, and the number of filtered likelihood ratios
-#   # geom_text(
-#   #   data=sampledLrProducts %>% group_by(Var1) %>%
-#   #     summarise(numberOfTraits = median(numberOfTraits),
-#   #               numberOfFiltered = sum(!is.finite(logLikelihoodRatios))),
-#   #   position=position_nudge(y=0.64), colour="red", size=3.5,
-#   #   hjust = "inward", x = 0,
-#   #   aes(label = sprintf("n traits: %d, n filtered: %d", numberOfTraits, numberOfFiltered))) +
-# 
-#   # Set theme
-#   theme(legend.position = "none")
-# 
-# ggsave("~/pgs_based_mixup_correction-ugli/output/sample-swap-prediction/20200811.20201012.efi-discretization.30/ridges.png", width=8, height=20)
-
-# Pearson correlations
-# pearson.correlations <- pearson.correlations[order(pearson.correlations$pearson.corrected),]
-# pearson.correlations$r2.not_corrected <- pearson.correlations$pearson.not_corrected ^ 2
-# pearson.correlations$r2.corrected.sex <- pearson.correlations$pearson.corrected.sex ^ 2
-# pearson.correlations$r2.corrected.age <- pearson.correlations$pearson.corrected.age ^ 2
-# pearson.correlations$r2.corrected.both <- pearson.correlations$pearson.corrected.both ^ 2
-# 
-# write.table(pearson.correlations, file.path(out, "/correlations_comparison.tsv"))
-# 
-# pearson.correlations.melted <- melt(pearson.correlations[,c('phenotype','r2.not_corrected','r2.corrected.sex', 'r2.corrected.age', 'r2.corrected.both')], value.name = "r2")
-# pearson.correlations.melted <- pearson.correlations.melted[order(pearson.correlations.melted[,"r2"]),]
-# 
-# ggplot(pearson.correlations.melted,aes(x = phenotype,y = r2)) +
-#   geom_bar(aes(fill = variable),stat = "identity",position = "dodge") +
-#   coord_flip()
-# 
-# ggsave(file.path(out, "/correlations_comparison.png"), width=8, height=7)
-
-# # Calculate the correlation of residual Z-scores between phenotypes
-# res.zscore.correlations <- sapply(lRdataFrameList, function(x) sapply(lRdataFrameList, function(y) cor(x["likelihoodRatios"], y["likelihoodRatios"])))
-# rownames(res.zscore.correlations) <- phenotypes
-# colnames(res.zscore.correlations) <- phenotypes
-# res.zscore.correlations <- as.matrix(res.zscore.correlations)
-# 
-# res.zscore.correlations.melted <- melt(res.zscore.correlations, value.name="pearson.cor")
-# 
-# # Color Brewer palette
-# ggplot(data = res.zscore.correlations.melted, aes(x=Var1, Var2, fill=pearson.cor)) +
-#   ggtitle("Correlations of LRs between phenotypes") +
-#   xlab("Phenotypes") +
-#   ylab("Phenotypes") +
-#   geom_tile() +
-#   scale_fill_distiller(palette = "Blues") +
-#   theme_classic() +
-#   theme(axis.text.x = element_text(angle = 90, hjust = 1))
-# 
-# ggsave(paste0(dirname(filename), "/residual_LikelihoodRatioCorrelations.png"), width=8, height=7)
-
-# sampleTraitsSummary <- sampledLrProducts %>% group_by(Var1) %>%
-#       summarise(numberOfTraits = median(numberOfTraits),
-#                 numberOfFiltered = sum(!is.finite(logLikelihoodRatios)))
-# 
-# lrProducts_Prev <- 
-#   as.data.frame.table(aggregatedLlrMatrix, responseName = "logLikelihoodRatios") %>%
-#   inner_join(link, by = c("Var1" = "pheno"))
-# 
-# lrProducts_Prev$group <- "alternative"
-# lrProducts_Prev$group[lrProducts_Prev$original == lrProducts_Prev$Var2] <- "null"
-# lrProducts_Prev$group <- factor(lrProducts_Prev$group, c("alternative", "null"))
+message("Done!")

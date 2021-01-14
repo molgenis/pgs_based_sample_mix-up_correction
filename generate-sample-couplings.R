@@ -26,18 +26,28 @@ parser$add_argument('--out', help='path to output prefix', required=T)
 
 inputGroup <- parser$add_mutually_exclusive_group(required=T)
 
-inputGroup$add_argument('--sample-coupling-file',
+inputGroup$add_argument('--sample-coupling-file-include',
                         help=paste0('file containing genotype sample ids in the first column',
-                                    'and phenotype sample ids in the second column'))
+                                    'and phenotype sample ids in the second column',
+                                    'these samples will be used as a starting point.'))
+inputGroup$add_argument('--sample-coupling-file-exclude',
+                        help=paste0('file containing genotype sample ids in the first column',
+                                    'and phenotype sample ids in the second column.',
+                                    'the samples in the genotype column will be exluded.'))
 inputGroup$add_argument('--phenotypes-file',
                         help='path to a tab-delimited file holding all processed phenotype data.')
 
 ##############################
 # Define functions
 ##############################
+
+# Function that takes a table with genotype sample ids and phenotype sample ids
+# and introduces the specified number of mix-ups.
+# the output table will hold mixed-up genotype ids in the 'permuted' column
 permute <- function(linkTable, nMixUpsToIntroduce) {
   linkTable$permuted <- linkTable$geno
-  
+
+  stopifnot("Confused! less than 1 mix-up requested." = 0 < nMixUpsToIntroduce)
   stopifnot("Cannot mix-up a single sample!" = 1 < nMixUpsToIntroduce)
 
   # Shuffle all samples so the ones in which mix-ups are introduced are random
@@ -96,8 +106,11 @@ permute <- function(linkTable, nMixUpsToIntroduce) {
 ##############################
 args <- parser$parse_args(commandArgs(trailingOnly = TRUE))
 
-# Get the file with 
-sampleCouplingFilePath <- args$sample_coupling_file
+# Get the file with sample couplings
+sampleCouplingsToIncludeFilePath <- args$sample_coupling_file_include
+
+# Get the file with samples to exclude
+sampleCouplingsToExcludeFilePath <- args$sample_coupling_file_exclude
 
 # Get the 
 phenotypesFilePath <- args$phenotypes_file
@@ -108,42 +121,57 @@ mixUpPercentage <- args$mix_up_percentage
 # Number of samples to output
 numberOfSamples <- args$sample_count
 
+# Get the out prefix
 out <- args$out
 
 link <- NULL
 
-if (!is.null(sampleCouplingFilePath)) {
-  link <- fread(sampleCouplingFilePath, stringsAsFactors=F,
-                col.names = c("geno", "pheno")) %>%
-    filter(pheno %in% unique(phenotypesTable$ID))
+if (!is.null(sampleCouplingsToIncludeFilePath)) {
+  message(paste0("Attempting to use sample couplings from: '", sampleCouplingsToIncludeFilePath, "'."))
+  link <- fread(sampleCouplingsToIncludeFilePath, stringsAsFactors=F,
+                col.names = c("geno", "pheno"))
 }
 
 if (!is.null(phenotypesFilePath)) {
+  message(paste0("Attempting to generate sample couplings from: '", phenotypesFilePath, "'."))
   phenotypesTable <- fread(phenotypesFilePath, header=T, quote="", sep="\t",
-                           col.names = c("ID", "AGE", "SEX", "VALUE", "TRAIT")) %>%
+                           col.names = c("ID", "AGE", "SEX", "VALUE", "TRAIT"),
+                           stringsAsFactors = F) %>%
     mutate(SEX = factor(SEX, levels = c("Female", "Male"))) %>%
     group_by(ID) %>%
     filter(!any(AGE < 18)) %>%
     ungroup()
   
-    link <- data.frame(geno = unique(phenotypesTable$ID), pheno = unique(phenotypesTable$ID))
+    link <- data.frame(geno = unique(phenotypesTable$ID), pheno = unique(phenotypesTable$ID),
+                       stringsAsFactors = F)
+}
+
+if (!is.null(sampleCouplingsToExcludeFilePath)) {
+  message(paste0("Attempting exclude samples in first column from: '", sampleCouplingsToExcludeFilePath, "'."))
+  samplesToExclude <- fread(sampleCouplingsToExcludeFilePath, stringsAsFactors=F,
+                col.names = c("geno", "pheno")) %>% pull(geno)
+  link <- link %>% filter(!geno %in% samplesToExclude)
 }
 
 if (!is.null(numberOfSamples) && numberOfSamples < nrow(link)) {
+  message(paste0("Subsetting number of samples to: ", numberOfSamples))
+  
   link <- link %>%
     slice_sample(n = numberOfSamples)
 } else {
   numberOfSamples <- nrow(link)
 }
 
-if (!is.null(mixUpPercentage) && mixUpPercentage > 0 & mixUpPercentage <= 10) {
+if (!is.null(mixUpPercentage) && mixUpPercentage > 0) {
+  
   nMixUpsToIntroduce <- round(
     nrow(link) / 100 * mixUpPercentage);
   
-  nMixUpsToIntroduce <- max(nMixUpsToIntroduce, 2)
+  message(paste0("Attempting to introduce ", nMixUpsToIntroduce, " mix-ups (", mixUpPercentage, "%)"))
   
   permutedLink <- permute(link, nMixUpsToIntroduce)
   
+  # Get the actual number of permuted samples
   numberOfPermutedSamples <- sum(permutedLink$geno != permutedLink$permuted)
   
   message(paste0("Mix-ups introduced: ", numberOfPermutedSamples, "/", nrow(permutedLink), 
@@ -152,14 +180,24 @@ if (!is.null(mixUpPercentage) && mixUpPercentage > 0 & mixUpPercentage <= 10) {
   permutedLink <- rename(permutedLink, original = geno, geno = permuted) %>%
     select(pheno, geno, original)
   
-  write.table(permutedLink %>% filter(original != geno), 
-              paste0(out, ".perm_", numberOfPermutedSamples, "mixUps.txt"),
+  outFilePermutedSamples <- paste0(out, ".perm_", numberOfPermutedSamples, "mixUps.txt")
+  
+  message(paste0("Writing permuted samples to '", outFilePermutedSamples, "'"))
+  
+  write.table(permutedLink %>% filter(original != geno), outFilePermutedSamples,
               row.names = F, col.names = T, quote = F, sep = "\t")
   
-  write.table(permutedLink, 
-              paste0(out, ".perm_", numberOfSamples, "samples_", numberOfPermutedSamples, "mixUps.txt"), 
+  outFilePermutedSampleCoupling <- paste0(out, ".perm_", numberOfSamples, "samples_", numberOfPermutedSamples, "mixUps.txt")
+  
+  message(paste0("Writing permuted sample couplings to '", outFilePermutedSampleCoupling, "'"))
+  
+  write.table(permutedLink, outFilePermutedSampleCoupling, 
               row.names = F, col.names = T, quote = F, sep = "\t")
 }
 
-write.table(link, paste0(out, ".", numberOfSamples, "samples.txt"), 
+outFileUnPermutedSampleCoupling <- paste0(out, ".", numberOfSamples, "samples.txt")
+
+message(paste0("Writing unpermuted sample couplings to '", outFileUnPermutedSampleCoupling, "'"))
+
+write.table(link, outFileUnPermutedSampleCoupling, 
             row.names = F, col.names = T, quote = F, sep = "\t")

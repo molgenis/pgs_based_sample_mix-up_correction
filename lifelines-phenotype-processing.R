@@ -1,7 +1,7 @@
 #!/usr/bin/env Rscript
 
 #############################################################
-## c.a.warmerdam@umcg.nl - April 2020
+## c.a.warmerdam@umcg.nl - August 2020
 ## Processes Lifelines phenotypes.
 ## Using available Lifelines phenotypes, 
 ## a table of processed / derived phenotypes for sample 
