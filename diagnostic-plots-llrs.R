@@ -26,10 +26,6 @@ parser$add_argument('--out',
                     help='path to output directory')
 
 ##############################
-# Define functions
-##############################
-
-##############################
 # Run
 ##############################
 args <- parser$parse_args(commandArgs(trailingOnly = TRUE))

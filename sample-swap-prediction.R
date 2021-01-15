@@ -1128,8 +1128,9 @@ dev.off()
 
 # Confine ourselves to the diagonal
 permutationTestDataFrame <- llrDataFrame %>%
-  filter(geno == Var2) %>%
-  mutate(numberOfTraits = diag(aggregatedNumberOfTraits))
+  filter(geno == Var2)
+
+permutationTestDataFrame$numberOfTraits <- diag(aggregatedNumberOfTraits)
 
 message(paste0("Exporting output matrix: 'providedSampleDataFrame.tsv'"))
 

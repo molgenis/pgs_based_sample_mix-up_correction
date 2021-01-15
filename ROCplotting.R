@@ -9,9 +9,24 @@
 # Load libraries
 ##############################
 library(tidyverse)
+library(argparse)
 library(data.table)
 library(RColorBrewer)
 library(pROC)
+
+##############################
+# Define argument parser
+##############################
+
+parser <- ArgumentParser(description='')
+parser$add_argument('--dir',
+                    help='path from where to read sample swap prediction results.')
+parser$add_argument('--phenotypes-file',
+                    help='path to a tab-delimited file holding all processed phenotype data.')
+
+##############################
+# Run
+##############################
 
 old <- theme_set(theme_classic())
 theme_update(line = element_line(
@@ -26,8 +41,13 @@ theme_update(line = element_line(
     linetype = 1, lineend = "butt", arrow = F, inherit.blank = T)
 )
 
-llrDataFrame <- as_tibble(fread("aggregatedLogLikelihoodRatiosDataFrame.tsv"))
-numberOfTraits <- as.matrix(fread("aggregatedNumberOfTraitsMatrix.tsv"), rownames = 1)
+args <- parser$parse_args(commandArgs(trailingOnly = TRUE))
+dir <- args$dir
+phenotypesFilePath <- args$phenotypes_file
+
+# Read aggregated likelihood ratio dataframe as well as aggregated number of traits in a matrix.
+llrDataFrame <- as_tibble(fread(file.path(dir, "aggregatedLogLikelihoodRatiosDataFrame.tsv")))
+numberOfTraits <- as.matrix(fread(file.path(dir, "aggregatedNumberOfTraitsMatrix.tsv"), rownames = 1))
 
 llrDataFrame$group <- "alternative"
 llrDataFrame$group[llrDataFrame$original == llrDataFrame$Var2] <- "null"
@@ -43,7 +63,6 @@ permutationTestDataFrame <- llrDataFrame %>%
 
 permutationTestDataFrame$numberOfTraits <- diag(numberOfTraits)
 
-phenotypesFilePath <- "/groups/umcg-lifelines/tmp01/projects/ugli_blood_gsa/pgs_based_mixup_correction/data/lifelines/processed/pgs.phenotypes_20201215.ugli.dat"
 reportedSexTable <- fread(phenotypesFilePath, header=T, quote="", sep="\t") %>%
   rename_all(recode, "UGLI_ID" = "ID") %>%
   mutate(SEX = factor(SEX, levels = c("Female", "Male"))) %>%
@@ -56,7 +75,6 @@ stopifnot(nrow(reportedSexTable) == length(unique(reportedSexTable$ID)))
 
 ugliQc <- read_tsv("/groups/umcg-lifelines/tmp01/releases/gsa_genotypes/v1/Logs/ugli_qc_release1_samples.csv")
 gsaLinkage <- read_tsv("/groups/umcg-lifelines/tmp01/releases/gsa_linkage_files/v1/gsa_linkage_file.dat")
-link <- read_tsv("/groups/umcg-lifelines/tmp01/projects/ugli_blood_gsa/pgs_based_mixup_correction/data/lifelines/processed/pgs.sample-coupling-file.ugli.20201229-other.perm_16409samples_8204mixUps.txt")
 
 sexCheckData <- ugliQc %>%
   inner_join(gsaLinkage, by = c("Sample_ID" = "genotyping_name")) %>%
@@ -76,15 +94,22 @@ permutationTestDataFrame <- llrDataFrame %>%
   mutate(combined = case_when(sexCheck == 1 ~ Inf,
                               TRUE ~ scaledLlr))
 
+# Calculate ROC for PGS based method only
 rocPgs <- roc(permutationTestDataFrame$group ~ permutationTestDataFrame$scaledLlr)
+# Calculate ROC for sex check only
 rocSexCheck <- roc(permutationTestDataFrame$group ~ permutationTestDataFrame$sexCheck)
+# Calculate ROC for combined model
 rocCombined <- roc(permutationTestDataFrame$group ~ permutationTestDataFrame$combined)
+
+
 roclist <- list("PGS based method" = rocPgs,
                 "Sex-check" = rocSexCheck,
                 "Combined" = rocCombined)
 
+# Loop through ROC thresholds for reporting data.
 fdrThresholds <- c(0.01, 0.05, 0.25, 0.5, 0.9)
 
+# For each of the ROCs, generate confusion matrix values.
 specificitiesPgs <- as_tibble(t(sapply(fdrThresholds, function(fpr) {
   coords(rocPgs, 1 - fpr, input = "specificity", ret=c("threshold", "tpr", "fpr", "tnr", "fnr"), transpose = TRUE)
 })))
@@ -97,8 +122,10 @@ specificitiesCombined <- as_tibble(t(sapply(fdrThresholds, function(fpr) {
   coords(rocCombined, 1 - fpr, input = "specificity", ret=c("threshold", "tpr", "fpr", "tnr", "fnr"), transpose = TRUE)
 })))
 
+# Generate confusion matrix values for the perfect chance diagonal
 specificitiesCoinFlip <- tibble(threshold = NA_real_, fpr = fdrThresholds, tnr = 1 - fdrThresholds, tpr = fdrThresholds, fnr = 1 - fdrThresholds)
 
+# merge confusion tabels.
 specificitiesBase <- bind_rows(specificitiesPgs, specificitiesSexCheck, specificitiesCombined, specificitiesCoinFlip, .id = "rocType") %>%
   mutate(rocType = ordered(case_when(rocType == 1 ~ "pgsOnly", 
                                      rocType == 2 ~ "sexCheck",
@@ -106,6 +133,7 @@ specificitiesBase <- bind_rows(specificitiesPgs, specificitiesSexCheck, specific
                                      rocType == 4 ~ "coinFlip"), c("pgsOnly", "sexCheck", "combined", "coinFlip"))) %>%
   mutate(fpr = as.character(fpr))
 
+# Get increase for all thresholds.
 specificitiesIncreasesPgsOnly <- specificitiesBase %>% 
   filter(rocType == "pgsOnly") %>%
   inner_join(specificitiesBase %>% filter(rocType == "coinFlip"), by = c("fpr" = "fpr"))
@@ -120,10 +148,7 @@ specificitiesIncreases <- bind_rows(specificitiesIncreasesPgsOnly, specificities
 
 print(specificitiesIncreases, width = Inf)
   
-  # mutate(rocType = ordered(case_when(rocType == 1 ~ "pgsOnly", 
-  #                                    rocType == 2 | rocType == 3 ~ "combined"), c("pgsOnly", "combined")),
-  #        falsePositiveRate = fpr)
-
+# Plot the ROC curves.
 g <- ggroc(roclist, aes = "linetype", legacy.axes = TRUE) +
   geom_abline() +
   ggtitle("ROC curve") +
@@ -139,7 +164,7 @@ for (fdrThreshold in fdrThresholds) {
     geom_vline(xintercept = fdrThresholds)
 }
 
-pdf(paste0("combinedRoc_", format(Sys.Date(), "%Y%m%d"), ".pdf"), 
+pdf(file.path(dir, paste0("combinedRoc_", format(Sys.Date(), "%Y%m%d"), ".pdf")), 
     useDingbats = FALSE, width = 8, height = 4)
 
 par(xpd = NA)
@@ -148,6 +173,7 @@ g
 
 dev.off()
 
+# Plot the confusion matrices.
 specificities <- specificitiesBase %>%
   pivot_longer(cols = c("tpr", "fpr", "tnr", "fnr"), names_to = "statistic", values_to = "value") %>%
   mutate(trueClass = case_when(statistic %in% c("tpr", "fnr") ~ "actual mix-up",
@@ -155,7 +181,7 @@ specificities <- specificitiesBase %>%
          predictedClass = case_when(statistic %in% c("tpr", "fpr") ~ "predicted mix-up",
                                     statistic %in% c("fnr", "tnr") ~ "not predicted mix-up"))
 
-pdf(paste0("confusionMatrices_", format(Sys.Date(), "%Y%m%d"), ".pdf"), 
+pdf(file.path(dir, paste0("confusionMatrices_", format(Sys.Date(), "%Y%m%d"), ".pdf")), 
     useDingbats = FALSE, width = 4, height = 8)
 
 par(xpd = NA)
@@ -177,23 +203,14 @@ ggplot(data =  specificities, mapping = aes(x = trueClass, y = predictedClass)) 
 
 dev.off()
 
-
-pdf(paste0("outputDistributions", format(Sys.Date(), "%Y%m%d"), ".pdf"), 
+# Plot the distributions
+pdf(file.path(dir, paste0("outputDistributions_", format(Sys.Date(), "%Y%m%d"), ".pdf")), 
     width=36*4/72, height = 117/72, useDingbats = FALSE)
 
 par(xpd = NA)
 
 ggplot(data = permutationTestDataFrame, aes(x = scaledLlr, fill = group)) +
-  # geom_dotplot(data = logLikelihoodRatiosDataFrame %>% filter(group == "null" & geno != original),
-  #              binaxis = "y", stackdir = "center", inherit.aes = F,
-  #              stackratio = 1.0, binwidth = 0.2,
-  #              aes(x = group, y = logLikelihoodRatios)) +
   geom_density() +
-  # geom_point(data = llrSummary, aes(x = group, y = meanLlr), inherit.aes = F) +
-  # coord_cartesian(xlim = c(-0.3, 2.0)) + 
-  # geom_linerange(data = llrSummary, aes(ymin = lower, ymax = higher, x = group), width=0.2, inherit.aes = F) +
-  # geom_rug(data = logLikelihoodRatiosDataFrame %>% filter(geno != original & group == "null"), aes(y=logLikelihoodRatios), 
-  #             inherit.aes=F) +
   theme(legend.position = "none")
 
 dev.off()
