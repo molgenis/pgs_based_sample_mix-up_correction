@@ -2,7 +2,7 @@
 
 #############################################################
 ## c.a.warmerdam@umcg.nl - January 2021
-## Plot predictive power of PGSes for traits
+## Plot predictive power for identifying mix-ups
 #############################################################
 
 ##############################
@@ -11,7 +11,6 @@
 library(tidyverse)
 library(argparse)
 library(data.table)
-library(RColorBrewer)
 library(pROC)
 
 ##############################
@@ -41,6 +40,7 @@ theme_update(line = element_line(
     linetype = 1, lineend = "butt", arrow = F, inherit.blank = T)
 )
 
+# Parse arguments.
 args <- parser$parse_args(commandArgs(trailingOnly = TRUE))
 dir <- args$dir
 phenotypesFilePath <- args$phenotypes_file
@@ -61,6 +61,7 @@ llrDataFrame <- llrDataFrame %>%
 permutationTestDataFrame <- llrDataFrame %>%
   filter(geno == Var2)
 
+# Assign the number of traits to the permutationTestDataFrame
 permutationTestDataFrame$numberOfTraits <- diag(numberOfTraits)
 
 reportedSexTable <- fread(phenotypesFilePath, header=T, quote="", sep="\t") %>%
@@ -73,24 +74,25 @@ reportedSexTable <- fread(phenotypesFilePath, header=T, quote="", sep="\t") %>%
 
 stopifnot(nrow(reportedSexTable) == length(unique(reportedSexTable$ID)))
 
-ugliQc <- read_tsv("/groups/umcg-lifelines/tmp01/releases/gsa_genotypes/v1/Logs/ugli_qc_release1_samples.csv")
-gsaLinkage <- read_tsv("/groups/umcg-lifelines/tmp01/releases/gsa_linkage_files/v1/gsa_linkage_file.dat")
-
-sexCheckData <- ugliQc %>%
-  inner_join(gsaLinkage, by = c("Sample_ID" = "genotyping_name")) %>%
-  select(UGLI_ID, Inferred_sex) %>%
-  inner_join(reportedSexTable, by = c("UGLI_ID" = "ID"))
+# Assuming a sex check has already been performed on the data, the reported sex should
+# already correspond to the inferred sex.
+sexCheckData <- reportedSexTable
 levels(sexCheckData$SEX) <- list(F = "Female", M = "Male")
 sexCheckData$Reported_sex <- sexCheckData$SEX
+sexCheckData$Inferred_sex <- sexCheckData$SEX
 
-all(sexCheckData$SEX == sexCheckData$Inferred_sex)
+# Check correspondence.
+all(sexCheckData$Reported_sex == sexCheckData$Inferred_sex)
 
+# Assign the sex concordance data
 permutationTestDataFrame <- llrDataFrame %>%
   filter(geno == Var2) %>%
   inner_join(sexCheckData %>% select(UGLI_ID, Reported_sex), by = c("Var1" = "UGLI_ID")) %>%
   inner_join(sexCheckData %>% select(UGLI_ID, Inferred_sex), by = c("geno" = "UGLI_ID")) %>%
   mutate(sexCheck = case_when(Reported_sex == Inferred_sex ~ 0L,
                               Reported_sex != Inferred_sex ~ 1L)) %>%
+  
+  # The when the sexCheck identifies a mix-up, we set the predicted value to infinity.
   mutate(combined = case_when(sexCheck == 1 ~ Inf,
                               TRUE ~ scaledLlr))
 
@@ -158,12 +160,14 @@ g <- ggroc(roclist, aes = "linetype", legacy.axes = TRUE) +
   geom_point(data = specificitiesBase, aes(x = fpr, y = tpr, colour = rocType), inherit.aes = F) +
   theme(legend.position = c(0.8,0.2))
 
+# Loop over fdr thresholds to plot these.
 for (fdrThreshold in fdrThresholds) {
   
   g <- g + 
     geom_vline(xintercept = fdrThresholds)
 }
 
+# Plot the ROCs
 pdf(file.path(dir, paste0("combinedRoc_", format(Sys.Date(), "%Y%m%d"), ".pdf")), 
     useDingbats = FALSE, width = 8, height = 4)
 
@@ -181,6 +185,7 @@ specificities <- specificitiesBase %>%
          predictedClass = case_when(statistic %in% c("tpr", "fpr") ~ "predicted mix-up",
                                     statistic %in% c("fnr", "tnr") ~ "not predicted mix-up"))
 
+# Plot the confusion matrices
 pdf(file.path(dir, paste0("confusionMatrices_", format(Sys.Date(), "%Y%m%d"), ".pdf")), 
     useDingbats = FALSE, width = 4, height = 8)
 

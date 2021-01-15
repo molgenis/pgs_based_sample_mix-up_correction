@@ -10,7 +10,6 @@
 ##############################
 library(tidyverse)
 library(data.table)
-library(RColorBrewer)
 library(pROC)
 
 # Attempts to set the default ggplot theme to classic, and update the

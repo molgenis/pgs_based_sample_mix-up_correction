@@ -10,10 +10,21 @@
 ##############################
 library(tidyverse)
 library(data.table)
-library(RColorBrewer)
 library(ggpubr)
 library(Hmisc)
 library(ggforce)
+
+##############################
+# Define argument parser
+##############################
+
+parser <- ArgumentParser(description='')
+parser$add_argument('files', nargs = "+",
+                    help='Output statistic files (\'outputStatisticsPerTrait.tsv\') to include in likelihood model comparison.')
+
+##############################
+# Run
+##############################
 
 old <- theme_set(theme_classic())
 theme_update(line = element_line(
@@ -32,22 +43,10 @@ scientific_10 <- function(x) {
   gsub("e", " %*% 10^", scales::scientific_format()(x))
 }
 
-basePath <- "~/Documents/projects/pgs_based_mixup_correction-ugli/output/sample-swap-prediction"
+args <- parser$parse_args(commandArgs(trailingOnly = TRUE))
+runs <- tibble(fullPath = args$files, label = seq_along(args$files))
 
-runs <- expand.grid(
-  runIdentifier = paste0("20201120.20201218-", c(1:10)), 
-  parameterTest = c("efi-discretization.30", "efi-discretization.50", "efi-discretization.80",
-                    "ewi-discretization.30", "ewi-discretization.50", "ewi-discretization.80",
-                    "gaussian.NA")) %>%
-  mutate(folderName = paste0(runIdentifier, ".", parameterTest))
-
-runs <- expand.grid(
-  parameterTest = "NA.NA", 
-  label = c(1:50)) %>%
-  mutate(runIdentifier = paste0("20201120.20201223-", label),
-         folderName = paste0(runIdentifier, ".", parameterTest),
-         fullPath = file.path(basePath, folderName, "outputStatisticsPerTrait.tsv"))
-
+# Define function for reading in output statistics per trait
 lapply_read_csv_bind_rows <- function(files, labels) {
   lapply(seq_along(files), function(filePathIndex) {
     read.table(files[filePathIndex], sep = "\t") %>%
@@ -55,24 +54,13 @@ lapply_read_csv_bind_rows <- function(files, labels) {
     }) %>% bind_rows()
 }
 
-# resultsTable <- lapply_read_csv_bind_rows(runs$fullPath, runs$folderName) %>%
-#   filter(included == "Y", 
-#          (naiveBayesMethod == "gaussian" & samplesPerNaiveBayesBin == 25) 
-#          | (naiveBayesMethod == "ewi-discretization" & !is.na(samplesPerNaiveBayesBin))
-#          | (naiveBayesMethod == "efi-discretization" & !is.na(samplesPerNaiveBayesBin))) %>%
-#   select(trait, traitDataType, confinedAuc, matrixWideAuc, pValue, naiveBayesMethod, samplesPerNaiveBayesBin) %>%
-#   mutate(samplesPerNaiveBayesBin = case_when(naiveBayesMethod == "gaussian" ~ NA_integer_,
-#                                              TRUE ~ samplesPerNaiveBayesBin))
-
+# Load all output statistics from parameter sweeps
 resultsTable <- lapply_read_csv_bind_rows(runs$fullPath, runs$label) %>%
   filter(included == "Y") %>%
   select(trait, traitDataType, confinedAuc, matrixWideAuc, confinedAucOnScaledLlr, pValue, naiveBayesMethod, samplesPerNaiveBayesBin, run) %>%
   mutate(label = paste0(naiveBayesMethod, ".", samplesPerNaiveBayesBin))
 
-ggplot(resultsTable, aes(confinedAucOnScaledLlr)) +
-  geom_histogram(bins = 6) +
-  facet_grid(trait ~ label, scales = 'free_x')
-
+# Create summary of results with means, sd, min and max
 resultsTableSummary <- resultsTable %>%
   group_by(trait, label) %>%
   summarise(confinedAucMean = mean(confinedAuc), confinedAucSd = sd(confinedAuc), 
