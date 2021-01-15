@@ -10,15 +10,6 @@
 ##############################
 library(tidyverse)
 library(data.table)
-library(RColorBrewer)
-library(ggpubr)
-library(extrafont)
-library(gtable)
-library(grid)
-library(gridExtra)
-
-font_import()
-loadfonts()
 
 old <- theme_set(theme_classic())
 theme_update(line = element_line(

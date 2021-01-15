@@ -12,7 +12,6 @@ library(tidyverse)
 library(data.table)
 library(ggpubr)
 library(Hmisc)
-library(ggforce)
 
 ##############################
 # Define argument parser
