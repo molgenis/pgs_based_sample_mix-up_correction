@@ -749,7 +749,7 @@ loopBayesMethods <- args$bayes_method_sweep_mode
 outputIntermediateStatistics <- args$output_intermediate_statistics
 
 # Set the likelihood alpha
-likelihoodRatioDifferenceAlpha <- arts$likelihood_ratio_alpha
+likelihoodRatioDifferenceAlpha <- args$likelihood_ratio_alpha
 
 # naive bayes / likelihood method
 naiveBayesMethod <- args$llr_bayes_method[1]
