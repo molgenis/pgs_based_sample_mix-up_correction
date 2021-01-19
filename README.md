@@ -13,4 +13,4 @@ and actual phenotypes to predict which samples are erroneous. Details of this ne
 
 - Install the required packages using the code by executing the `src/install-packages.R` R-script.
 
-- Detailed usage of the available scripts is presented in the [wiki]()
+- Detailed usage of the available scripts is presented in the [wiki](github.com/molgenis/systemsgenetics/wiki/PGS-based-mixup-identification)
