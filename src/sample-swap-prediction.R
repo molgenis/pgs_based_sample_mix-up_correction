@@ -24,29 +24,29 @@ parser <- ArgumentParser(description='')
 parser$add_argument('--debug', action='store_true', 
                     dest="debug", help="write intermediate llr and residuals files.")
 parser$add_argument('--base-fit-model-path',
-                    help='path to a directory to write fitted model parmaters to, or to load fitted models from.')
-parser$add_argument('--trait-gwas-mapping',
-                    help='path to a tab-delimited file that maps traits to the GWAS summary statistics')
-parser$add_argument('--base-pgs-path',
+                    help='path to a directory to write fitted model parameters to, or to load fitted models from.')
+parser$add_argument('--trait-gwas-mapping', required = T,
+                    help='path to a tab-delimited file that maps traits to the polygenic score files.')
+parser$add_argument('--base-pgs-path', required = T,
                     help="path to a directory containing polygenic scores. Folder structure should be '<base-pgs-path>/<name-of-gwas-summary-statistic>/<pgs-file-name>'")
 parser$add_argument('--pgs-file-name',
                     help="name of files that hold polygenic scores", default = "full.UGLI.pgs.profile")
-parser$add_argument('--phenotypes-file',
+parser$add_argument('--phenotypes-file', required = T,
                     help='path to a tab-delimited file holding all processed phenotype data.')
 parser$add_argument('--sample-coupling-file', required = FALSE,
-                    help=paste0('file containing genotype sample ids in the first column',
+                    help=paste('file containing genotype sample ids in the first column',
                     'and phenotype sample ids in the second column'))
 parser$add_argument('--llr-bayes-method', required = FALSE, default = c("NA", "80"), nargs = "+",
-                    help = paste0('the naive bayes method to use for calculating log likelihood ratios.',
+                    help = paste('the naive bayes method to use for calculating log likelihood ratios.',
                                   'If NA, the method will be based on the data type for each trait',
                                   '<ewi-discretization | efi-discretization | gaussian | NA> [(average) number of samples per bin]'))
 parser$add_argument('--bayes-method-sweep-mode', action='store_true', help = paste0(
   'special mode to perform a sweep over a series of naive bayes methods'))
 parser$add_argument('--out',
                     help='path to output directory')
-parser$add_argument('--likelihood-ratio-alpha', default = 0.05, help=paste0(
+parser$add_argument('--likelihood-ratio-alpha', default = 0.05, help=paste(
   'the t-test alpha to use for selecting traits',
-  'based on the difference in log likelihoods between the provided and permuted samples'))
+  'based on the difference in log likelihood ratios between the provided and permuted samples'))
 parser$add_argument('--output-intermediate-statistics', action='store_true', default = T,
                     help = 'Setting this to false will prevent intermediate AUC calculations, requiring less memory.')
 
@@ -882,6 +882,8 @@ for (traitIndex in 1:nrow(traitDescriptionsTable)) {
     rename(pheno = ID) %>%
     inner_join(link, by="pheno")
   
+  traitOutputTable[traitOutputTable$trait == trait, "numberOfSamples"] <- nrow(phenotypeTable)
+  
   # Give status update
   message(paste0(traitIndex, " / ", nrow(traitDescriptionsTable), 
                  ": '", trait, "' (", responseDataType, ")."))
@@ -1014,6 +1016,9 @@ for (traitIndex in 1:nrow(traitDescriptionsTable)) {
       message("    aggregation done!")
     }
     
+    traitOutputTable[traitOutputTable$trait == trait & traitOutputTable$naiveBayesParameters == naiveBayesParameters, "pValue"] <- 
+      likelihoodRatioDifferenceTest$p.value
+    
     # If output of intermediate statistics is requested, calculate these.
     if (outputIntermediateStatistics) {
     
@@ -1032,18 +1037,16 @@ for (traitIndex in 1:nrow(traitDescriptionsTable)) {
         group_by(Var1) %>%
         mutate(scaledLlr = scale(logLikelihoodRatios)[,1])
       
-      matrixWideAuc <- auc(
-        llrDataFrame$group, llrDataFrame$logLikelihoodRatios)
+      matrixWideAucOnScaledLlr <- auc(
+        llrDataFrame$group, llrDataFrame$scaledLlr)
       
-      message(paste0("Calculated overall AUC: ", matrixWideAuc))
+      message(paste0("Calculated overall AUC on scaled log likelihood ratios: ", matrixWideAucOnScaledLlr))
       
       permutationTestDataFrame <- llrDataFrame %>%
         filter(geno == Var2)
       
-      traitOutputTable[traitOutputTable$trait == trait & traitOutputTable$naiveBayesParameters == naiveBayesParameters, "matrixWideAuc"] <- 
-        as.double(matrixWideAuc)
-      traitOutputTable[traitOutputTable$trait == trait & traitOutputTable$naiveBayesParameters == naiveBayesParameters, "pValue"] <- 
-        likelihoodRatioDifferenceTest$p.value
+      traitOutputTable[traitOutputTable$trait == trait & traitOutputTable$naiveBayesParameters == naiveBayesParameters, "matrixWideAucOnScaledLlr"] <- 
+        as.double(matrixWideAucOnScaledLlr)
       
       if (predictingInducedMixUps && "alternative" %in% permutationTestDataFrame$group) {
         
@@ -1113,6 +1116,13 @@ write.table(llrDataFrame, file.path(out, "aggregatedLogLikelihoodRatiosDataFrame
 # Remove the aggregated llr matrix in favour of the data frame
 rm(aggregatedLlrMatrix)
 gc()
+
+matrixWideAucOnScaledLlr <- auc(
+  llrDataFrame$group, 
+  llrDataFrame$scaledLlr)
+
+message(paste0("Matrix-wide AUC on scaled log likelihood ratios: ", matrixWideAucOnScaledLlr))
+overallOutputStatistics$matrixWideAuc <- as.double(matrixWideAucOnScaledLlr)
 
 message(paste0("Exporting matrix-wide ROC curve: 'ROCcurve_matrixWide_scaled.pdf'"))
 

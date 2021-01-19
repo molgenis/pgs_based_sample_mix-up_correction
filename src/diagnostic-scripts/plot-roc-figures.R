@@ -18,9 +18,9 @@ library(pROC)
 ##############################
 
 parser <- ArgumentParser(description='')
-parser$add_argument('--dir',
+parser$add_argument('--dir', required = T,
                     help='path from where to read sample swap prediction results.')
-parser$add_argument('--phenotypes-file',
+parser$add_argument('--phenotypes-file', required = T,
                     help='path to a tab-delimited file holding all processed phenotype data.')
 
 ##############################

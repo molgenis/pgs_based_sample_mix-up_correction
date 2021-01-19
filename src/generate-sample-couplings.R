@@ -23,6 +23,10 @@ parser$add_argument('--mix-up-percentage', required=FALSE, type="double",
 parser$add_argument('--sample-count', required=FALSE, type="integer",
                     help=paste0('number of samples to include in the coupling file'))
 parser$add_argument('--out', help='path to output prefix', required=T)
+parser$add_argument('--sample-coupling-file-exclude',
+                    help=paste0('file containing genotype sample ids in the first column',
+                                'and phenotype sample ids in the second column.',
+                                'the samples in the genotype column will be exluded.'))
 
 inputGroup <- parser$add_mutually_exclusive_group(required=T)
 
@@ -30,10 +34,6 @@ inputGroup$add_argument('--sample-coupling-file-include',
                         help=paste0('file containing genotype sample ids in the first column',
                                     'and phenotype sample ids in the second column',
                                     'these samples will be used as a starting point.'))
-inputGroup$add_argument('--sample-coupling-file-exclude',
-                        help=paste0('file containing genotype sample ids in the first column',
-                                    'and phenotype sample ids in the second column.',
-                                    'the samples in the genotype column will be exluded.'))
 inputGroup$add_argument('--phenotypes-file',
                         help='path to a tab-delimited file holding all processed phenotype data.')
 
