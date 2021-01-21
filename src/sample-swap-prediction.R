@@ -1045,6 +1045,9 @@ for (traitIndex in 1:nrow(traitDescriptionsTable)) {
       permutationTestDataFrame <- llrDataFrame %>%
         filter(geno == Var2)
       
+      rm(llrDataFrame)
+      gc()
+      
       traitOutputTable[traitOutputTable$trait == trait & traitOutputTable$naiveBayesParameters == naiveBayesParameters, "matrixWideAucOnScaledLlr"] <- 
         as.double(matrixWideAucOnScaledLlr)
       
@@ -1066,6 +1069,9 @@ for (traitIndex in 1:nrow(traitDescriptionsTable)) {
         traitOutputTable[traitOutputTable$trait == trait & traitOutputTable$naiveBayesParameters == naiveBayesParameters, "confinedAucOnScaledLlr"] <- 
           as.double(confinedAucOnScaledLlr)
       }
+      
+      rm(permutationTestDataFrame)
+      gc()
     }
   }
 }
@@ -1099,8 +1105,8 @@ llrDataFrame <-
       geno == Var2 ~ T,
       geno != Var2 ~ F),
     mixUp = case_when(
-      geno == original & diag ~ F,
-      geno != original & diag ~ T),
+      geno == original,
+      geno != original),
     group = case_when(diag & mixUp ~ "inducedMixUp",
                       diag & !mixUp ~ "provided",
                       !diag ~ "permuted")) %>%
@@ -1117,8 +1123,13 @@ write.table(llrDataFrame, file.path(out, "aggregatedLogLikelihoodRatiosDataFrame
 rm(aggregatedLlrMatrix)
 gc()
 
+numberOfTriatsDiag <- diag(aggregatedNumberOfTraits)
+
+rm(aggregatedNumberOfTraits)
+gc()
+
 matrixWideAucOnScaledLlr <- auc(
-  llrDataFrame$group, 
+  llrDataFrame$mixUp, 
   llrDataFrame$scaledLlr)
 
 message(paste0("Matrix-wide AUC on scaled log likelihood ratios: ", matrixWideAucOnScaledLlr))
@@ -1131,7 +1142,7 @@ par(xpd = NA)
 
 # Calculate plot
 roc(
-  llrDataFrame$group ~ llrDataFrame$scaledLlr, plot=TRUE, 
+  llrDataFrame$mixUp ~ llrDataFrame$scaledLlr, plot=TRUE, 
   print.auc=TRUE,col="green",lwd =4,legacy.axes=TRUE,main="ROC Curves")
 
 dev.off()
@@ -1140,7 +1151,10 @@ dev.off()
 permutationTestDataFrame <- llrDataFrame %>%
   filter(geno == Var2)
 
-permutationTestDataFrame$numberOfTraits <- diag(aggregatedNumberOfTraits)
+rm(llrDataFrame)
+gc()
+
+permutationTestDataFrame$numberOfTraits <- numberOfTriatsDiag
 
 message(paste0("Exporting output matrix: 'providedSampleDataFrame.tsv'"))
 
