@@ -352,8 +352,6 @@ fitEwiDiscretizationParameters <- function(
   # the ratio between the densities / likelihoods of the alternative compared to the null residuals.
   likelihoodRatioMap <- alternativeLikelihoods / nullLikelihoods
   
-  print(any(is.infinite(likelihoodRatioMap)))
-  
   return(list(breaks = breaks, likelihoodRatioMap = likelihoodRatioMap))
 }
 
@@ -563,8 +561,6 @@ calculate.logLikelihoodRatiosForSelection <- function(
     } else {
       message("Using prefitted classifier")
     }
-    
-    print(ewiDiscretizationParameters)
     
     logLikelihoodRatios <- calculateDiscritizedLoglikelihoodRatios(
       valueMatrixFiltered, ewiDiscretizationParameters)
