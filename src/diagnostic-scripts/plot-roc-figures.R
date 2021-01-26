@@ -47,7 +47,7 @@ phenotypesFilePath <- args$phenotypes_file
 
 # Read aggregated likelihood ratio dataframe as well as aggregated number of traits in a matrix.
 llrDataFrame <- as_tibble(fread(file.path(dir, "aggregatedLogLikelihoodRatiosDataFrame.tsv")))
-numberOfTraits <- as.matrix(fread(file.path(dir, "aggregatedNumberOfTraitsMatrix.tsv"), rownames = 1))
+numberOfTraits <- as.matrix(fread(file.path(dir, "aggregatedNumberOfTraitsMatrix.tsv")), rownames = 1)
 
 llrDataFrame$group <- "alternative"
 llrDataFrame$group[llrDataFrame$original == llrDataFrame$Var2] <- "null"

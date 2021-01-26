@@ -1100,11 +1100,14 @@ llrDataFrame <-
     diag = case_when(
       geno == Var2 ~ T,
       geno != Var2 ~ F),
+    correct = case_when(
+      original == Var2 ~ T,
+      original != Var2 ~ F),
     mixUp = case_when(
-      geno == original,
-      geno != original),
-    group = case_when(diag & mixUp ~ "inducedMixUp",
-                      diag & !mixUp ~ "provided",
+      diag & correct ~ F,
+      diag & !correct ~ T),
+    group = case_when(diag & !correct ~ "inducedMixUp",
+                      diag & correct ~ "provided",
                       !diag ~ "permuted")) %>%
   group_by(Var1) %>%
   mutate(scaledLlr = scale(logLikelihoodRatios)[,1])
@@ -1125,7 +1128,7 @@ rm(aggregatedNumberOfTraits)
 gc()
 
 matrixWideAucOnScaledLlr <- auc(
-  llrDataFrame$mixUp, 
+  llrDataFrame$correct, 
   llrDataFrame$scaledLlr)
 
 message(paste0("Matrix-wide AUC on scaled log likelihood ratios: ", matrixWideAucOnScaledLlr))

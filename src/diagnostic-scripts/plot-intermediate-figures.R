@@ -28,7 +28,7 @@ theme_update(line = element_line(
 )
 
 # Function that plots the corrected relationship between a phenotype and PGS.
-plotRelationshipContinuousTrait <- function(completeTable) {
+plotRelationshipContinuousTrait <- function(completeTable, link) {
   
   # Correct the phenotype
   correctionModel <- lm(VALUE ~ AGE + SEX + AGE:SEX, data = completeTable)
@@ -36,7 +36,7 @@ plotRelationshipContinuousTrait <- function(completeTable) {
 
   # Map point groups
   completeTable <- completeTable %>%
-    left_join(link %>% select(originalPheno = pheno, original), by=c("geno" = "original")) %>%
+    left_join(link %>% select(originalPheno = pheno, geno, original), by=c("geno" = "geno")) %>%
     mutate(
       group = case_when(geno == original ~ "null",
                         pheno == original ~ "swap",
