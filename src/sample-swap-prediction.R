@@ -47,7 +47,7 @@ parser$add_argument('--out',
 parser$add_argument('--likelihood-ratio-alpha', default = 0.05, help=paste(
   'the t-test alpha to use for selecting traits',
   'based on the difference in log likelihood ratios between the provided and permuted samples'))
-parser$add_argument('--output-intermediate-statistics', action='store_true', default = T,
+parser$add_argument('--output-intermediate-statistics', action='store_true', default = F,
                     help = 'Setting this to false will prevent intermediate AUC calculations, requiring less memory.')
 
 ##############################
