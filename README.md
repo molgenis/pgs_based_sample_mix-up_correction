@@ -1,4 +1,4 @@
-# PGS-based sample mix-up identification method / Idéfix
+# Idéfix: identifying accidental sample mix-ups in biobanks using polygenic scores
 
 Idéfix is a tool that aims to identify sample mix-ups in biobanks using polygenic scores.
 Sample mix-ups frequently occur in genetic genomic datasets generated in a research setting ([Westra et al., 2011](http://bioinformatics.oxfordjournals.org/content/27/15/2104)). This novel takes advantage of polygenic scores
@@ -13,4 +13,4 @@ and actual phenotypes to predict which samples are erroneous. Details of this ne
 
 - Install the required packages using the code by executing the `src/install-packages.R` R-script.
 
-- Detailed usage of the available scripts is presented in the [wiki](https://github.com/molgenis/systemsgenetics/wiki/PGS-based-mixup-identification)
+- Detailed usage of the available scripts is presented in the [wiki](https://github.com/molgenis/systemsgenetics/wiki/Idefix)
