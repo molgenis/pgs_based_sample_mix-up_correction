@@ -747,6 +747,9 @@ outputIntermediateStatistics <- args$output_intermediate_statistics
 # Set the likelihood alpha
 likelihoodRatioDifferenceAlpha <- args$likelihood_ratio_alpha
 
+# Should files that are already present be recycled?
+shouldRecycle <- TRUE
+
 # naive bayes / likelihood method
 naiveBayesMethod <- args$llr_bayes_method[1]
 stopifnot("method must be one of the following: <ewi-discretization | efi-discretization | gaussian>" = 
@@ -863,12 +866,12 @@ for (traitIndex in 1:nrow(traitDescriptionsTable)) {
     pgsPhenotypeModel <- file.path(modelBasePath, traitFileName, "pgsPhenotypeModel.rda")
   }
 
-  if (!dir.create(file.path(out, traitFileName), recursive = T)) {
+  if (!dir.create(file.path(out, traitFileName), recursive = T, showWarnings = FALSE)) {
     warning(paste0("Could not create directory '", file.path(out, traitFileName), "'"))
   }
   
   if (!is.null(modelBasePath) && modelBasePath != out
-      && !dir.create(file.path(modelBasePath, traitFileName), recursive = T)) {
+      && !dir.create(file.path(modelBasePath, traitFileName), recursive = T, showWarnings = FALSE)) {
     warning(paste0("Could not create directory '", file.path(modelBasePath, traitFileName), "'"))
   }
   
@@ -918,9 +921,9 @@ for (traitIndex in 1:nrow(traitDescriptionsTable)) {
   } else if (responseDataType == "continuous") {
     message(paste0("    Available for ", nrow(phenotypeTable), " samples."))
   }
-
-  message(paste0("    Loading polygenic scores from '", polygenicScoreFilePath, "'..."))
   
+  message(paste0("    Loading polygenic scores from '", polygenicScoreFilePath, "'..."))
+
   # Read the PLINK polygenic score table.
   polygenicScores <- read.table(
     polygenicScoreFilePath,
@@ -931,25 +934,40 @@ for (traitIndex in 1:nrow(traitDescriptionsTable)) {
   completeTable <- phenotypeTable %>%
     inner_join(polygenicScores, by = c("geno" = "IID"))
   
-  # Calculate residuals matrix based on polygenic scores and actual phenotypes,
-  # using the chosen function for calculating residuals.
+  intermediateResidualMatrixFilePath <- file.path(out, traitFileName, "scaledResidualMatrix.tsv")
+  residualsMatrix <- NULL
   
-  # Calculate the scaled residuals for every combination
-  residualsMatrix <- calculate.scaledResiduals(
-    estimate = completeTable$PGS, 
-    actual = completeTable$VALUE, 
-    covariates = completeTable[c("AGE", "SEX")],
-    responseDataType = responseDataType,
-    modelPath = pgsPhenotypeModel)
-  
-  # The rows correspond to phenotype samples, the cols to genotype samples (polygenic scores)
-  rownames(residualsMatrix) <- completeTable$pheno
-  colnames(residualsMatrix) <- completeTable$geno
+  if (shouldRecycle 
+      && file.exists(intermediateResidualMatrixFilePath) 
+      && file.access(intermediateResidualMatrixFilePath, 4)) {
+    
+    # Load 
+    message(paste0("    Recycling residuals from '", intermediateResidualMatrixFilePath, "'..."))
+    residualsMatrix <- as.matrix(fread(intermediateResidualMatrixFilePath), rownames = 1)
+    
+  } else {
+    # Calculate residuals matrix based on polygenic scores and actual phenotypes,
+    # using the chosen function for calculating residuals.
+    
+    message("    Calculating residuals...")
+    
+    # Calculate the scaled residuals for every combination
+    residualsMatrix <- calculate.scaledResiduals(
+      estimate = completeTable$PGS, 
+      actual = completeTable$VALUE, 
+      covariates = completeTable[c("AGE", "SEX")],
+      responseDataType = responseDataType,
+      modelPath = pgsPhenotypeModel)
+    
+    # The rows correspond to phenotype samples, the cols to genotype samples (polygenic scores)
+    rownames(residualsMatrix) <- completeTable$pheno
+    colnames(residualsMatrix) <- completeTable$geno
 
-  if (debug) {
-    # Write scaled residuals matrix.
-    write.table(residualsMatrix, file.path(out, traitFileName, "scaledResidualMatrix.tsv"), 
-                sep = "\t", col.names = T, row.names = T, quote = F)
+    if (debug) {
+      # Write scaled residuals matrix.
+      write.table(residualsMatrix, intermediateResidualMatrixFilePath, 
+                  sep = "\t", col.names = T, row.names = T, quote = F)
+    }
   }
 
   message("    completed calculating scaled residuals")
@@ -961,7 +979,7 @@ for (traitIndex in 1:nrow(traitDescriptionsTable)) {
     samplesPerNaiveBayesBin <- traitOutputTable[traitOutputTable$trait == trait & traitOutputTable$naiveBayesParameters == naiveBayesParameters, 
                                          "samplesPerNaiveBayesBin"]
     
-    message(paste0("    calculating log likelihood ratios: ", naiveBayesMethod, ", ", samplesPerNaiveBayesBin))
+    message(paste0("    log likelihood method: ", naiveBayesMethod, ", ", samplesPerNaiveBayesBin))
     
     if (!is.null(modelBasePath)) {
       modelPath <- file.path(modelBasePath, traitFileName, naiveBayesParameters)
@@ -969,20 +987,37 @@ for (traitIndex in 1:nrow(traitDescriptionsTable)) {
         warning(paste0("Could not create directory '", modelPath, "'"))
       }
     }
-
-    logLikelihoodRatios <- calculate.logLikelihoodRatios(
-      valueMatrix = residualsMatrix, 
-      actual = completeTable$VALUE, 
-      responseDataType = responseDataType,
-      naiveBayesMethod = naiveBayesMethod,
-      samplesPerBin = samplesPerNaiveBayesBin,
-      classifierPath = modelPath)
     
-    if (debug) {
+    intermediateLogLikelihoodRatiosFilePath <- file.path(
+      out, traitFileName, paste0(naiveBayesParameters, ".", "logLikelihoodRatios.tsv"))
+    
+    logLikelihoodRatios <- NULL
+    
+    if (shouldRecycle 
+        && file.exists(intermediateLogLikelihoodRatiosFilePath) 
+        && file.access(intermediateLogLikelihoodRatiosFilePath, 4)) {
       
-      # Write log likelihood ratios.
-      write.table(logLikelihoodRatios, file.path(out, traitFileName, paste0(naiveBayesParameters, ".", "logLikelihoodRatios.tsv")), 
-                sep = "\t", col.names = T, row.names = T, quote = F)
+      message(paste0("    Recycling log likelihood ratios from '", intermediateLogLikelihoodRatiosFilePath, "'..."))
+      logLikelihoodRatios <- as.matrix(fread(intermediateLogLikelihoodRatiosFilePath), rownames = 1)
+      
+    } else {
+      
+      message("    Calculating log likelihood ratios...")
+
+      logLikelihoodRatios <- calculate.logLikelihoodRatios(
+        valueMatrix = residualsMatrix, 
+        actual = completeTable$VALUE, 
+        responseDataType = responseDataType,
+        naiveBayesMethod = naiveBayesMethod,
+        samplesPerBin = samplesPerNaiveBayesBin,
+        classifierPath = modelPath)
+      
+      if (debug) {
+        
+        # Write log likelihood ratios.
+        write.table(logLikelihoodRatios, intermediateLogLikelihoodRatiosFilePath, 
+                  sep = "\t", col.names = T, row.names = T, quote = F)
+      }
     }
     
     likelihoodRatioDifferenceTest <- t.test(
