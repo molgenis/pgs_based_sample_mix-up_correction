@@ -939,7 +939,7 @@ for (traitIndex in 1:nrow(traitDescriptionsTable)) {
   
   if (shouldRecycle 
       && file.exists(intermediateResidualMatrixFilePath) 
-      && file.access(intermediateResidualMatrixFilePath, 4)) {
+      && file.access(intermediateResidualMatrixFilePath, 4) == 0) {
     
     # Load 
     message(paste0("    Recycling residuals from '", intermediateResidualMatrixFilePath, "'..."))
@@ -995,7 +995,7 @@ for (traitIndex in 1:nrow(traitDescriptionsTable)) {
     
     if (shouldRecycle 
         && file.exists(intermediateLogLikelihoodRatiosFilePath) 
-        && file.access(intermediateLogLikelihoodRatiosFilePath, 4)) {
+        && file.access(intermediateLogLikelihoodRatiosFilePath, 4) == 0) {
       
       message(paste0("    Recycling log likelihood ratios from '", intermediateLogLikelihoodRatiosFilePath, "'..."))
       logLikelihoodRatios <- as.matrix(fread(intermediateLogLikelihoodRatiosFilePath), rownames = 1)
