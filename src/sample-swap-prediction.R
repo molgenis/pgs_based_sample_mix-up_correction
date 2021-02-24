@@ -934,7 +934,7 @@ for (traitIndex in 1:nrow(traitDescriptionsTable)) {
   completeTable <- phenotypeTable %>%
     inner_join(polygenicScores, by = c("geno" = "IID"))
   
-  intermediateResidualMatrixFilePath <- file.path(out, traitFileName, "scaledResidualMatrix.tsv")
+  intermediateResidualMatrixFilePath <- file.path(out, traitFileName, "scaledResidualMatrix.rds")
   residualsMatrix <- NULL
   
   if (shouldRecycle 
@@ -965,8 +965,7 @@ for (traitIndex in 1:nrow(traitDescriptionsTable)) {
 
     if (debug) {
       # Write scaled residuals matrix.
-      write.table(residualsMatrix, intermediateResidualMatrixFilePath, 
-                  sep = "\t", col.names = T, row.names = T, quote = F)
+      saveRDS(residualsMatrix, intermediateResidualMatrixFilePath)
     }
   }
 
@@ -989,7 +988,7 @@ for (traitIndex in 1:nrow(traitDescriptionsTable)) {
     }
     
     intermediateLogLikelihoodRatiosFilePath <- file.path(
-      out, traitFileName, paste0(naiveBayesParameters, ".", "logLikelihoodRatios.tsv"))
+      out, traitFileName, paste0(naiveBayesParameters, ".", "logLikelihoodRatios.rds"))
     
     logLikelihoodRatios <- NULL
     
@@ -998,7 +997,7 @@ for (traitIndex in 1:nrow(traitDescriptionsTable)) {
         && file.access(intermediateLogLikelihoodRatiosFilePath, 4) == 0) {
       
       message(paste0("    Recycling log likelihood ratios from '", intermediateLogLikelihoodRatiosFilePath, "'..."))
-      logLikelihoodRatios <- as.matrix(fread(intermediateLogLikelihoodRatiosFilePath), rownames = 1)
+      logLikelihoodRatios <- readRDS(intermediateLogLikelihoodRatiosFilePath)
       
     } else {
       
@@ -1015,8 +1014,7 @@ for (traitIndex in 1:nrow(traitDescriptionsTable)) {
       if (debug) {
         
         # Write log likelihood ratios.
-        write.table(logLikelihoodRatios, intermediateLogLikelihoodRatiosFilePath, 
-                  sep = "\t", col.names = T, row.names = T, quote = F)
+        saveRDS(logLikelihoodRatios, intermediateLogLikelihoodRatiosFilePath)
       }
     }
     

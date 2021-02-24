@@ -10,6 +10,7 @@
 ##############################
 library(tidyverse)
 library(data.table)
+library(ggrepel)
 
 old <- theme_set(theme_classic())
 theme_update(line = element_line(
@@ -24,7 +25,8 @@ theme_update(line = element_line(
     linetype = 1, lineend = "butt", arrow = F, inherit.blank = T)
 )
 
-outputStatisticsPerTrait <- read_tsv("output/tables/outputStatisticsPerTrait.txt") %>%
+outputStatisticsPerTrait <- fread("output/tables/outputStatisticsPerTrait.txt")
+processedOutputStatsPerTrait <- outputStatisticsPerTrait %>%
   mutate(
     # trait = stringr::str_pad(trait, width = 42, side = "left", pad = " "),
     trait = ordered(trait, levels = trait),
@@ -113,3 +115,26 @@ plotContinuous
 
 dev.off()
 
+outputStatisticsPerTraitOther <- fread("/Users/cawarmerdam/Documents/projects/pgs_based_mixup_correction-ugli/output/sample-swap-prediction/20201120.20201229-other-v2.NA.80/outputStatisticsPerTrait.tsv") %>%
+  inner_join(outputStatisticsPerTrait) %>%
+  filter(!is.na(pearsonCorrelationOnAdjustedPhenotype))
+
+pdf(paste0("output/figures/outputPerformanceForTraitContinuous_", format(Sys.Date(), "%Y%m%d"), ".pdf"), 
+    useDingbats = FALSE, width = 8, height = 8)
+
+par(xpd = NA)
+
+ggplot(outputStatisticsPerTraitOther %>% filter(traitDataType == "continuous"), aes(y = confinedAucOnScaledLlr, x = r2OnAdjustedPhenotype, label = trait)) +
+  geom_smooth(method=lm, se=FALSE, color="#007E7E", linetype = "dashed", fullrange = T,
+              size = (0.25 * ggplot2::.pt * 72.27/96)) +
+  geom_point() +
+  coord_cartesian(xlim = c(-0.02, NA)) +
+  geom_label_repel(force = 4, force_pull = 1, segment.curvature = -0.1, segment.ncp = 3, segment.angle = 20,
+                   show.legend = NA, size = 0.5 * 72.27/96 * 10, box.padding = 0.2, min.segment.length = 0,
+                   fill = "#E9E9E8", label.r = unit(0.0, "lines"), max.time = 2, max.iter = 100000,
+                   label.size = 0.0) +
+  xlab("pearson correlation coefficient") +
+  ylab("predictive power measured in area under ROC") +
+  ggtitle("Power for identifying sample mix-ups per trait")
+
+dev.off()

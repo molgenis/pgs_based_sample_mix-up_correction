@@ -76,7 +76,7 @@ stopifnot(nrow(reportedSexTable) == length(unique(reportedSexTable$ID)))
 
 # Assuming a sex check has already been performed on the data, the reported sex should
 # already correspond to the inferred sex.
-sexCheckData <- reportedSexTable
+sexCheckData <- reportedSexTable %>% rename_all(recode, "ID" = "UGLI_ID")
 levels(sexCheckData$SEX) <- list(F = "Female", M = "Male")
 sexCheckData$Reported_sex <- sexCheckData$SEX
 sexCheckData$Inferred_sex <- sexCheckData$SEX
@@ -109,19 +109,32 @@ roclist <- list("PGS based method" = rocPgs,
                 "Combined" = rocCombined)
 
 # Loop through ROC thresholds for reporting data.
-fdrThresholds <- c(0.01, 0.05, 0.25, 0.5, 0.9)
+fdrThresholds <- c(0.0005, 0.001, 0.005, 0.01, 0.05, 0.25, 0.5, 0.9)
 
 # For each of the ROCs, generate confusion matrix values.
-specificitiesPgs <- as_tibble(t(sapply(fdrThresholds, function(fpr) {
-  coords(rocPgs, 1 - fpr, input = "specificity", ret=c("threshold", "tpr", "fpr", "tnr", "fnr"), transpose = TRUE)
+specificitiesPgs <- as_tibble(t(sapply(fdrThresholds, function(falsePositiveRate) {
+  rocResults <- coords(rocPgs, 1 - falsePositiveRate, input = "specificity", 
+                       ret=c("threshold", "tpr", "fpr", "tnr", "fnr"), transpose = TRUE)
+  rocResults["threshold"] <- rocPgs$thresholds[which.min(abs(rocPgs$specificities - (1 - falsePositiveRate)))]
+  rocResults["deviance"] <- min(abs(rocPgs$specificities - (1 - falsePositiveRate)))
+  return(rocResults)
 })))
 
-specificitiesSexCheck <- as_tibble(t(sapply(c(0, fdrThresholds), function(fpr) {
-  coords(rocSexCheck, 1 - fpr, input = "specificity", ret=c("threshold", "tpr", "fpr", "tnr", "fnr"), transpose = TRUE)
+specificitiesSexCheck <- as_tibble(t(sapply(fdrThresholds, function(falsePositiveRate) {
+  rocResults <- coords(rocSexCheck, 1 - falsePositiveRate, input = "specificity", 
+                       ret=c("threshold", "tpr", "fpr", "tnr", "fnr"), transpose = TRUE)
+  rocResults["threshold"] <- rocSexCheck$thresholds[which.min(abs(rocSexCheck$specificities - (1 - falsePositiveRate)))]
+  rocResults["deviance"] <- min(abs(rocSexCheck$specificities - (1 - falsePositiveRate)))
+  return(rocResults)
 })))
 
-specificitiesCombined <- as_tibble(t(sapply(fdrThresholds, function(fpr) {
-  coords(rocCombined, 1 - fpr, input = "specificity", ret=c("threshold", "tpr", "fpr", "tnr", "fnr"), transpose = TRUE)
+specificitiesCombined <- as_tibble(t(sapply(fdrThresholds, function(falsePositiveRate) {
+  rocResults <- coords(rocCombined, 1 - falsePositiveRate, input = "specificity", 
+                       ret=c("threshold", "tpr", "fpr", "tnr", "fnr"), transpose = TRUE)
+  rocResults["threshold"] <- rocCombined$thresholds[which.min(abs(rocCombined$specificities - (1 - falsePositiveRate)))]
+  rocResults["deviance"] <- min(abs(rocCombined$specificities - (1 - falsePositiveRate)))
+  
+  return(rocResults)
 })))
 
 # Generate confusion matrix values for the perfect chance diagonal
@@ -129,18 +142,20 @@ specificitiesCoinFlip <- tibble(threshold = NA_real_, fpr = fdrThresholds, tnr =
 
 # merge confusion tabels.
 specificitiesBase <- bind_rows(specificitiesPgs, specificitiesSexCheck, specificitiesCombined, specificitiesCoinFlip, .id = "rocType") %>%
+  mutate(falsePositiveRate = round(fpr, digits = 8)) %>%
   mutate(rocType = ordered(case_when(rocType == 1 ~ "pgsOnly", 
                                      rocType == 2 ~ "sexCheck",
                                      rocType == 3 ~ "combined",
-                                     rocType == 4 ~ "coinFlip"), c("pgsOnly", "sexCheck", "combined", "coinFlip"))) %>%
-  mutate(fpr = as.character(fpr))
+                                     rocType == 4 ~ "coinFlip"), c("pgsOnly", "sexCheck", "combined", "coinFlip")))
 
 # Get increase for all thresholds.
-specificitiesIncreasesPgsOnly <- specificitiesBase %>% 
+specificitiesIncreasesPgsOnly <- specificitiesBase%>%
+  mutate(fpr = as.character(fpr)) %>% 
   filter(rocType == "pgsOnly") %>%
   inner_join(specificitiesBase %>% filter(rocType == "coinFlip"), by = c("fpr" = "fpr"))
 
-specificitiesIncreasesCombined <- specificitiesBase %>% 
+specificitiesIncreasesCombined <- specificitiesBase%>%
+  mutate(fpr = as.character(fpr)) %>% 
   filter(rocType == "combined") %>%
   inner_join(specificitiesBase %>% filter(rocType == "sexCheck"), by = "fpr")
 
@@ -149,7 +164,7 @@ specificitiesIncreases <- bind_rows(specificitiesIncreasesPgsOnly, specificities
          tprIncreasePp = tpr.x - tpr.y)
 
 print(specificitiesIncreases, width = Inf)
-  
+
 # Plot the ROC curves.
 g <- ggroc(roclist, aes = "linetype", legacy.axes = TRUE) +
   geom_abline() +
@@ -169,7 +184,7 @@ for (fdrThreshold in fdrThresholds) {
 
 # Plot the ROCs
 pdf(file.path(dir, paste0("combinedRoc_", format(Sys.Date(), "%Y%m%d"), ".pdf")), 
-    useDingbats = FALSE, width = 8, height = 4)
+    useDingbats = FALSE, width = 4, height = 4)
 
 par(xpd = NA)
 
@@ -179,6 +194,7 @@ dev.off()
 
 # Plot the confusion matrices.
 specificities <- specificitiesBase %>%
+  mutate(falsePositiveRate = round(fpr, digits = 8)) %>%
   pivot_longer(cols = c("tpr", "fpr", "tnr", "fnr"), names_to = "statistic", values_to = "value") %>%
   mutate(trueClass = case_when(statistic %in% c("tpr", "fnr") ~ "actual mix-up",
                                statistic %in% c("fpr", "tnr") ~ "not actual mix-up"),
@@ -187,7 +203,7 @@ specificities <- specificitiesBase %>%
 
 # Plot the confusion matrices
 pdf(file.path(dir, paste0("confusionMatrices_", format(Sys.Date(), "%Y%m%d"), ".pdf")), 
-    useDingbats = FALSE, width = 4, height = 8)
+    useDingbats = FALSE, width = 8, height = 11.5)
 
 par(xpd = NA)
 
