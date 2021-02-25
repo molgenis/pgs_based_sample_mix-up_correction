@@ -1093,36 +1093,13 @@ for (traitIndex in 1:nrow(traitDescriptionsTable)) {
       }
     }
     
-    intermediateLogLikelihoodRatiosFilePath <- file.path(
-      out, traitFileName, naiveBayesParameters)
+    intermediateLogLikelihoodRatioMatrixFileBasePath <- file.path(
+      traitDirectory, naiveBayesParameters)
     
-    logLikelihoodRatios <- NULL
-    
-    if (shouldRecycle 
-        && file.exists(intermediateLogLikelihoodRatiosFilePath) 
-        && file.access(intermediateLogLikelihoodRatiosFilePath, 4) == 0) {
-      
-      message(paste0("    Recycling log likelihood ratios from '", intermediateLogLikelihoodRatiosFilePath, "'..."))
-      logLikelihoodRatios <- readRDS(intermediateLogLikelihoodRatiosFilePath)
-      
-    } else {
-      
-      message("    Calculating log likelihood ratios...")
-
-      logLikelihoodRatios <- calculate.logLikelihoodRatios(
-        valueMatrix = residualsMatrix, 
-        actual = completeTable$VALUE, 
-        responseDataType = responseDataType,
-        naiveBayesMethod = naiveBayesMethod,
-        samplesPerBin = samplesPerNaiveBayesBin,
-        classifierPath = modelPath)
-      
-      if (debug) {
-        
-        # Write log likelihood ratios.
-        saveRDS(logLikelihoodRatios, intermediateLogLikelihoodRatiosFilePath)
-      }
-    }
+    logLikelihoodRatios <- getLogLikelihoodRatioMatrix(
+      residualsMatrix, completeTable, responseDataType, 
+      modelPath, naiveBayesMethod, samplesPerNaiveBayesBin,
+      intermediateLogLikelihoodRatioMatrixFileBasePath, recycle = shouldRecycle, write  = debug)
     
     likelihoodRatioDifferenceTest <- t.test(
       diag(logLikelihoodRatios), 
