@@ -262,6 +262,76 @@ calculate.scaledResiduals <- function(estimate, actual, covariates, responseData
   return(residualsMatrix)
 }
 
+# Function that returns a matrix of residuals, with phenotype sample across the
+# rows, and genotype samples across the columns. If recycle is TRUE, an attempt
+# will be made to read this from an existing file:
+# - '<intermediateResidualMatrixFileBasePath>/scaledResidualMatrix.tsv', or
+# - '<intermediateResidualMatrixFileBasePath>/residualMatrix.rds'.
+# If neither of these, exists or can be accessed, the matrix will be created from new.
+getResidualsMatrix <- function(
+  completeTable, responseDataType, pgsPhenotypeModel, 
+  intermediateResidualMatrixFileBasePath, recycle, write) {
+  
+  intermediateResidualMatrixRdsFilePath <- file.path(
+    intermediateResidualMatrixFileBasePath, "residualMatrix.rds")
+  intermediateResidualMatrixTsvFilePath <- file.path(
+    intermediateResidualMatrixFileBasePath, "scaledResidualMatrix.tsv")
+  residualsMatrix <- NULL
+  
+  if (recycle 
+      && file.exists(intermediateResidualMatrixRdsFilePath) 
+      && file.access(intermediateResidualMatrixRdsFilePath, 4) == 0) {
+    
+    message(paste0("    Recycling residuals from '", intermediateResidualMatrixRdsFilePath, "'..."))
+    residualsMatrix <- readRDS(intermediateResidualMatrixRdsFilePath)
+    
+  } else if (recycle 
+             && file.exists(intermediateResidualMatrixTsvFilePath) 
+             && file.access(intermediateResidualMatrixTsvFilePath, 4) == 0) {
+    
+    message(paste0("    Recycling residuals from '", intermediateResidualMatrixTsvFilePath, "'..."))
+    logLikelihoodRatios <- as.matrix(fread(intermediateResidualMatrixTsvFilePath), rownames = 1)
+    
+  } else {
+    # Calculate residuals matrix based on polygenic scores and actual phenotypes,
+    # using the chosen function for calculating residuals.
+    
+    message("    Calculating residuals...")
+    
+    # Calculate the scaled residuals for every combination
+    residualsMatrix <- calculate.scaledResiduals(
+      estimate = completeTable$PGS, 
+      actual = completeTable$VALUE, 
+      covariates = completeTable[c("AGE", "SEX")],
+      responseDataType = responseDataType,
+      modelPath = pgsPhenotypeModel)
+    
+    # The rows correspond to phenotype samples, the cols to genotype samples (polygenic scores)
+    rownames(residualsMatrix) <- completeTable$pheno
+    colnames(residualsMatrix) <- completeTable$geno
+  }
+  
+  # Check if the residuals matrix is according to what is expected.
+  if (dim(residualsMatrix) != c(length(completeTable$pheno), length(completeTable$geno))) {
+    stop("dimensions of residuals matrix do not match the expected dimensions.")
+  }
+  
+  if (rownames(residualsMatrix) != completeTable$pheno) {
+    stop("rownames of residual matrix do not match the expected phenotype sample identifiers.")
+  }
+
+  if (colnames(residualsMatrix) != completeTable$geno) {
+    stop("colnames of residual matrix do not match the expected genotype sample identifiers.")
+  }
+  
+  if (write && !file.exists(intermediateResidualMatrixRdsFilePath)) {
+    # Write scaled residuals matrix.
+    saveRDS(residualsMatrix, intermediateResidualMatrixRdsFilePath)
+  }
+
+  return(residualsMatrix)
+}
+
 # Function that attempts to creates adapted equal width intervals:
 # - 'minFrequencyInTails' values in the outer tails are put in a bin for both tails.
 # - the remaining values are split into 'nBins - 2' bins with equal widths.
@@ -653,6 +723,73 @@ calculate.logLikelihoodRatios <- function(
   return(logLikelihoodRatios)
 }
 
+# Function that returns a matrix of residuals, with phenotype sample across the
+# rows, and genotype samples across the columns. If recycle is TRUE, an attempt
+# will be made to read this from an existing file:
+# - '<intermediateLogLikelihoodRatioMatrixFileBasePath>.logLikelihoodRatios.tsv' (legacy), or
+# - '<intermediateLogLikelihoodRatioMatrixFileBasePath>.logLikelihoodRatios.rds'.
+# If neither of these, exists or can be accessed, the matrix will be created from new.
+getLogLikelihoodRatioMatrix <- function(
+  residualsMatrix, completeTable, responseDataType, modelPath, naiveBayesMethod, samplesPerNaiveBayesBin,
+  intermediateLogLikelihoodRatioMatrixFileBasePath, recycle, write) {
+  
+  intermediateLogLikelihoodRatioMatrixRdsFilePath <- paste0(
+    intermediateLogLikelihoodRatioMatrixFileBasePath, ".logLikelihoodRatios.rds")
+  intermediateLogLikelihoodRatioMatrixTsvFilePath <- file.path(
+    intermediateLogLikelihoodRatioMatrixFileBasePath, ".logLikelihoodRatios.tsv")
+  LogLikelihoodRatioMatrix <- NULL
+  
+  if (recycle 
+      && file.exists(intermediateLogLikelihoodRatioMatrixRdsFilePath) 
+      && file.access(intermediateLogLikelihoodRatioMatrixRdsFilePath, 4) == 0) {
+    
+    message(paste0("    Recycling log likelihood ratios from '", intermediateLogLikelihoodRatioMatrixRdsFilePath, "'..."))
+    LogLikelihoodRatioMatrix <- readRDS(intermediateLogLikelihoodRatioMatrixRdsFilePath)
+    
+  } else if (recycle 
+             && file.exists(intermediateLogLikelihoodRatioMatrixTsvFilePath) 
+             && file.access(intermediateLogLikelihoodRatioMatrixTsvFilePath, 4) == 0) {
+    
+    message(paste0("    Recycling log likelihood ratios from '", intermediateLogLikelihoodRatioMatrixTsvFilePath, "'..."))
+    LogLikelihoodRatioMatrix <- as.matrix(fread(intermediateLogLikelihoodRatioMatrixTsvFilePath), rownames = 1)
+    
+  } else {
+    # Calculate residuals matrix based on polygenic scores and actual phenotypes,
+    # using the chosen function for calculating residuals.
+    
+    message("    Calculating residuals...")
+    
+    # Calculate the scaled residuals for every combination
+    LogLikelihoodRatioMatrix <- calculate.logLikelihoodRatios(
+      valueMatrix = residualsMatrix, 
+      actual = completeTable$VALUE, 
+      responseDataType = responseDataType,
+      naiveBayesMethod = naiveBayesMethod,
+      samplesPerBin = samplesPerNaiveBayesBin,
+      classifierPath = modelPath)
+  }
+  
+  # Check if the residuals matrix is according to what is expected.
+  if (dim(residualsMatrix) != c(length(completeTable$pheno), length(completeTable$geno))) {
+    stop("dimensions of residuals matrix do not match the expected dimensions.")
+  }
+  
+  if (rownames(residualsMatrix) != completeTable$pheno) {
+    stop("rownames of residual matrix do not match the expected phenotype sample identifiers.")
+  }
+  
+  if (colnames(residualsMatrix) != completeTable$geno) {
+    stop("colnames of residual matrix do not match the expected genotype sample identifiers.")
+  }
+  
+  if (write && !file.exists(intermediateLogLikelihoodRatioMatrixRdsFilePath)) {
+    # Write scaled residuals matrix.
+    saveRDS(LogLikelihoodRatioMatrix, intermediateLogLikelihoodRatioMatrixRdsFilePath)
+  }
+  
+  return(LogLikelihoodRatioMatrix)
+}
+
 # Function for forcing normal distribution
 forceNormal <- function(x) {
 
@@ -665,6 +802,17 @@ forceNormal <- function(x) {
                sd = sd(x)))
 }
 
+# Function that adds rows for bayes methods to include in a parameter sweep.
+addBayesParameterSweepRows <- function(traitOutputTable) {
+  return(traitOutputTable %>%
+    select(-naiveBayesMethod, -samplesPerNaiveBayesBin) %>%
+    distinct() %>%
+    full_join(tibble(naiveBayesMethod = c("gaussian", rep("efi-discretization", 4), rep("ewi-discretization", 4)),
+                     samplesPerNaiveBayesBin = c(NA_integer_, rep(c(20, 30, 50, 80), 2))), by = character()) %>%
+    mutate(naiveBayesParameters = paste0(naiveBayesMethod, ".", samplesPerNaiveBayesBin)))
+}
+
+# Function that makes intermediate plots for residuals
 plotResiduals <- function(residualsDataFrame, phenotypeTable, responseDataType) {
   
   # Check whether or not the response data type is continuous or categorical
@@ -806,11 +954,6 @@ if (!is.null(args$base_fit_model_path)) {
   modelBasePath <- args$base_fit_model_path
 }
 
-if (FALSE) {
-  link <- link %>%
-    slice_sample(n = 4096, order_by = geno)
-}
-
 aggregatedLlrMatrix <- matrix(nrow = nrow(link), 
                               ncol = nrow(link), 
                               dimnames = list(link$pheno, link$geno), 0)
@@ -838,15 +981,8 @@ traitOutputTable <- traitDescriptionsTable %>%
          modelBasePath = modelBasePath)
 
 if (loopBayesMethods) {
-   
-  traitOutputTable <- traitOutputTable %>%
-    select(-naiveBayesMethod, -samplesPerNaiveBayesBin) %>%
-    distinct() %>%
-    full_join(tibble(naiveBayesMethod = c("gaussian", rep("efi-discretization", 4), rep("ewi-discretization", 4)),
-                     samplesPerNaiveBayesBin = c(NA_integer_, rep(c(20, 30, 50, 80), 2))), by = character()) %>%
-    mutate(naiveBayesParameters = paste0(naiveBayesMethod, ".", samplesPerNaiveBayesBin))
+  traitOutputTable <- addBayesParameterSweepRows(traitOutputTable)
 }
-  
 
 # Loop trough traits
 
@@ -857,6 +993,7 @@ for (traitIndex in 1:nrow(traitDescriptionsTable)) {
   responseDataType <- traitDescriptionsTable$traitDataType[traitIndex]
   
   traitFileName <- paste(traitIndex, gsub(" ", "_", trait), sep = ".")
+  traitDirectory <- file.path(out, traitFileName)
   traitOutputTable[traitOutputTable$trait == trait, "traitOutputDir"] <- traitFileName
   
   modelPath <- NULL
@@ -866,8 +1003,8 @@ for (traitIndex in 1:nrow(traitDescriptionsTable)) {
     pgsPhenotypeModel <- file.path(modelBasePath, traitFileName, "pgsPhenotypeModel.rda")
   }
 
-  if (!dir.create(file.path(out, traitFileName), recursive = T, showWarnings = FALSE)) {
-    warning(paste0("Could not create directory '", file.path(out, traitFileName), "'"))
+  if (!dir.create(traitDirectory, recursive = T, showWarnings = FALSE)) {
+    warning(paste0("Could not create directory '", traitDirectory, "'"))
   }
   
   if (!is.null(modelBasePath) && modelBasePath != out
@@ -934,40 +1071,9 @@ for (traitIndex in 1:nrow(traitDescriptionsTable)) {
   completeTable <- phenotypeTable %>%
     inner_join(polygenicScores, by = c("geno" = "IID"))
   
-  intermediateResidualMatrixFilePath <- file.path(out, traitFileName, "scaledResidualMatrix.rds")
-  residualsMatrix <- NULL
-  
-  if (shouldRecycle 
-      && file.exists(intermediateResidualMatrixFilePath) 
-      && file.access(intermediateResidualMatrixFilePath, 4) == 0) {
-    
-    # Load 
-    message(paste0("    Recycling residuals from '", intermediateResidualMatrixFilePath, "'..."))
-    residualsMatrix <- as.matrix(fread(intermediateResidualMatrixFilePath), rownames = 1)
-    
-  } else {
-    # Calculate residuals matrix based on polygenic scores and actual phenotypes,
-    # using the chosen function for calculating residuals.
-    
-    message("    Calculating residuals...")
-    
-    # Calculate the scaled residuals for every combination
-    residualsMatrix <- calculate.scaledResiduals(
-      estimate = completeTable$PGS, 
-      actual = completeTable$VALUE, 
-      covariates = completeTable[c("AGE", "SEX")],
-      responseDataType = responseDataType,
-      modelPath = pgsPhenotypeModel)
-    
-    # The rows correspond to phenotype samples, the cols to genotype samples (polygenic scores)
-    rownames(residualsMatrix) <- completeTable$pheno
-    colnames(residualsMatrix) <- completeTable$geno
-
-    if (debug) {
-      # Write scaled residuals matrix.
-      saveRDS(residualsMatrix, intermediateResidualMatrixFilePath)
-    }
-  }
+  residualsMatrix <- getResidualsMatrix(
+    completeTable, responseDataType, pgsPhenotypeModel, 
+    traitDirectory, recycle = shouldRecycle, write = debug)
 
   message("    completed calculating scaled residuals")
   
@@ -988,7 +1094,7 @@ for (traitIndex in 1:nrow(traitDescriptionsTable)) {
     }
     
     intermediateLogLikelihoodRatiosFilePath <- file.path(
-      out, traitFileName, paste0(naiveBayesParameters, ".", "logLikelihoodRatios.rds"))
+      out, traitFileName, naiveBayesParameters)
     
     logLikelihoodRatios <- NULL
     
@@ -1102,6 +1208,11 @@ for (traitIndex in 1:nrow(traitDescriptionsTable)) {
       rm(permutationTestDataFrame)
       gc()
     }
+    
+    # Clear the intermediate residual and log likelihood ratio matrix
+    rm(residualsMatrix)
+    rm(logLikelihoodRatios)
+    gc()
   }
 }
 
