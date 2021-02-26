@@ -49,7 +49,7 @@ getLogLikelihoodRatioMatrix <- function(
   
   intermediateLogLikelihoodRatioMatrixRdsFilePath <- paste0(
     intermediateLogLikelihoodRatioMatrixFileBasePath, ".logLikelihoodRatios.rds")
-  intermediateLogLikelihoodRatioMatrixTsvFilePath <- file.path(
+  intermediateLogLikelihoodRatioMatrixTsvFilePath <- paste0(
     intermediateLogLikelihoodRatioMatrixFileBasePath, ".logLikelihoodRatios.tsv")
   LogLikelihoodRatioMatrix <- NULL
   

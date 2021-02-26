@@ -290,7 +290,7 @@ getResidualsMatrix <- function(
              && file.access(intermediateResidualMatrixTsvFilePath, 4) == 0) {
     
     message(paste0("    Recycling residuals from '", intermediateResidualMatrixTsvFilePath, "'..."))
-    logLikelihoodRatios <- as.matrix(fread(intermediateResidualMatrixTsvFilePath), rownames = 1)
+    residualsMatrix <- as.matrix(fread(intermediateResidualMatrixTsvFilePath), rownames = 1)
     
   } else {
     # Calculate residuals matrix based on polygenic scores and actual phenotypes,
@@ -312,15 +312,15 @@ getResidualsMatrix <- function(
   }
   
   # Check if the residuals matrix is according to what is expected.
-  if (dim(residualsMatrix) != c(length(completeTable$pheno), length(completeTable$geno))) {
+  if (!all(dim(residualsMatrix) == c(length(completeTable$pheno), length(completeTable$geno)))) {
     stop("dimensions of residuals matrix do not match the expected dimensions.")
   }
   
-  if (rownames(residualsMatrix) != completeTable$pheno) {
+  if (!all(rownames(residualsMatrix) == completeTable$pheno)) {
     stop("rownames of residual matrix do not match the expected phenotype sample identifiers.")
   }
 
-  if (colnames(residualsMatrix) != completeTable$geno) {
+  if (!all(colnames(residualsMatrix) == completeTable$geno)) {
     stop("colnames of residual matrix do not match the expected genotype sample identifiers.")
   }
   
@@ -735,7 +735,7 @@ getLogLikelihoodRatioMatrix <- function(
   
   intermediateLogLikelihoodRatioMatrixRdsFilePath <- paste0(
     intermediateLogLikelihoodRatioMatrixFileBasePath, ".logLikelihoodRatios.rds")
-  intermediateLogLikelihoodRatioMatrixTsvFilePath <- file.path(
+  intermediateLogLikelihoodRatioMatrixTsvFilePath <- paste0(
     intermediateLogLikelihoodRatioMatrixFileBasePath, ".logLikelihoodRatios.tsv")
   LogLikelihoodRatioMatrix <- NULL
   
@@ -761,8 +761,8 @@ getLogLikelihoodRatioMatrix <- function(
     
     # Calculate the scaled residuals for every combination
     LogLikelihoodRatioMatrix <- calculate.logLikelihoodRatios(
-      valueMatrix = residualsMatrix, 
-      actual = completeTable$VALUE, 
+      valueMatrix = residualsMatrix,
+      actual = completeTable$VALUE,
       responseDataType = responseDataType,
       naiveBayesMethod = naiveBayesMethod,
       samplesPerBin = samplesPerNaiveBayesBin,
@@ -770,15 +770,15 @@ getLogLikelihoodRatioMatrix <- function(
   }
   
   # Check if the residuals matrix is according to what is expected.
-  if (dim(residualsMatrix) != c(length(completeTable$pheno), length(completeTable$geno))) {
+  if (!all(dim(LogLikelihoodRatioMatrix) == c(length(completeTable$pheno), length(completeTable$geno)))) {
     stop("dimensions of residuals matrix do not match the expected dimensions.")
   }
   
-  if (rownames(residualsMatrix) != completeTable$pheno) {
+  if (!all(rownames(LogLikelihoodRatioMatrix) == completeTable$pheno)) {
     stop("rownames of residual matrix do not match the expected phenotype sample identifiers.")
   }
   
-  if (colnames(residualsMatrix) != completeTable$geno) {
+  if (!all(colnames(LogLikelihoodRatioMatrix) == completeTable$geno)) {
     stop("colnames of residual matrix do not match the expected genotype sample identifiers.")
   }
   
