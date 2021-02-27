@@ -21,8 +21,6 @@ library(pROC)
 ##############################
 
 parser <- ArgumentParser(description='')
-parser$add_argument('--trait-output-file',
-                    help='path to a tab-delimited file with triats')
 parser$add_argument('--phenotypes-file',
                     help='path to a tab-delimited file holding all processed phenotype data.')
 parser$add_argument('--sample-coupling-file', required = FALSE,
@@ -93,7 +91,7 @@ dir <- args$dir
 
 # Load table containing paths for the plink output 
 # and corresponding phenotype labels.
-traitOutputFilePath <- args$trait_output_file
+traitOutputFilePath <- file.path(dir, "outputStatisticsPerTrait.tsv")
 traitDescriptionsTable <- fread(
   traitOutputFilePath, 
   quote="", header=T, sep = "\t",
