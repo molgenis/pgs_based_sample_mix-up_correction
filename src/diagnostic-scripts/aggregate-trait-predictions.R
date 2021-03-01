@@ -55,7 +55,7 @@ getLogLikelihoodRatioMatrix <- function(
       && file.access(intermediateLogLikelihoodRatioMatrixRdsFilePath, 4) == 0) {
     
     message(paste0("    Loading log likelihood ratios from '", intermediateLogLikelihoodRatioMatrixRdsFilePath, "'..."))
-    LogLikelihoodRatioMatrix <- as.matrix(fread(intermediateLogLikelihoodRatioMatrixRdsFilePath), rownames = 1)
+    LogLikelihoodRatioMatrix <- readRDS(intermediateLogLikelihoodRatioMatrixRdsFilePath)
     
   } else if (file.exists(intermediateLogLikelihoodRatioMatrixTsvFilePath) 
              && file.access(intermediateLogLikelihoodRatioMatrixTsvFilePath, 4) == 0) {
@@ -73,37 +73,46 @@ getLogLikelihoodRatioMatrix <- function(
 ##############################
 # Run
 ##############################
-# args <- parser$parse_args(c("--trait-gwas-mapping", "/groups/umcg-lld/tmp01/other-users/umcg-rwarmerdam/pgs_based_mixup_correction/scripts/r-scripts/pgs_based_sample_mix-up_correction/trait-gwas-mapping.txt",
-#                             "--sample-coupling-file", "/home/umcg-rwarmerdam/pgs_based_mixup_correction-ugli/data/lifelines/processed/pgs.sample-coupling-file.ugli.20201120.10080samples.txt",
-#                             "--base-pgs-path", "/groups/umcg-lifelines/tmp01/projects/ugli_blood_gsa/pgs_based_mixup_correction/output/PRScs/20201120/",
-#                             "--phenotypes-file", "/groups/umcg-lifelines/tmp01/projects/ugli_blood_gsa/pgs_based_mixup_correction/data/lifelines/processed/pgs.phenotypes.ugli.dat",
-#                             "--out", "/groups/umcg-lifelines/tmp01/projects/ugli_blood_gsa/pgs_based_mixup_correction/output/sample-swap-prediction/20200811.test/",
-#                             "--llr-bayes-method", "NA", "50",
-#                             "--base-fit-model-path", "/groups/umcg-lifelines/tmp01/projects/ugli_blood_gsa/pgs_based_mixup_correction/output/sample-swap-prediction/fitted-paramters/"))
+args <- parser$parse_args(c(
+  "--phenotypes-file", 
+  "/groups/umcg-lifelines/tmp01/projects/ugli_blood_gsa/pgs_based_mixup_correction/data/lifelines/processed/pgs.phenotypes_20201215.ugli.dat",
+  "--sample-coupling-file",
+  "/groups/umcg-lifelines/tmp01/projects/ugli_blood_gsa/pgs_based_mixup_correction/data/lifelines/processed/pgs.sample-coupling-file.ugli-all.20210218.32817samples.txt",
+  "--traits-to-aggregate",
+  "/groups/umcg-lifelines/tmp01/projects/ugli_blood_gsa/pgs_based_mixup_correction/jobs/sample-swap-prediction/traits-to-aggregate.txt",
+  "--out", 
+  "/groups/umcg-lifelines/tmp01/projects/ugli_blood_gsa/pgs_based_mixup_correction/output/sample-swap-prediction/20201120.20210218_ugli-all.NA.80/20210227",
+  "--dir", 
+  "/groups/umcg-lifelines/tmp01/projects/ugli_blood_gsa/pgs_based_mixup_correction/output/sample-swap-prediction/20201120.20210218_ugli-all.NA.80"))
 
 args <- parser$parse_args(commandArgs(trailingOnly = TRUE))
 
-message(strwrap(prefix = " ", initial = "", paste(
-  "Loading trait-gwas-mapping:\n", args$trait_output_file)))
+outputIntermediateStatistics <- F
 
 out <- args$out
 dir <- args$dir
 
+traitOutputFilePath <- file.path(dir, "outputStatisticsPerTrait.tsv")
+
+message(strwrap(prefix = " ", initial = "", paste(
+  "Loading trait-gwas-mapping:\n", traitOutputFilePath)))
+
 # Load table containing paths for the plink output 
 # and corresponding phenotype labels.
-traitOutputFilePath <- file.path(dir, "outputStatisticsPerTrait.tsv")
 traitDescriptionsTable <- fread(
   traitOutputFilePath, 
-  quote="", header=T, sep = "\t",
-  stringsAsFactors=F)
+  quote="", sep = "\t",
+  stringsAsFactors=F) %>% 
+  select(-V1)
 
 message(strwrap(prefix = " ", initial = "", paste(
   "Loading polygenic scores from:\n", args$trait_gwas_mapping)))
 
 traitsToAggregatePath <- args$traits_to_aggregate
 traitDescriptionsTable <- traitDescriptionsTable %>%
+  as_tibble() %>%
   inner_join(fread(traitsToAggregatePath, 
-                   quote="", header=T, sep = "\t", 
+                   quote="", header=F, sep = "\t", 
                    col.names=c("trait"),
                    stringsAsFactors=F), by = "trait")
 
@@ -157,20 +166,20 @@ for (traitIndex in 1:nrow(traitDescriptionsTable)) {
   traitToInclude <- traitDescriptionsTable$traitToInclude[traitIndex]
   traitFileName <- traitDescriptionsTable$traitOutputDir[traitIndex]
   traitDirectory <- file.path(dir, traitFileName)
-
-  if (!(dir.exists(intermediateLogLikelihoodRatiosFilePath) 
-        && traitToInclude)) {
-    next
-  }
   
   # Give status update
   message(paste0(traitIndex, " / ", nrow(traitDescriptionsTable), 
                  ": '", trait, "' (", responseDataType, ")."))
   
-  naiveBayesParameters <- traitOutputTable[traitOutputTable$trait == trait, "naiveBayesParameters"]
+  naiveBayesParameters <- traitOutputTable[which(traitOutputTable$trait == trait), "naiveBayesParameters"]
 
   intermediateLogLikelihoodRatioMatrixFileBasePath <- file.path(
     traitDirectory, naiveBayesParameters)
+  
+  if (!(dir.exists(intermediateLogLikelihoodRatiosFilePath) 
+        && traitToInclude)) {
+    next
+  }
   
   logLikelihoodRatios <- getLogLikelihoodRatioMatrix(
     intermediateLogLikelihoodRatioMatrixFileBasePath)
@@ -261,7 +270,6 @@ for (traitIndex in 1:nrow(traitDescriptionsTable)) {
   }
   
   # Clear the intermediate residual and log likelihood ratio matrix
-  rm(residualsMatrix)
   rm(logLikelihoodRatios)
   gc()
 }
