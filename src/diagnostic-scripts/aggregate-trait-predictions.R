@@ -163,7 +163,6 @@ for (traitIndex in 1:nrow(traitDescriptionsTable)) {
   polygenicScoreFilePath <- traitDescriptionsTable$polygenicScoreFilePath[traitIndex]
   trait <- traitDescriptionsTable$trait[traitIndex]
   responseDataType <- traitDescriptionsTable$traitDataType[traitIndex]
-  traitToInclude <- traitDescriptionsTable$traitToInclude[traitIndex]
   traitFileName <- traitDescriptionsTable$traitOutputDir[traitIndex]
   traitDirectory <- file.path(dir, traitFileName)
   
