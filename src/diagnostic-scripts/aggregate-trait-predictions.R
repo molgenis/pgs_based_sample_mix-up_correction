@@ -175,7 +175,7 @@ for (traitIndex in 1:nrow(traitDescriptionsTable)) {
   intermediateLogLikelihoodRatioMatrixFileBasePath <- file.path(
     traitDirectory, naiveBayesParameters)
   
-  if (!(dir.exists(intermediateLogLikelihoodRatiosFilePath) 
+  if (!(dir.exists(intermediateLogLikelihoodRatioMatrixFileBasePath) 
         && traitToInclude)) {
     next
   }
