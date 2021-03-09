@@ -32,6 +32,10 @@ parser$add_argument('--dir',
                     help='path to directory to recycle results from')
 parser$add_argument('--out',
                     help='path to output directory')
+parser$add_argument('--likelihood-ratio-alpha', default = 0.05, help=paste(
+  'the t-test alpha to use for selecting traits',
+  'based on the difference in log likelihood ratios between the provided and permuted samples'))
+
 
 ##############################
 # Define functions
@@ -88,6 +92,9 @@ args <- parser$parse_args(c(
 args <- parser$parse_args(commandArgs(trailingOnly = TRUE))
 
 outputIntermediateStatistics <- F
+
+# Set the likelihood alpha
+likelihoodRatioDifferenceAlpha <- args$likelihood_ratio_alpha
 
 out <- args$out
 dir <- args$dir
@@ -175,7 +182,7 @@ for (traitIndex in 1:nrow(traitDescriptionsTable)) {
   intermediateLogLikelihoodRatioMatrixFileBasePath <- file.path(
     traitDirectory, naiveBayesParameters)
   
-  if (!(dir.exists(intermediateLogLikelihoodRatioMatrixFileBasePath))) {
+  if (!(dir.exists(traitDirectory))) {
     next
   }
   
@@ -189,7 +196,7 @@ for (traitIndex in 1:nrow(traitDescriptionsTable)) {
   
   print(likelihoodRatioDifferenceTest)
   
-  if (likelihoodRatioDifferenceTest$p.value <= likelihoodRatioDifferenceAlpha & !loopBayesMethods) {
+  if (likelihoodRatioDifferenceTest$p.value <= likelihoodRatioDifferenceAlpha) {
     
     # Resolve log likelihood ratios that are NaN (not a number)
     llrIsNan <- is.nan(logLikelihoodRatios)
@@ -284,10 +291,6 @@ write.table(aggregatedLlrMatrix, file.path(out, "aggregatedLogLikelihoodRatiosMa
 message(paste0("Exporting number of traits for every phenotype-genotype combination: 'aggregatedNumberOfTraitsMatrix.tsv'"))
 write.table(aggregatedNumberOfTraits, file.path(out, "aggregatedNumberOfTraitsMatrix.tsv"),
             sep="\t", col.names = T, row.names = T, quote = F)
-
-if (loopBayesMethods) {
-  stop("exiting...")
-}
 
 # Define a table to write statistics to
 overallOutputStatistics <- data.frame(name = "overallStatistics")

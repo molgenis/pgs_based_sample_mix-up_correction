@@ -22,6 +22,7 @@ getSexCheckData <- function(reportedSexTable) {
   return(sexCheckData)
 }
 
+# Function for getting the UGLI IDs of samples that are European according to the PCA results
 getEurSamples <- function() {
   ugliQc <- read_tsv("/groups/umcg-lifelines/tmp01/releases/gsa_genotypes/v1/Logs/ugli_qc_release1_samples.csv")
   gsaLinkage <- read_tsv("/groups/umcg-lifelines/tmp01/releases/gsa_linkage_files/v1/gsa_linkage_file.dat")
