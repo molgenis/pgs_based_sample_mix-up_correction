@@ -177,7 +177,8 @@ for (traitIndex in 1:nrow(traitDescriptionsTable)) {
   message(paste0(traitIndex, " / ", nrow(traitDescriptionsTable), 
                  ": '", trait, "' (", responseDataType, ")."))
   
-  naiveBayesParameters <- traitOutputTable[which(traitOutputTable$trait == trait), "naiveBayesParameters"]
+  naiveBayesParameters <- traitOutputTable[which(traitOutputTable$trait == trait), 
+                                           "naiveBayesParameters", drop = TRUE]
 
   intermediateLogLikelihoodRatioMatrixFileBasePath <- file.path(
     traitDirectory, naiveBayesParameters)
