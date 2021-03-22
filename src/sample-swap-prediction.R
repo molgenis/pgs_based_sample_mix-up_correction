@@ -1206,6 +1206,23 @@ message(paste0("Exporting number of traits for every phenotype-genotype combinat
 write.table(aggregatedNumberOfTraits, file.path(out, "aggregatedNumberOfTraitsMatrix.tsv"),
             sep="\t", col.names = T, row.names = T, quote = F)
 
+scaledLogLikelihoodMatrix <- t(apply(aggregatedLlrMatrix, 1, function(x) scale(x)))
+
+# Extract the diagonal values
+diagValues <- scaledLogLikelihoodMatrix[lower.tri(scaledLogLikelihoodMatrix, diag = TRUE)
+                                        & upper.tri(scaledLogLikelihoodMatrix, diag = TRUE)]
+
+# Extract the diagonal values
+diagTraitNumbers <- aggregatedNumberOfTraits[lower.tri(aggregatedNumberOfTraits, diag = TRUE)
+                                             & upper.tri(aggregatedNumberOfTraits, diag = TRUE)]
+
+results <- tibble(scaledLogLikelihoodRatios = diagValues, 
+                  numberOfTraits = diagTraitNumbers, 
+                  ID = rownames(scaledLogLikelihoodMatrix))
+
+# Write Idéfix predictions.
+write.table(results, "idefixPredictions.txt", row.names = F, col.names = T, quote = F, sep = "\t")
+
 if (loopBayesMethods) {
   stop("exiting...")
 }
