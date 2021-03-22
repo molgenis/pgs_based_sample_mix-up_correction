@@ -1220,8 +1220,8 @@ diagValuesScaled <- scaledLogLikelihoodMatrix[lower.tri(scaledLogLikelihoodMatri
 diagTraitNumbers <- aggregatedNumberOfTraits[lower.tri(aggregatedNumberOfTraits, diag = TRUE)
                                              & upper.tri(aggregatedNumberOfTraits, diag = TRUE)]
 
-results <- tibble(Var1 = rownames(scaledLogLikelihoodMatrix),
-                  Var2 = colnames(scaledLogLikelihoodMatrix),
+results <- tibble(Var1 = rownames(aggregatedLlrMatrix),
+                  Var2 = colnames(aggregatedLlrMatrix),
                   logLikelihoodRatios = diagValues,
                   scaledLlr = diagValuesScaled, 
                   numberOfTraits = diagTraitNumbers)
@@ -1229,7 +1229,7 @@ results <- tibble(Var1 = rownames(scaledLogLikelihoodMatrix),
 message(paste0("Exporting output matrix: 'idefixPredictions.txt'"))
 
 # Write Idéfix predictions.
-write.table(results, "idefixPredictions.txt", row.names = F, col.names = T, quote = F, sep = "\t")
+write.table(results, file.path(out, "idefixPredictions.txt"), row.names = F, col.names = T, quote = F, sep = "\t")
 
 if (loopBayesMethods) {
   stop("exiting...")
