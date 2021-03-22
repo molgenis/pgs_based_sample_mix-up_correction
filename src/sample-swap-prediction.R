@@ -1209,16 +1209,24 @@ write.table(aggregatedNumberOfTraits, file.path(out, "aggregatedNumberOfTraitsMa
 scaledLogLikelihoodMatrix <- t(apply(aggregatedLlrMatrix, 1, function(x) scale(x)))
 
 # Extract the diagonal values
-diagValues <- scaledLogLikelihoodMatrix[lower.tri(scaledLogLikelihoodMatrix, diag = TRUE)
-                                        & upper.tri(scaledLogLikelihoodMatrix, diag = TRUE)]
+diagValues <- aggregatedLlrMatrix[lower.tri(aggregatedLlrMatrix, diag = TRUE)
+                                  & upper.tri(aggregatedLlrMatrix, diag = TRUE)]
+
+# Extract the diagonal values
+diagValuesScaled <- scaledLogLikelihoodMatrix[lower.tri(scaledLogLikelihoodMatrix, diag = TRUE)
+                                              & upper.tri(scaledLogLikelihoodMatrix, diag = TRUE)]
 
 # Extract the diagonal values
 diagTraitNumbers <- aggregatedNumberOfTraits[lower.tri(aggregatedNumberOfTraits, diag = TRUE)
                                              & upper.tri(aggregatedNumberOfTraits, diag = TRUE)]
 
-results <- tibble(scaledLogLikelihoodRatios = diagValues, 
-                  numberOfTraits = diagTraitNumbers, 
-                  ID = rownames(scaledLogLikelihoodMatrix))
+results <- tibble(Var1 = rownames(scaledLogLikelihoodMatrix),
+                  Var2 = colnames(scaledLogLikelihoodMatrix),
+                  logLikelihoodRatios = diagValues,
+                  scaledLlr = diagValuesScaled, 
+                  numberOfTraits = diagTraitNumbers)
+
+message(paste0("Exporting output matrix: 'idefixPredictions.txt'"))
 
 # Write Idéfix predictions.
 write.table(results, "idefixPredictions.txt", row.names = F, col.names = T, quote = F, sep = "\t")
@@ -1249,12 +1257,6 @@ llrDataFrame <-
                       !diag ~ "permuted")) %>%
   group_by(Var1) %>%
   mutate(scaledLlr = scale(logLikelihoodRatios)[,1])
-
-message(paste0("Exporting output matrix: 'aggregatedLogLikelihoodRatiosDataFrame.tsv'"))
-
-# Export the log likelihood data frame with scaled values
-write.table(llrDataFrame, file.path(out, "aggregatedLogLikelihoodRatiosDataFrame.tsv"),
-            sep="\t", col.names = T, row.names = F, quote = F)
 
 # Remove the aggregated llr matrix in favour of the data frame
 rm(aggregatedLlrMatrix)
