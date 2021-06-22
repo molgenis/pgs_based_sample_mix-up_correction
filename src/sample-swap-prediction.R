@@ -357,11 +357,22 @@ adaptedEqualWidthIntervals <- function(x, nBins, minFrequencyInTails) {
     
   } else if (n >= (minFrequencyInTails * 2)) {
     
+    print(x)
+    print(nBins)
+    print(minFrequencyInTails)
+    print("----")
+    print("upper")
+    
     upperTailLowerBound <- sort(x, partial = n - minFrequencyInTails)[n - minFrequencyInTails]
     upperTailUpperBound <- max(x) + 1
     
+    print("----")
+    print("lower")
+    
     lowerTailUpperBound <- sort(x, partial = minFrequencyInTails)[minFrequencyInTails]
     lowerTailLowerBound <- min(x) - 1
+    
+    print("####")
     
     # Separate the space within the outermost bins into a nBins - 2
     binSize <- (upperTailLowerBound - lowerTailUpperBound) / (nBins - 2)
