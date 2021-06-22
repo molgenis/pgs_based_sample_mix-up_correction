@@ -953,14 +953,6 @@ if (is.na(naiveBayesMethod)
   samplesPerNaiveBayesBin <- as.numeric(args$llr_bayes_method[2])
 }
 
-predictingInducedMixUps <- F
-
-if (!("original" %in% colnames(link))) {
-  link$original <- link$geno
-} else {
-  predictingInducedMixUps <- T
-}
-
 message(strwrap(prefix = " ", initial = "", paste(
   "Loading phenotype table:\n", args$phenotypes_file)))
 
@@ -989,6 +981,14 @@ if (!is.null(args$sample_coupling_file)) {
 } else {
   message(strwrap(prefix = " ", initial = "", 
                   "Generating sample coupling table from phenotypes file."))
+}
+
+predictingInducedMixUps <- F
+
+if (!("original" %in% colnames(link))) {
+  link$original <- link$geno
+} else {
+  predictingInducedMixUps <- T
 }
 
 # Link the phenotypes table to the sample coupling file
