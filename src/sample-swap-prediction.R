@@ -969,12 +969,14 @@ phenotypesFilePath <- args$phenotypes_file
 phenotypesTable <- fread(phenotypesFilePath, header=T, quote="", sep="\t") %>%
   distinct() %>%
   rename_all(recode, "UGLI_ID" = "ID") %>%
-  mutate(SEX = factor(SEX, levels = c("Female", "Male"))) %>%
+  mutate(SEX = case_when(SEX == 1 ~ "Female", SEX == 2 ~ "Male", TRUE ~ SEX),
+         SEX = factor(SEX, levels = c("Female", "Male"))) %>%
   group_by(ID) %>%
   filter(!any(AGE < 18)) %>%
   ungroup()
 
-link <- data.frame(geno = unique(phenotypesTable$ID), pheno = unique(phenotypesTable$ID), stringsAsFactors = F)
+link <- data.frame(geno = unique(phenotypesTable$ID), pheno = unique(phenotypesTable$ID), stringsAsFactors = F) %>%
+  slice_sample(10000)
 
 # Get the link path
 if (!is.null(args$sample_coupling_file)) {
