@@ -357,7 +357,7 @@ adaptedEqualWidthIntervals <- function(x, nBins, minFrequencyInTails) {
     
   } else if (n >= (minFrequencyInTails * 2)) {
     
-    print(x)
+    print(head(x))
     print(nBins)
     print(minFrequencyInTails)
     print("----")
