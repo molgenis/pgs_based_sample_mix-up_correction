@@ -961,7 +961,7 @@ phenotypesFilePath <- args$phenotypes_file
 phenotypesTable <- fread(phenotypesFilePath, header=T, quote="", sep="\t") %>%
   distinct() %>%
   rename_all(recode, "UGLI_ID" = "ID") %>%
-  mutate(SEX = case_when(SEX == 1 ~ "Female", SEX == 2 ~ "Male", TRUE ~ SEX),
+  mutate(SEX = case_when(SEX == 1 ~ "Female", SEX == 2 ~ "Male", TRUE ~ as.character(SEX)),
          SEX = factor(SEX, levels = c("Female", "Male"))) %>%
   group_by(ID) %>%
   filter(!any(AGE < 18)) %>%
