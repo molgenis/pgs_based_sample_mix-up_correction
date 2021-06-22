@@ -1065,7 +1065,10 @@ for (traitIndex in 1:nrow(traitDescriptionsTable)) {
   
   # Filter the completeLongTable table
   completeTable <- completeLongTable %>%
-    filter(TRAIT == trait & !is.na(VALUE))
+    filter(TRAIT == trait & !is.na(VALUE)) %>%
+    mutate(VALUE = case_when(
+      responseDataType == "continuous" ~ VALUE,
+      TRUE ~ factor(VALUE)))
   
   traitOutputTable[traitOutputTable$trait == trait, "numberOfSamples"] <- nrow(completeTable)
   
