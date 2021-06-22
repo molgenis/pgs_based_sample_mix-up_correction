@@ -2,7 +2,7 @@
 
 #############################################################
 ## c.a.warmerdam@umcg.nl - April 2020
-## Processes plink polygenic scores and phenotypes and
+## Processes polygenic scores and phenotypes and
 ## compares these between samples to quantify the
 ## to what degree samples are swapped with each other.
 #############################################################
@@ -26,11 +26,18 @@ parser$add_argument('--debug', action='store_true',
 parser$add_argument('--base-fit-model-path',
                     help='path to a directory to write fitted model parameters to, or to load fitted models from.')
 parser$add_argument('--trait-gwas-mapping', required = T,
-                    help='path to a tab-delimited file that maps traits to the polygenic score files.')
-parser$add_argument('--base-pgs-path', required = T,
-                    help="path to a directory containing polygenic scores. Folder structure should be '<base-pgs-path>/<name-of-gwas-summary-statistic>/<pgs-file-name>'")
+                    help='path to a tab-delimited file that maps traits to the polygenic scores.')
+
+group <- parser$add_mutually_exclusive_group(required = T)
+group$add_argument('--base-pgs-path',
+                   help="path to a directory containing polygenic scores. Folder structure should be '<base-pgs-path>/<name-of-gwas-summary-statistic>/<pgs-file-name>'")
+group$add_argument('--pgs-file',
+                   help="path to a tab-delimited file holding all polygenic score data. Columns should represent sample IDs and individual PGSs respectively.")
+
 parser$add_argument('--pgs-file-name',
-                    help="name of files that hold polygenic scores", default = "full.UGLI.pgs.profile")
+                    help="name of files that hold polygenic scores. ignored when a combined table of polygenic scores is supplied (--pgs-file).", 
+                    default = "full.UGLI.pgs.profile")
+
 parser$add_argument('--phenotypes-file', required = T,
                     help='path to a tab-delimited file holding all processed phenotype data.')
 parser$add_argument('--sample-coupling-file', required = FALSE,
@@ -40,6 +47,7 @@ parser$add_argument('--llr-bayes-method', required = FALSE, default = c("NA", "8
                     help = paste('the naive bayes method to use for calculating log likelihood ratios.',
                                   'If NA, the method will be based on the data type for each trait',
                                   '<ewi-discretization | efi-discretization | gaussian | NA> [(average) number of samples per bin]'))
+
 parser$add_argument('--bayes-method-sweep-mode', action='store_true', help = paste0(
   'special mode to perform a sweep over a series of naive bayes methods'))
 parser$add_argument('--out',
@@ -812,6 +820,40 @@ addBayesParameterSweepRows <- function(traitOutputTable) {
     mutate(naiveBayesParameters = paste0(naiveBayesMethod, ".", samplesPerNaiveBayesBin)))
 }
 
+
+# Function for loading polygenic scores
+loadPolygenicScores <- function(basePathWithPolygenicScores = NULL, pgsFileName = NULL, pgsMergedFile = NULL) {
+  
+  if (!is.null(basePathWithPolygenicScores)) {
+    traitDescriptionsTable$polygenicScoreFilePath <- file.path(basePathWithPolygenicScores, 
+                                                               traitDescriptionsTable$summaryStatistics, 
+                                                               pgsFileName)
+    
+    return(bind_rows(mapply(
+      function(polygenicScoreFilePath, trait) {
+        message(paste0("    Loading polygenic scores from '", polygenicScoreFilePath, "'..."))
+        
+        # Read the PLINK polygenic score table.
+        polygenicScores <- fread(
+          polygenicScoreFilePath,
+          header=T) %>%
+          mutate(TRAIT = trait) %>%
+          rename(PGS = SCORESUM, ID = IID) %>%
+          select(ID, PGS, TRAIT)
+        
+        return(polygenicScores)
+      },
+      traitDescriptionsTable$polygenicScoreFilePath, traitDescriptionsTable$trait, SIMPLIFY = F, USE.NAMES = F)))
+    
+  } else if (!is.null(pgsMergedFile)) {
+    return(fread(pgsMergedFile, header=T, quote="", sep="\t",
+                 col.names = c("ID", "TRAIT", "PGS")))
+  } else {
+    stop("Either 'basePathWithPolygenicScores' or 'pgsMergedFile' must not be NULL.")
+  }
+}
+
+
 # Function that makes intermediate plots for residuals
 plotResiduals <- function(residualsDataFrame, phenotypeTable, responseDataType) {
   
@@ -874,11 +916,9 @@ message(strwrap(prefix = " ", initial = "", paste(
   "Loading polygenic scores from:\n", args$trait_gwas_mapping)))
 
 # Get the paths to the polygenic scores.
-basePathWithPolygenicScores <- args$base_pgs_path
-pgsFileName <- args$pgs_file_name
-traitDescriptionsTable$polygenicScoreFilePath <- file.path(basePathWithPolygenicScores, 
-                                                 traitDescriptionsTable$summaryStatistics, 
-                                                 pgsFileName)
+polygenicScoresTable <- loadPolygenicScores(
+  basePathWithPolygenicScores = args$base_pgs_path, pgsFileName = args$pgs_file_name, 
+  pgsMergedFile = args$pgs_file)
 
 # Get the output path
 out <- args$out
@@ -913,12 +953,21 @@ if (is.na(naiveBayesMethod)
   samplesPerNaiveBayesBin <- as.numeric(args$llr_bayes_method[2])
 }
 
+predictingInducedMixUps <- F
+
+if (!("original" %in% colnames(link))) {
+  link$original <- link$geno
+} else {
+  predictingInducedMixUps <- T
+}
+
 message(strwrap(prefix = " ", initial = "", paste(
   "Loading phenotype table:\n", args$phenotypes_file)))
 
 # Load the phenotypes 
 phenotypesFilePath <- args$phenotypes_file
 phenotypesTable <- fread(phenotypesFilePath, header=T, quote="", sep="\t") %>%
+  distinct() %>%
   rename_all(recode, "UGLI_ID" = "ID") %>%
   mutate(SEX = factor(SEX, levels = c("Female", "Male"))) %>%
   group_by(ID) %>%
@@ -940,13 +989,14 @@ if (!is.null(args$sample_coupling_file)) {
                   "Generating sample coupling table from phenotypes file."))
 }
 
-predictingInducedMixUps <- F
+# Link the phenotypes table to the sample coupling file
+phenotypesTable <- phenotypesTable %>%
+  rename(pheno = ID) %>%
+  inner_join(link, by="pheno")
 
-if (!("original" %in% colnames(link))) {
-  link$original <- link$geno
-} else {
-  predictingInducedMixUps <- T
-}
+# Merge the PGSs with actual phenotype data
+completeLongTable <- phenotypesTable %>%
+  inner_join(polygenicScoresTable, by = c("geno" = "ID", "TRAIT" = "TRAIT"))
 
 modelBasePath <- NULL
 
@@ -988,7 +1038,6 @@ if (loopBayesMethods) {
 
 for (traitIndex in 1:nrow(traitDescriptionsTable)) {
   
-  polygenicScoreFilePath <- traitDescriptionsTable$polygenicScoreFilePath[traitIndex]
   trait <- traitDescriptionsTable$trait[traitIndex]
   responseDataType <- traitDescriptionsTable$traitDataType[traitIndex]
   
@@ -1012,13 +1061,11 @@ for (traitIndex in 1:nrow(traitDescriptionsTable)) {
     warning(paste0("Could not create directory '", file.path(modelBasePath, traitFileName), "'"))
   }
   
-  # Link the phenotypes table to the sample coupling file
-  phenotypeTable <- phenotypesTable %>%
-    filter(TRAIT == trait) %>%
-    rename(pheno = ID) %>%
-    inner_join(link, by="pheno")
+  # Filter the completeLongTable table
+  completeTable <- completeLongTable %>%
+    filter(TRAIT == trait)
   
-  traitOutputTable[traitOutputTable$trait == trait, "numberOfSamples"] <- nrow(phenotypeTable)
+  traitOutputTable[traitOutputTable$trait == trait, "numberOfSamples"] <- nrow(completeTable)
   
   # Give status update
   message(paste0(traitIndex, " / ", nrow(traitDescriptionsTable), 
@@ -1056,21 +1103,10 @@ for (traitIndex in 1:nrow(traitDescriptionsTable)) {
     }
     
   } else if (responseDataType == "continuous") {
-    message(paste0("    Available for ", nrow(phenotypeTable), " samples."))
+    message(paste0("    Available for ", nrow(completeTable), " samples."))
   }
-  
-  message(paste0("    Loading polygenic scores from '", polygenicScoreFilePath, "'..."))
 
-  # Read the PLINK polygenic score table.
-  polygenicScores <- read.table(
-    polygenicScoreFilePath,
-    header=T) %>%
-    rename(PGS = SCORESUM)
-
-  # Merge the PGSs with actual phenotype data
-  completeTable <- phenotypeTable %>%
-    inner_join(polygenicScores, by = c("geno" = "IID"))
-  
+  # Calculate residuals matrix
   residualsMatrix <- getResidualsMatrix(
     completeTable, responseDataType, pgsPhenotypeModel, 
     traitDirectory, recycle = shouldRecycle, write = debug)
