@@ -1079,9 +1079,8 @@ for (traitIndex in 1:nrow(traitDescriptionsTable)) {
     filter(TRAIT == trait & !is.na(VALUE))
   
   if (responseDataType != "continuous") {
-    completeTable$VALUE <- factor(completeTable$VALUE, 
-                                  levels = sort(unique(completeTable$VALUE)), 
-                                  labels = 0:(length(unique(completeTable$VALUE))-1))
+    completeTable$VALUE <- as.integer(as.character(factor(completeTable$VALUE, 
+                                  levels = sort(unique(completeTable$VALUE))))) - 1
   }
   
   traitOutputTable[traitOutputTable$trait == trait, "numberOfSamples"] <- nrow(completeTable)
