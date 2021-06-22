@@ -1065,10 +1065,13 @@ for (traitIndex in 1:nrow(traitDescriptionsTable)) {
   
   # Filter the completeLongTable table
   completeTable <- completeLongTable %>%
-    filter(TRAIT == trait & !is.na(VALUE)) %>%
-    mutate(VALUE = case_when(
-      responseDataType == "continuous" ~ VALUE,
-      TRUE ~ factor(VALUE)))
+    filter(TRAIT == trait & !is.na(VALUE))
+  
+  if (responseDataType != "continuous") {
+    completeTable$VALUE <- factor(completeTable$VALUE, 
+                                  levels = sort(unique(completeTable$VALUE)), 
+                                  labels = 0:(length(unique(completeTable$VALUE))-1))
+  }
   
   traitOutputTable[traitOutputTable$trait == trait, "numberOfSamples"] <- nrow(completeTable)
   
