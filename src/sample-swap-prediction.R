@@ -968,7 +968,7 @@ phenotypesTable <- fread(phenotypesFilePath, header=T, quote="", sep="\t") %>%
   ungroup()
 
 link <- data.frame(geno = unique(phenotypesTable$ID), pheno = unique(phenotypesTable$ID), stringsAsFactors = F) %>%
-  slice_sample(10000)
+  slice_sample(n = 10000)
 
 # Get the link path
 if (!is.null(args$sample_coupling_file)) {
