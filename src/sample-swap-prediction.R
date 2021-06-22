@@ -1065,7 +1065,7 @@ for (traitIndex in 1:nrow(traitDescriptionsTable)) {
   
   # Filter the completeLongTable table
   completeTable <- completeLongTable %>%
-    filter(TRAIT == trait)
+    filter(TRAIT == trait & !is.na(VALUE))
   
   traitOutputTable[traitOutputTable$trait == trait, "numberOfSamples"] <- nrow(completeTable)
   
@@ -1074,9 +1074,9 @@ for (traitIndex in 1:nrow(traitDescriptionsTable)) {
                  ": '", trait, "' (", responseDataType, ")."))
   
   if (responseDataType == "binary") {
-    phenotypeFrequencyTable <- table(phenotypeTable$VALUE)
+    phenotypeFrequencyTable <- table(completeTable$VALUE)
 
-    message(paste0("    Available for ", nrow(phenotypeTable), 
+    message(paste0("    Available for ", nrow(completeTable), 
                    " samples (number of 0's = ", phenotypeFrequencyTable["0"],
                    ", 1's = ", phenotypeFrequencyTable["1"], ")."))
     
