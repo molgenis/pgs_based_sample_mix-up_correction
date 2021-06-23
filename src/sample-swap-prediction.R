@@ -837,7 +837,7 @@ loadPolygenicScores <- function(basePathWithPolygenicScores = NULL, pgsFileName 
         polygenicScores <- fread(
           polygenicScoreFilePath,
           header=T) %>%
-          mutate(TRAIT = trait) %>%
+          mutate(TRAIT = trait, IID = as.character(IID)) %>%
           rename(PGS = SCORESUM, ID = IID) %>%
           select(ID, PGS, TRAIT)
         
@@ -847,7 +847,8 @@ loadPolygenicScores <- function(basePathWithPolygenicScores = NULL, pgsFileName 
     
   } else if (!is.null(pgsMergedFile)) {
     return(fread(pgsMergedFile, header=T, quote="", sep="\t",
-                 col.names = c("ID", "TRAIT", "PGS")))
+                 col.names = c("ID", "TRAIT", "PGS")) %>%
+             mutate(ID = as.character(ID)))
   } else {
     stop("Either 'basePathWithPolygenicScores' or 'pgsMergedFile' must not be NULL.")
   }
@@ -961,7 +962,8 @@ phenotypesFilePath <- args$phenotypes_file
 phenotypesTable <- fread(phenotypesFilePath, header=T, quote="", sep="\t") %>%
   distinct() %>%
   rename_all(recode, "UGLI_ID" = "ID") %>%
-  mutate(SEX = case_when(SEX == 1 ~ "Female", SEX == 2 ~ "Male", TRUE ~ as.character(SEX)),
+  mutate(ID = as.character(ID),
+         SEX = case_when(SEX == 1 ~ "Female", SEX == 2 ~ "Male", TRUE ~ as.character(SEX)),
          SEX = factor(SEX, levels = c("Female", "Male"))) %>%
   group_by(ID) %>%
   filter(!any(AGE < 18)) %>%
@@ -978,6 +980,7 @@ if (!is.null(args$sample_coupling_file)) {
   link <- fread(sampleCouplingFilePath, stringsAsFactors=F, header=T,
                 colClasses = c("character", "character")) %>%
     filter(pheno %in% unique(phenotypesTable$ID))
+  
 } else {
   message(strwrap(prefix = " ", initial = "", 
                   "Generating sample coupling table from phenotypes file."))
