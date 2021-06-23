@@ -356,23 +356,12 @@ adaptedEqualWidthIntervals <- function(x, nBins, minFrequencyInTails) {
     breaks <- c(min(x) - 1, mean(c(min(x), max(x))), max(x) + 1)
     
   } else if (n >= (minFrequencyInTails * 2)) {
-    
-    print(head(x))
-    print(nBins)
-    print(minFrequencyInTails)
-    print("----")
-    print("upper")
-    
+
     upperTailLowerBound <- sort(x, partial = n - minFrequencyInTails)[n - minFrequencyInTails]
     upperTailUpperBound <- max(x) + 1
     
-    print("----")
-    print("lower")
-    
     lowerTailUpperBound <- sort(x, partial = minFrequencyInTails)[minFrequencyInTails]
     lowerTailLowerBound <- min(x) - 1
-    
-    print("####")
     
     # Separate the space within the outermost bins into a nBins - 2
     binSize <- (upperTailLowerBound - lowerTailUpperBound) / (nBins - 2)
@@ -978,8 +967,7 @@ phenotypesTable <- fread(phenotypesFilePath, header=T, quote="", sep="\t") %>%
   filter(!any(AGE < 18)) %>%
   ungroup()
 
-link <- data.frame(geno = unique(phenotypesTable$ID), pheno = unique(phenotypesTable$ID), stringsAsFactors = F) %>%
-  slice_sample(n = 10000)
+link <- data.frame(geno = unique(phenotypesTable$ID), pheno = unique(phenotypesTable$ID), stringsAsFactors = F)
 
 # Get the link path
 if (!is.null(args$sample_coupling_file)) {
