@@ -1093,9 +1093,9 @@ for (traitIndex in 1:nrow(traitDescriptionsTable)) {
     }
     
   } else if (responseDataType == "ordinal") {
-    phenotypeFrequencyTable <- table(phenotypeTable$VALUE)
+    phenotypeFrequencyTable <- table(completeTable$VALUE)
     
-    message(paste0("    Available for ", nrow(phenotypeTable), 
+    message(paste0("    Available for ", nrow(completeTable), 
                    " samples (classes: ", paste0(names(phenotypeFrequencyTable), collapse = ", "), 
                    ". with the following respective frequencies: ", 
                    paste0(phenotypeFrequencyTable, collapse = ", "), ")."))
