@@ -967,7 +967,7 @@ phenotypesTable <- fread(phenotypesFilePath, header=T, quote="", sep="\t") %>%
   filter(!any(AGE < 18)) %>%
   ungroup()
 
-link <- data.frame(geno = unique(phenotypesTable$ID), pheno = unique(phenotypesTable$ID), stringsAsFactors = F)
+link <- data.frame(geno = as.character(unique(phenotypesTable$ID)), pheno = as.character(unique(phenotypesTable$ID)), stringsAsFactors = F)
 
 # Get the link path
 if (!is.null(args$sample_coupling_file)) {
@@ -975,7 +975,8 @@ if (!is.null(args$sample_coupling_file)) {
     "Loading sample coupling table:\n", args$sample_coupling_file)))
   
   sampleCouplingFilePath <- args$sample_coupling_file
-  link <- fread(sampleCouplingFilePath, stringsAsFactors=F, header=T) %>%
+  link <- fread(sampleCouplingFilePath, stringsAsFactors=F, header=T,
+                colClasses = c("character", "character")) %>%
     filter(pheno %in% unique(phenotypesTable$ID))
 } else {
   message(strwrap(prefix = " ", initial = "", 
