@@ -1327,14 +1327,14 @@ par(xpd = NA)
 
 # Calculate plot
 roc(
-  llrDataFrame$mixUp ~ llrDataFrame$scaledLlr, plot=TRUE, 
+  llrDataFrame$correct ~ llrDataFrame$scaledLlr, plot=TRUE, 
   print.auc=TRUE,col="green",lwd =4,legacy.axes=TRUE,main="ROC Curves")
 
 dev.off()
 
 # Confine ourselves to the diagonal
 permutationTestDataFrame <- llrDataFrame %>%
-  filter(geno == Var2)
+  filter(diag)
 
 rm(llrDataFrame)
 gc()
