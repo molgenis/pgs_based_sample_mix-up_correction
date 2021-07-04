@@ -961,7 +961,7 @@ plotResiduals <- function(residualsDataFrame, phenotypeTable, responseDataType) 
 
 
 sampleSwapPrediction <- function(
-  traitDescriptionsTable, polygenicScoresTable, phenotypesTable, linkUntouched,
+  traitDescriptionsTable, polygenicScoresTable, phenotypesTable, link,
   naiveBayesMethod, samplesPerNaiveBayesBin, bayes_method_sweep_mode,
   modelBasePath, likelihoodRatioDifferenceAlpha,
   outFit, debug, shouldRecycle, outputIntermediateStatistics) {
@@ -1485,17 +1485,19 @@ main <- function(args=NULL) {
     
     numberOfSamples <- nrow(linkUntouched)
     
+    message(paste0("Selected ", numberOfSamples, " to fit models on..."))
+    
     outFileSampleCouplingFirstHalf <- paste0(out, ".", numberOfSamples, "samples_.txt")
     
     write.table(linkUntouched, outFileSampleCouplingFirstHalf, 
                 row.names = F, col.names = T, quote = F, sep = "\t")
     
-    message(paste0("Selected ", numberOfSamples, " to fit models on..."))
+    message(paste0("Writing samples for fitting to '", outFileSampleCouplingFirstHalf, "'"))
     
     # Now select the second half of the individuals to predict using the fitted models
     linkUntouchedSecondHalf <- link %>% anti_join(linkUntouched)
     
-    message(paste0("Selected ", nrow(linkUntouchedSecondHalf), " to fit models on..."))
+    message(paste0("Selected ", nrow(linkUntouchedSecondHalf), " to predict auc in..."))
     
     # We should also induce 50% mix-ups in this set of samples.
     mixUpPercentage <- 50
