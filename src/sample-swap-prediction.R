@@ -64,6 +64,66 @@ parser$add_argument('--output-intermediate-statistics', action='store_true', def
 # Define functions
 ##############################
 
+# Function that takes a table with genotype sample ids and phenotype sample ids
+# and introduces the specified number of mix-ups.
+# the output table will hold mixed-up genotype ids in the 'permuted' column
+permute <- function(linkTable, nMixUpsToIntroduce) {
+  linkTable$permuted <- linkTable$geno
+  
+  stopifnot("Confused! less than 1 mix-up requested." = 0 < nMixUpsToIntroduce)
+  stopifnot("Cannot mix-up a single sample!" = 1 < nMixUpsToIntroduce)
+  
+  # Shuffle all samples so the ones in which mix-ups are introduced are random
+  shuffledSamples <- sample(linkTable$permuted)
+  
+  # Create a vector of booleans indicating whether or not a sample has been mixed up.
+  swappedSamples <- rep(F, length(shuffledSamples))
+  
+  # Perform the code below for every mix-up to introduce, from n to 1 (inclusive).
+  for (i in rev(2:(nMixUpsToIntroduce))) {
+    # Should the current sample (i) be mixed up?
+    # Swap the sample if either: the sample is not yet swapped, or
+    # the i sample is the second-last sample to swap and the last sample has to be swapped still.
+    mustSwapCurrent <- (!swappedSamples[i] | (i == 2 & !swappedSamples[1]))
+    
+    j <- i
+    
+    # Set the sample to swap the current one with.
+    if (mustSwapCurrent) {
+      # If the current one must be swapped, the sample to swap with
+      # should be the one of the '1'st to the 'i'th (exclusive).
+      j <- sample.int(i - 1, size = 1)
+    } else {
+      # If the current one does not have to be swapped, 
+      # the sample to swap with should be the one of the '1'st to the 'i'th (inclusive).
+      j <- sample.int(i, size = 1);
+    }
+    
+    # If j is equal to i, the 'i'th sample is already swapped.
+    if (j != i) {
+      
+      # Get the samples to swap
+      a <- shuffledSamples[i]
+      b <- shuffledSamples[j]
+      
+      # Replace the samples in the map.
+      aLoc <- linkTable$permuted == a
+      bLoc <- linkTable$permuted == b
+      linkTable$permuted[aLoc] <- b
+      linkTable$permuted[bLoc] <- a
+      
+      # Swap the samples in the shuffled sample list.
+      shuffledSamples[c(i, j)] <- shuffledSamples[c(j, i)]
+      
+      # Set the samples to shuffled.
+      swappedSamples[i] <- T
+      swappedSamples[j] <- T
+    }
+  }
+  
+  return(linkTable)
+}
+
 # Function that takes (a set of) estimates, actual values, confounders, 
 # and a linear model.
 
@@ -1425,7 +1485,7 @@ main <- function(args=NULL) {
     
     numberOfSamples <- nrow(linkUntouched)
     
-    outFileSampleCouplingFirstHalf <- paste0(out, ".perm_", numberOfSamples, "samples_", numberOfPermutedSamples, "mixUps.txt")
+    outFileSampleCouplingFirstHalf <- paste0(out, ".perm_", numberOfSamples, "samples_.txt")
     
     write.table(linkUntouched, outFileSampleCouplingFirstHalf, 
                 row.names = F, col.names = T, quote = F, sep = "\t")
