@@ -962,7 +962,7 @@ plotResiduals <- function(residualsDataFrame, phenotypeTable, responseDataType) 
 
 sampleSwapPrediction <- function(
   traitDescriptionsTable, polygenicScoresTable, phenotypesTable, link,
-  naiveBayesMethod, samplesPerNaiveBayesBin, bayes_method_sweep_mode,
+  naiveBayesMethod, samplesPerNaiveBayesBin, loopBayesMethods,
   modelBasePath, likelihoodRatioDifferenceAlpha,
   outFit, debug, shouldRecycle, outputIntermediateStatistics) {
   
@@ -1472,9 +1472,9 @@ main <- function(args=NULL) {
   if (!splitPrediction) {
     # Do not perform split prediction. Run the sample swap prediction as ususal
     sampleSwapPrediction(traitDescriptionsTable, polygenicScoresTable, phenotypesTable, link,
-                         naiveBayesMethod, samplesPerNaiveBayesBin, bayes_method_sweep_mode,
-                         likelihoodRatioDifferenceAlpha,
-                         out, debug, shouldRecycle, outputIntermediateStatistics)
+                         naiveBayesMethod, samplesPerNaiveBayesBin, loopBayesMethods,
+                         modelBasePath, likelihoodRatioDifferenceAlpha,
+                         outFit, debug, shouldRecycle, outputIntermediateStatistics)
   } else {
     # Do perform split prediction:
 
@@ -1543,7 +1543,7 @@ main <- function(args=NULL) {
     
     # We should now fit the models on the first half of the data.
     sampleSwapPrediction(traitDescriptionsTable, polygenicScoresTable, phenotypesTable, linkUntouched,
-                         naiveBayesMethod, samplesPerNaiveBayesBin, bayes_method_sweep_mode,
+                         naiveBayesMethod, samplesPerNaiveBayesBin, loopBayesMethods,
                          modelBasePath, likelihoodRatioDifferenceAlpha,
                          outFit, debug, shouldRecycle, outputIntermediateStatistics)
     
@@ -1553,7 +1553,7 @@ main <- function(args=NULL) {
     
     # We should now fit the models on the first half of the data.
     sampleSwapPrediction(traitDescriptionsTable, polygenicScoresTable, phenotypesTable, permutedLink,
-                         naiveBayesMethod, samplesPerNaiveBayesBin, bayes_method_sweep_mode,
+                         naiveBayesMethod, samplesPerNaiveBayesBin, loopBayesMethods,
                          modelBasePath, likelihoodRatioDifferenceAlpha,
                          outPredict, debug, shouldRecycle, outputIntermediateStatistics)
     
