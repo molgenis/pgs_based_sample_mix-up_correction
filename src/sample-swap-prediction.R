@@ -964,7 +964,7 @@ sampleSwapPrediction <- function(
   traitDescriptionsTable, polygenicScoresTable, phenotypesTable, link,
   naiveBayesMethod, samplesPerNaiveBayesBin, loopBayesMethods,
   modelBasePath, likelihoodRatioDifferenceAlpha,
-  outFit, debug, shouldRecycle, outputIntermediateStatistics) {
+  out, debug, shouldRecycle, outputIntermediateStatistics) {
   
   predictingInducedMixUps <- F
   
@@ -1474,7 +1474,7 @@ main <- function(args=NULL) {
     sampleSwapPrediction(traitDescriptionsTable, polygenicScoresTable, phenotypesTable, link,
                          naiveBayesMethod, samplesPerNaiveBayesBin, loopBayesMethods,
                          modelBasePath, likelihoodRatioDifferenceAlpha,
-                         outFit, debug, shouldRecycle, outputIntermediateStatistics)
+                         out, debug, shouldRecycle, outputIntermediateStatistics)
   } else {
     # Do perform split prediction:
 
