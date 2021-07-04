@@ -1479,13 +1479,13 @@ main <- function(args=NULL) {
     # Do perform split prediction:
 
     # First select the first half of the individuals to fit the models on    
-    numberOfSamplesToUseInFirstRun <- nrow(link) / 2 # Devides the samples in half
+    numberOfSamplesToUseInFirstRun <- nrow(link) / 2 # Divides the samples in half
     
     linkUntouched <- link %>% slice_sample(n = numberOfSamplesToUseInFirstRun)
     
     numberOfSamples <- nrow(linkUntouched)
     
-    outFileSampleCouplingFirstHalf <- paste0(out, ".perm_", numberOfSamples, "samples_.txt")
+    outFileSampleCouplingFirstHalf <- paste0(out, ".", numberOfSamples, "samples_.txt")
     
     write.table(linkUntouched, outFileSampleCouplingFirstHalf, 
                 row.names = F, col.names = T, quote = F, sep = "\t")
