@@ -1248,6 +1248,25 @@ sampleSwapPrediction <- function(
                     scaledLlr = diagValuesScaled, 
                     numberOfTraits = diagTraitNumbers)
   
+  # Calculate performance on the scaled matrix if we are not predicting induced mix-ups
+  if (!predictingInducedMixUps) {
+    # Calculate performance on matrix
+    matrixWideRocOnScaledLlr <- roc(
+      controls = diagValuesScaled,
+      cases = scaledLogLikelihoodMatrix[
+        lower.tri(scaledLogLikelihoodMatrix, diag = FALSE)
+        | upper.tri(scaledLogLikelihoodMatrix, diag = FALSE)])
+    
+    matrixWideRocCoords <- coords(
+      matrixWideRocOnScaledLlr, results$scaledLlr, 
+      input = "threshold", 
+      ret = c("specificity", "sensitivity"),
+      as.list = FALSE, transpose = FALSE)
+    
+    results$specificity <- matrixWideRocCoords["specificity"]
+    results$sensitivity <- matrixWideRocCoords["sensitivity"]
+  }
+  
   message(paste0("Exporting output matrix: 'idefixPredictions.txt'"))
   
   # Write Idéfix predictions.
@@ -1289,13 +1308,17 @@ sampleSwapPrediction <- function(
   rm(aggregatedNumberOfTraits)
   gc()
   
-  matrixWideAucOnScaledLlr <- auc(
-    llrDataFrame$correct, 
-    llrDataFrame$scaledLlr)
-  
-  message(paste0("Matrix-wide AUC on scaled log likelihood ratios: ", matrixWideAucOnScaledLlr))
-  overallOutputStatistics$matrixWideAuc <- as.double(matrixWideAucOnScaledLlr)
-  
+  # Calculate performance on the data frame if we are predicting induced mix-ups
+  if (predictingInducedMixUps) {
+    
+    matrixWideAucOnScaledLlr <- auc(
+      llrDataFrame$correct, 
+      llrDataFrame$scaledLlr)
+    
+    message(paste0("Matrix-wide AUC on scaled log likelihood ratios: ", matrixWideAucOnScaledLlr))
+    overallOutputStatistics$matrixWideAuc <- as.double(matrixWideAucOnScaledLlr)
+  }
+    
   message(paste0("Exporting matrix-wide ROC curve: 'ROCcurve_matrixWide_scaled.pdf'"))
   
   pdf(file.path(out, "ROCcurve_matrixWide_scaled.pdf"))
