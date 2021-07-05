@@ -1071,7 +1071,7 @@ sampleSwapPrediction <- function(
           "'. Skipping..."))
         next
       }
-      
+    
     } else if (responseDataType == "ordinal") {
       phenotypeFrequencyTable <- table(completeTable$VALUE)
       
@@ -1364,11 +1364,13 @@ sampleSwapPrediction <- function(
 ##############################
 
 ### Main
-main <- function(args=NULL) {
-  if (is.null(args)) {
+main <- function(argv=NULL) {
+  if (is.null(argv)) {
     # Process input
-    args <- parser$parse_args()
+    argv <- commandArgs(trailingOnly = T)
   }
+  
+  args = parser$parse_args(argv)
   
   message(strwrap(prefix = " ", initial = "", paste(
     "Loading trait-gwas-mapping:\n", args$trait_gwas_mapping)))
@@ -1503,7 +1505,7 @@ main <- function(args=NULL) {
     mixUpPercentage <- 50
       
     nMixUpsToIntroduce <- round(
-      nrow(link) / 100 * mixUpPercentage);
+      nrow(linkUntouchedSecondHalf) / 100 * mixUpPercentage);
     
     message(paste0("Attempting to introduce ", nMixUpsToIntroduce, " mix-ups (", mixUpPercentage, "%)"))
     
@@ -1549,7 +1551,10 @@ main <- function(args=NULL) {
     
     # 2. We now use these fits to do predictions in the remaining samples
     # Make an output path
-    outPredict <- file.path(out, "2.fitModels")
+    outPredict <- file.path(out, "2.predictAuc")
+    
+    # Do not filter samples based on the observed likelihood ratio difference
+    likelihoodRatioDifferenceAlpha <- 1
     
     # We should now fit the models on the first half of the data.
     sampleSwapPrediction(traitDescriptionsTable, polygenicScoresTable, phenotypesTable, permutedLink,
