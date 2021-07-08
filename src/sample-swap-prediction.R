@@ -1233,16 +1233,13 @@ sampleSwapPrediction <- function(
   if (writeAsRObject) {
     # Write as an R object
     message(paste0("Exporting raw aggregated log likelihood ratio matrix: 'aggregatedLogLikelihoodRatiosMatrix.rds'"))
-    saveRDS(aggregatedLlrMatrix, file.path(out, "aggregatedLogLikelihoodRatiosMatrix.rds"),
-                sep="\t", col.names = T, row.names = T, quote = F)
+    saveRDS(aggregatedLlrMatrix, file.path(out, "aggregatedLogLikelihoodRatiosMatrix.rds"))
     
     message(paste0("Exporting scaled aggregated log likelihood ratio matrix: 'scaledLogLikelihoodRatiosMatrix.rds'"))
-    saveRDS(scaledLogLikelihoodMatrix, file.path(out, "scaledLogLikelihoodRatiosMatrix.rds"),
-            sep="\t", col.names = T, row.names = T, quote = F)
+    saveRDS(scaledLogLikelihoodMatrix, file.path(out, "scaledLogLikelihoodRatiosMatrix.rds"))
     
     message(paste0("Exporting number of traits for every phenotype-genotype combination: 'aggregatedNumberOfTraitsMatrix.rds'"))
-    saveRDS(aggregatedNumberOfTraits, file.path(out, "aggregatedNumberOfTraitsMatrix.rds"),
-                sep="\t", col.names = T, row.names = T, quote = F)
+    saveRDS(aggregatedNumberOfTraits, file.path(out, "aggregatedNumberOfTraitsMatrix.rds"))
   } else {
     # Write as tsv files
     message(paste0("Exporting raw aggregated log likelihood ratio matrix: 'aggregatedLogLikelihoodRatiosMatrix.tsv'"))
