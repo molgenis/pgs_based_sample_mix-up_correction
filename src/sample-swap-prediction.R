@@ -959,12 +959,11 @@ plotResiduals <- function(residualsDataFrame, phenotypeTable, responseDataType) 
   }
 }
 
-
 sampleSwapPrediction <- function(
   traitDescriptionsTable, polygenicScoresTable, phenotypesTable, link,
   naiveBayesMethod, samplesPerNaiveBayesBin, loopBayesMethods,
   modelBasePath, likelihoodRatioDifferenceAlpha,
-  out, debug, shouldRecycle, outputIntermediateStatistics) {
+  out, debug, shouldRecycle, outputIntermediateStatistics, writeAsRObject = T) {
   
   predictingInducedMixUps <- F
   
@@ -978,6 +977,12 @@ sampleSwapPrediction <- function(
   phenotypesTable <- phenotypesTable %>%
     rename(pheno = ID) %>%
     inner_join(link, by="pheno")
+  
+  reportedSexDataSet <- phenotypesTable %>% select(Var1, SEX) %>% 
+    group_by(Var1) %>% summarise(reportedSex = head(SEX, 1))
+  
+  inferredSexDataSet <- phenotypesTable %>% select(Var1, SEX) %>% 
+    group_by(Var1) %>% summarise(inferredSex = head(SEX, 1))
   
   # Merge the PGSs with actual phenotype data
   completeLongTable <- phenotypesTable %>%
@@ -1220,16 +1225,38 @@ sampleSwapPrediction <- function(
   write.table(traitOutputTable, file.path(out, "outputStatisticsPerTrait.tsv"),
               sep="\t", col.names = T, row.names = T, quote = F)
   
-  message(paste0("Exporting raw aggregated log likelihood ratio matrix: 'aggregatedLogLikelihoodRatiosMatrix.tsv'"))
-  write.table(aggregatedLlrMatrix, file.path(out, "aggregatedLogLikelihoodRatiosMatrix.tsv"),
-              sep="\t", col.names = T, row.names = T, quote = F)
-  
-  message(paste0("Exporting number of traits for every phenotype-genotype combination: 'aggregatedNumberOfTraitsMatrix.tsv'"))
-  write.table(aggregatedNumberOfTraits, file.path(out, "aggregatedNumberOfTraitsMatrix.tsv"),
-              sep="\t", col.names = T, row.names = T, quote = F)
-  
   scaledLogLikelihoodMatrix <- t(apply(aggregatedLlrMatrix, 1, function(x) scale(x)))
+  rownames(scaledLogLikelihoodMatrix) <- rownames(aggregatedLlrMatrix)
+  colnames(scaledLogLikelihoodMatrix) <- colnames(aggregatedLlrMatrix)
   
+  if (writeAsRObject) {
+    # Write as an R object
+    message(paste0("Exporting raw aggregated log likelihood ratio matrix: 'aggregatedLogLikelihoodRatiosMatrix.rds'"))
+    saveRDS(aggregatedLlrMatrix, file.path(out, "aggregatedLogLikelihoodRatiosMatrix.rds"),
+                sep="\t", col.names = T, row.names = T, quote = F)
+    
+    message(paste0("Exporting scaled aggregated log likelihood ratio matrix: 'scaledLogLikelihoodRatiosMatrix.rds'"))
+    saveRDS(scaledLogLikelihoodMatrix, file.path(out, "scaledLogLikelihoodRatiosMatrix.rds"),
+            sep="\t", col.names = T, row.names = T, quote = F)
+    
+    message(paste0("Exporting number of traits for every phenotype-genotype combination: 'aggregatedNumberOfTraitsMatrix.rds'"))
+    saveRDS(aggregatedNumberOfTraits, file.path(out, "aggregatedNumberOfTraitsMatrix.rds"),
+                sep="\t", col.names = T, row.names = T, quote = F)
+  } else {
+    # Write as tsv files
+    message(paste0("Exporting raw aggregated log likelihood ratio matrix: 'aggregatedLogLikelihoodRatiosMatrix.tsv'"))
+    write.table(aggregatedLlrMatrix, file.path(out, "aggregatedLogLikelihoodRatiosMatrix.tsv"),
+                sep="\t", col.names = T, row.names = T, quote = F)
+    
+    message(paste0("Exporting scaled aggregated log likelihood ratio matrix: 'scaledLogLikelihoodRatiosMatrix.tsv'"))
+    write.table(scaledLogLikelihoodMatrix, file.path(out, "scaledLogLikelihoodRatiosMatrix.tsv"),
+                sep="\t", col.names = T, row.names = T, quote = F)
+    
+    message(paste0("Exporting number of traits for every phenotype-genotype combination: 'aggregatedNumberOfTraitsMatrix.tsv'"))
+    write.table(aggregatedNumberOfTraits, file.path(out, "aggregatedNumberOfTraitsMatrix.tsv"),
+                sep="\t", col.names = T, row.names = T, quote = F)
+  }
+
   # Extract the diagonal values
   diagValues <- aggregatedLlrMatrix[lower.tri(aggregatedLlrMatrix, diag = TRUE)
                                     & upper.tri(aggregatedLlrMatrix, diag = TRUE)]
@@ -1242,128 +1269,148 @@ sampleSwapPrediction <- function(
   diagTraitNumbers <- aggregatedNumberOfTraits[lower.tri(aggregatedNumberOfTraits, diag = TRUE)
                                                & upper.tri(aggregatedNumberOfTraits, diag = TRUE)]
   
-  results <- tibble(Var1 = rownames(aggregatedLlrMatrix),
-                    Var2 = colnames(aggregatedLlrMatrix),
+  results <- tibble(Var1 = rownames(scaledLogLikelihoodMatrix),
+                    Var2 = rownames(scaledLogLikelihoodMatrix),
                     logLikelihoodRatios = diagValues,
                     scaledLlr = diagValuesScaled, 
                     numberOfTraits = diagTraitNumbers)
   
+  # Define a table to write statistics to
+  overallOutputStatistics <- data.frame(name = "overallStatistics")
+  
   # Calculate performance on the scaled matrix if we are not predicting induced mix-ups
   if (!predictingInducedMixUps) {
+    
     # Calculate performance on matrix
     matrixWideRocOnScaledLlr <- roc(
-      controls = diagValuesScaled,
-      cases = scaledLogLikelihoodMatrix[
+      controls = round(diagValuesScaled, digits = 3),
+      cases = sample(round(scaledLogLikelihoodMatrix[
         lower.tri(scaledLogLikelihoodMatrix, diag = FALSE)
-        | upper.tri(scaledLogLikelihoodMatrix, diag = FALSE)])
-    
+        | upper.tri(scaledLogLikelihoodMatrix, diag = FALSE)], digits = 3), 
+        length(diagValuesScaled) * 100), 
+      plot=TRUE, print.auc=TRUE,
+      col="green", lwd =4, legacy.axes=TRUE, main="ROC Curves on diagonal and off-diagonal")
+
     matrixWideRocCoords <- coords(
       matrixWideRocOnScaledLlr, results$scaledLlr, 
       input = "threshold", 
       ret = c("specificity", "sensitivity"),
       as.list = FALSE, transpose = FALSE)
     
-    results$specificity <- matrixWideRocCoords["specificity"]
-    results$sensitivity <- matrixWideRocCoords["sensitivity"]
+    results <- cbind(results, matrixWideRocCoords)
+    
+  } else {
+    
+    # Convert matrix to data frame for further processing
+    llrDataFrame <- 
+      as.data.frame.table(aggregatedLlrMatrix, responseName = "logLikelihoodRatios") %>%
+      inner_join(link, by = c("Var1" = "pheno")) %>%
+      mutate(
+        diag = case_when(
+          geno == Var2 ~ T,
+          geno != Var2 ~ F),
+        correct = case_when(
+          original == Var2 ~ T,
+          original != Var2 ~ F),
+        mixUp = case_when(
+          diag & correct ~ F,
+          diag & !correct ~ T),
+        group = case_when(diag & !correct ~ "inducedMixUp",
+                          diag & correct ~ "provided",
+                          !diag ~ "permuted")) %>%
+      group_by(Var1) %>%
+      mutate(scaledLlr = scale(logLikelihoodRatios)[,1])
+    
+    # Calculate plot
+    matrixWideRocOnScaledLlr <- roc(
+      llrDataFrame$correct ~ llrDataFrame$scaledLlr, 
+      plot=TRUE, print.auc=TRUE,
+      col="green", lwd =4, legacy.axes=TRUE, main="ROC Curves on diagonal and off-diagonal")
+    
   }
+  
+  # Remove the aggregated llr matrix in favour of the data frame
+  rm(aggregatedLlrMatrix)
+  gc()
+  
+  rm(aggregatedNumberOfTraits)
+  gc()
+  
+  rm(scaledLogLikelihoodMatrix)
+  gc()
   
   message(paste0("Exporting output matrix: 'idefixPredictions.txt'"))
   
   # Write Idéfix predictions.
   write.table(results, file.path(out, "idefixPredictions.txt"), row.names = F, col.names = T, quote = F, sep = "\t")
   
-  if (loopBayesMethods) {
-    stop("exiting...")
-  }
-  
-  # Define a table to write statistics to
-  overallOutputStatistics <- data.frame(name = "overallStatistics")
-  
-  # Convert matrix to data frame for further processing
-  llrDataFrame <- 
-    as.data.frame.table(aggregatedLlrMatrix, responseName = "logLikelihoodRatios") %>%
-    inner_join(link, by = c("Var1" = "pheno")) %>%
-    mutate(
-      diag = case_when(
-        geno == Var2 ~ T,
-        geno != Var2 ~ F),
-      correct = case_when(
-        original == Var2 ~ T,
-        original != Var2 ~ F),
-      mixUp = case_when(
-        diag & correct ~ F,
-        diag & !correct ~ T),
-      group = case_when(diag & !correct ~ "inducedMixUp",
-                        diag & correct ~ "provided",
-                        !diag ~ "permuted")) %>%
-    group_by(Var1) %>%
-    mutate(scaledLlr = scale(logLikelihoodRatios)[,1])
-  
-  # Remove the aggregated llr matrix in favour of the data frame
-  rm(aggregatedLlrMatrix)
-  gc()
-  
-  numberOfTriatsDiag <- diag(aggregatedNumberOfTraits)
-  
-  rm(aggregatedNumberOfTraits)
-  gc()
-  
-  # Calculate performance on the data frame if we are predicting induced mix-ups
-  if (predictingInducedMixUps) {
-    
-    matrixWideAucOnScaledLlr <- auc(
-      llrDataFrame$correct, 
-      llrDataFrame$scaledLlr)
-    
-    message(paste0("Matrix-wide AUC on scaled log likelihood ratios: ", matrixWideAucOnScaledLlr))
-    overallOutputStatistics$matrixWideAuc <- as.double(matrixWideAucOnScaledLlr)
-  }
-    
   message(paste0("Exporting matrix-wide ROC curve: 'ROCcurve_matrixWide_scaled.pdf'"))
   
   pdf(file.path(out, "ROCcurve_matrixWide_scaled.pdf"))
   par(xpd = NA)
   
-  # Calculate plot
-  roc(
-    llrDataFrame$correct ~ llrDataFrame$scaledLlr, plot=TRUE, 
-    print.auc=TRUE,col="green",lwd =4,legacy.axes=TRUE,main="ROC Curves")
+  plot(matrixWideRocOnScaledLlr)
   
   dev.off()
   
-  # Confine ourselves to the diagonal
-  permutationTestDataFrame <- llrDataFrame %>%
-    filter(diag)
+  overallOutputStatistics$matrixWideAuc <- as.double(matrixWideRocOnScaledLlr$auc)
   
-  rm(llrDataFrame)
-  gc()
+  message(paste0("Matrix-wide AUC on scaled log likelihood ratios: ", overallOutputStatistics$matrixWideAuc))
   
-  permutationTestDataFrame$numberOfTraits <- numberOfTriatsDiag
+  if (loopBayesMethods) {
+    stop("exiting...")
+  }
   
-  message(paste0("Exporting output matrix: 'providedSampleDataFrame.tsv'"))
-  
-  # Export the log likelihood data frame with scaled values
-  write.table(permutationTestDataFrame, file.path(out, "providedSampleDataFrame.tsv"),
-              sep="\t", col.names = T, row.names = F, quote = F)
-  
-  # Calculate the mix-ups
-  if ("inducedMixUp" %in% permutationTestDataFrame$group) {
+  # Calculate performance on the data frame if we are predicting induced mix-ups
+  if (predictingInducedMixUps) {
     
-    confinedAucOnScaledLlr <- auc(
-      permutationTestDataFrame$group, 
-      permutationTestDataFrame$scaledLlr)
+    # Confine ourselves to the diagonal
+    permutationTestDataFrame <- llrDataFrame %>%
+      filter(diag) %>%
+      inner_join(reportedSexDataSet, by = c("Var1" = "Var1")) %>%
+      inner_join(inferredSexDataSet, by = c("Var2" = "Var2")) %>%
+      mutate(scaledLlrSexCheck = case_when(
+        inferredSex == reportedSex ~ scaledLlr,
+        TRUE ~ Inf))
     
-    message(paste0("Confined AUC on scaled log likelihood ratios: ", confinedAucOnScaledLlr))
-    overallOutputStatistics$confinedAuc <- as.double(confinedAucOnScaledLlr)
+    rm(llrDataFrame)
+    gc()
+    
+    message(paste0("Exporting output matrix: 'providedSampleDataFrame.tsv'"))
+    
+    # Export the log likelihood data frame with scaled values
+    write.table(permutationTestDataFrame, file.path(out, "providedSampleDataFrame.tsv"),
+                sep="\t", col.names = T, row.names = F, quote = F)
+    
+    confinedRocOnScaledLlr <- roc(
+      permutationTestDataFrame$group ~ permutationTestDataFrame$scaledLlr, 
+      plot=TRUE, print.auc=TRUE,col="green",lwd =4,legacy.axes=TRUE,main="ROC Curves on scaled LLR")
+    
+    message(paste0("Confined AUC on scaled log likelihood ratios: ", confinedRocOnScaledLlr$auc))
+    overallOutputStatistics$confinedAuc <- as.double(confinedRocOnScaledLlr$auc)
     
     message(paste0("Exporting ROC curve for provided samples: 'ROCcurve_diagonal_scaled.pdf'"))
     
     pdf(file.path(out, "ROCcurve_diagonal_scaled.pdf"))
     par(xpd = NA)
     
-    roc(
-      permutationTestDataFrame$group ~ permutationTestDataFrame$scaledLlr, 
-      plot=TRUE, print.auc=TRUE,col="green",lwd =4,legacy.axes=TRUE,main="ROC Curves on scaled LLR")
+    plot(confinedRocOnScaledLlr)
+    
+    dev.off()
+    
+    confinedRocOnScaledLlrWithSex <- roc(
+      permutationTestDataFrame$group ~ permutationTestDataFrame$scaledLlrSexCheck, 
+      plot=TRUE, print.auc=TRUE,col="green",lwd =4,legacy.axes=TRUE,main="ROC Curves on scaled LLR and sex-check")
+    
+    message(paste0("Confined AUC on scaled log likelihood ratios: ", confinedRocOnScaledLlrWithSex$auc))
+    overallOutputStatistics$confinedAucLlrSexCheck <- as.double(confinedRocOnScaledLlrWithSex$auc)
+    
+    message(paste0("Exporting ROC curve for provided samples: 'ROCcurve_diagonal_scaled_llrAndSexCheck.pdf'"))
+    
+    pdf(file.path(out, "ROCcurve_diagonal_scaled_llrAndSexCheck.pdf"))
+    par(xpd = NA)
+    
+    plot(confinedRocOnScaledLlrWithSex)
     
     dev.off()
     
@@ -1483,7 +1530,7 @@ main <- function(argv=NULL) {
     
     sampleCouplingFilePath <- args$sample_coupling_file
     link <- fread(sampleCouplingFilePath, stringsAsFactors=F, header=T,
-                  colClasses = c("character", "character")) %>%
+                  colClasses = c("character")) %>%
       filter(pheno %in% unique(phenotypesTable$ID))
     
   } else {
