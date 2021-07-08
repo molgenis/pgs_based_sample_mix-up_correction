@@ -978,11 +978,12 @@ sampleSwapPrediction <- function(
     rename(pheno = ID) %>%
     inner_join(link, by="pheno")
   
-  reportedSexDataSet <- phenotypesTable %>% select(Var1, SEX) %>% 
-    group_by(Var1) %>% summarise(reportedSex = head(SEX, 1))
+  reportedSexDataSet <- phenotypesTable %>% select(pheno, SEX) %>% 
+    group_by(pheno) %>% summarise(reportedSex = head(SEX, 1))
   
-  inferredSexDataSet <- phenotypesTable %>% select(Var1, SEX) %>% 
-    group_by(Var1) %>% summarise(inferredSex = head(SEX, 1))
+  inferredSexDataSet <- phenotypesTable %>% select(pheno, SEX) %>% 
+    group_by(pheno) %>% summarise(inferredSex = head(SEX, 1)) %>%
+    rename(geno = pheno)
   
   # Merge the PGSs with actual phenotype data
   completeLongTable <- phenotypesTable %>%
@@ -1367,8 +1368,8 @@ sampleSwapPrediction <- function(
     # Confine ourselves to the diagonal
     permutationTestDataFrame <- llrDataFrame %>%
       filter(diag) %>%
-      inner_join(reportedSexDataSet, by = c("Var1" = "Var1")) %>%
-      inner_join(inferredSexDataSet, by = c("Var2" = "Var2")) %>%
+      inner_join(reportedSexDataSet, by = c("Var1" = "pheno")) %>%
+      inner_join(inferredSexDataSet, by = c("Var2" = "geno")) %>%
       mutate(scaledLlrSexCheck = case_when(
         inferredSex == reportedSex ~ scaledLlr,
         TRUE ~ Inf))
