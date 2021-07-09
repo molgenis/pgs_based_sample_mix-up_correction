@@ -1288,16 +1288,8 @@ sampleSwapPrediction <- function(
         lower.tri(scaledLogLikelihoodMatrix, diag = FALSE)
         | upper.tri(scaledLogLikelihoodMatrix, diag = FALSE)], digits = 3), 
         length(diagValuesScaled) * 100), 
-      plot=TRUE, print.auc=TRUE,
+      plot=TRUE, print.auc=TRUE, direction = "<",
       col="green", lwd =4, legacy.axes=TRUE, main="ROC Curves on diagonal and off-diagonal")
-
-    matrixWideRocCoords <- coords(
-      matrixWideRocOnScaledLlr, results$scaledLlr, 
-      input = "threshold", 
-      ret = c("specificity", "sensitivity"),
-      as.list = FALSE, transpose = FALSE)
-    
-    results <- cbind(results, matrixWideRocCoords)
     
   } else {
     
@@ -1324,7 +1316,7 @@ sampleSwapPrediction <- function(
     # Calculate plot
     matrixWideRocOnScaledLlr <- roc(
       llrDataFrame$correct ~ llrDataFrame$scaledLlr, 
-      plot=TRUE, print.auc=TRUE,
+      plot=TRUE, print.auc=TRUE, direction = "<",
       col="green", lwd =4, legacy.axes=TRUE, main="ROC Curves on diagonal and off-diagonal")
     
   }
@@ -1338,6 +1330,14 @@ sampleSwapPrediction <- function(
   
   rm(scaledLogLikelihoodMatrix)
   gc()
+  
+  matrixWideRocCoords <- coords(
+    matrixWideRocOnScaledLlr, results$scaledLlr, 
+    input = "threshold", 
+    ret = c("specificity", "sensitivity"),
+    as.list = FALSE, transpose = FALSE)
+  
+  results <- cbind(results, matrixWideRocCoords)
   
   message(paste0("Exporting output matrix: 'idefixPredictions.txt'"))
   
@@ -1383,7 +1383,7 @@ sampleSwapPrediction <- function(
                 sep="\t", col.names = T, row.names = F, quote = F)
     
     confinedRocOnScaledLlr <- roc(
-      permutationTestDataFrame$group ~ permutationTestDataFrame$scaledLlr, 
+      permutationTestDataFrame$group ~ permutationTestDataFrame$scaledLlr, direction = "<",
       plot=TRUE, print.auc=TRUE,col="green",lwd =4,legacy.axes=TRUE,main="ROC Curves on scaled LLR")
     
     message(paste0("Confined AUC on scaled log likelihood ratios: ", confinedRocOnScaledLlr$auc))
@@ -1399,7 +1399,7 @@ sampleSwapPrediction <- function(
     dev.off()
     
     confinedRocOnScaledLlrWithSex <- roc(
-      permutationTestDataFrame$group ~ permutationTestDataFrame$scaledLlrSexCheck, 
+      permutationTestDataFrame$group ~ permutationTestDataFrame$scaledLlrSexCheck, direction = "<",
       plot=TRUE, print.auc=TRUE,col="green",lwd =4,legacy.axes=TRUE,main="ROC Curves on scaled LLR and sex-check")
     
     message(paste0("Confined AUC on scaled log likelihood ratios: ", confinedRocOnScaledLlrWithSex$auc))
