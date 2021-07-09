@@ -38,6 +38,8 @@ parser$add_argument('--pgs-file-name',
                     help="name of files that hold polygenic scores. ignored when a combined table of polygenic scores is supplied (--pgs-file).", 
                     default = "full.UGLI.pgs.profile")
 
+parser$add_argument('--no-adults-only', dest="adults_only", action='store_false', default=TRUE,
+                    help = "Turns filtering step (AGE > 18) off")
 parser$add_argument('--phenotypes-file', required = T,
                     help='path to a tab-delimited file holding all processed phenotype data.')
 parser$add_argument('--sample-coupling-file', required = FALSE,
@@ -1480,6 +1482,9 @@ main <- function(argv=NULL) {
   # Test if we should employ a split prediction method
   splitPrediction <- args$split_prediction
   
+  # Test if we should filter on ages or not
+  adultsOnly <- args$adults_only
+  
   # Model path
   modelBasePath <- NULL
   
@@ -1515,7 +1520,7 @@ main <- function(argv=NULL) {
            SEX = case_when(SEX == 1 ~ "Female", SEX == 2 ~ "Male", TRUE ~ as.character(SEX)),
            SEX = factor(SEX, levels = c("Female", "Male"))) %>%
     group_by(ID) %>%
-    filter(!any(AGE < 18)) %>%
+    filter(!(any(AGE < 18) & adultsOnly)) %>%
     ungroup()
   
   # Obtain the link file between geno and phenotype samples.
