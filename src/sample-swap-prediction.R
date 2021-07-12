@@ -62,6 +62,10 @@ parser$add_argument('--likelihood-ratio-alpha', default = 0.05, help=paste(
 parser$add_argument('--output-intermediate-statistics', action='store_true', default = F,
                     help = 'Setting this to false will prevent intermediate AUC calculations, requiring less memory.')
 
+# parser$add_argument('--pgx-threshold', default = 0.05, help=paste(
+#   'the threshold that is used to label the samples for which genetics and phenotypes match best.',
+#   'by default this is set to a sensitivity of 0.05'))
+
 ##############################
 # Define functions
 ##############################
@@ -1284,11 +1288,11 @@ sampleSwapPrediction <- function(
     # Calculate performance on matrix
     matrixWideRocOnScaledLlr <- roc(
       controls = round(diagValuesScaled, digits = 3),
-      cases = sample(round(scaledLogLikelihoodMatrix[
+      cases = round(sample(scaledLogLikelihoodMatrix[
         lower.tri(scaledLogLikelihoodMatrix, diag = FALSE)
         | upper.tri(scaledLogLikelihoodMatrix, diag = FALSE)], digits = 3), 
         length(diagValuesScaled) * 100), 
-      plot=TRUE, print.auc=TRUE, direction = "<",
+      plot=TRUE, print.auc=TRUE, direction = ">",
       col="green", lwd =4, legacy.axes=TRUE, main="ROC Curves on diagonal and off-diagonal")
     
   } else {
@@ -1316,7 +1320,7 @@ sampleSwapPrediction <- function(
     # Calculate plot
     matrixWideRocOnScaledLlr <- roc(
       llrDataFrame$correct ~ llrDataFrame$scaledLlr, 
-      plot=TRUE, print.auc=TRUE, direction = "<",
+      plot=TRUE, print.auc=TRUE, direction = ">",
       col="green", lwd =4, legacy.axes=TRUE, main="ROC Curves on diagonal and off-diagonal")
     
   }
@@ -1383,7 +1387,7 @@ sampleSwapPrediction <- function(
                 sep="\t", col.names = T, row.names = F, quote = F)
     
     confinedRocOnScaledLlr <- roc(
-      permutationTestDataFrame$group ~ permutationTestDataFrame$scaledLlr, direction = "<",
+      permutationTestDataFrame$group ~ permutationTestDataFrame$scaledLlr, direction = ">",
       plot=TRUE, print.auc=TRUE,col="green",lwd =4,legacy.axes=TRUE,main="ROC Curves on scaled LLR")
     
     message(paste0("Confined AUC on scaled log likelihood ratios: ", confinedRocOnScaledLlr$auc))
@@ -1399,7 +1403,7 @@ sampleSwapPrediction <- function(
     dev.off()
     
     confinedRocOnScaledLlrWithSex <- roc(
-      permutationTestDataFrame$group ~ permutationTestDataFrame$scaledLlrSexCheck, direction = "<",
+      permutationTestDataFrame$group ~ permutationTestDataFrame$scaledLlrSexCheck, direction = ">",
       plot=TRUE, print.auc=TRUE,col="green",lwd =4,legacy.axes=TRUE,main="ROC Curves on scaled LLR and sex-check")
     
     message(paste0("Confined AUC on scaled log likelihood ratios: ", confinedRocOnScaledLlrWithSex$auc))
