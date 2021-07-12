@@ -1274,7 +1274,7 @@ sampleSwapPrediction <- function(
                                                & upper.tri(aggregatedNumberOfTraits, diag = TRUE)]
   
   results <- tibble(Var1 = rownames(scaledLogLikelihoodMatrix),
-                    Var2 = rownames(scaledLogLikelihoodMatrix),
+                    Var2 = colnames(scaledLogLikelihoodMatrix),
                     logLikelihoodRatios = diagValues,
                     scaledLlr = diagValuesScaled, 
                     numberOfTraits = diagTraitNumbers)
@@ -1282,53 +1282,31 @@ sampleSwapPrediction <- function(
   # Define a table to write statistics to
   overallOutputStatistics <- data.frame(name = "overallStatistics")
   
-  # Calculate performance on the scaled matrix if we are not predicting induced mix-ups
-  if (!predictingInducedMixUps) {
-    
-    # Calculate performance on matrix
-    matrixWideRocOnScaledLlr <- roc(
-      controls = round(diagValuesScaled, digits = 3),
-      cases = round(sample(scaledLogLikelihoodMatrix[
-        lower.tri(scaledLogLikelihoodMatrix, diag = FALSE)
-        | upper.tri(scaledLogLikelihoodMatrix, diag = FALSE)], digits = 3), 
-        length(diagValuesScaled) * 100), 
-      plot=TRUE, print.auc=TRUE, direction = ">",
-      col="green", lwd =4, legacy.axes=TRUE, main="ROC Curves on diagonal and off-diagonal")
-    
-  } else {
-    
-    # Convert matrix to data frame for further processing
-    llrDataFrame <- 
-      as.data.frame.table(aggregatedLlrMatrix, responseName = "logLikelihoodRatios") %>%
-      inner_join(link, by = c("Var1" = "pheno")) %>%
-      mutate(
-        diag = case_when(
-          geno == Var2 ~ T,
-          geno != Var2 ~ F),
-        correct = case_when(
-          original == Var2 ~ T,
-          original != Var2 ~ F),
-        mixUp = case_when(
-          diag & correct ~ F,
-          diag & !correct ~ T),
-        group = case_when(diag & !correct ~ "inducedMixUp",
-                          diag & correct ~ "provided",
-                          !diag ~ "permuted")) %>%
-      group_by(Var1) %>%
-      mutate(scaledLlr = scale(logLikelihoodRatios)[,1])
-    
-    # Calculate plot
-    matrixWideRocOnScaledLlr <- roc(
-      llrDataFrame$correct ~ llrDataFrame$scaledLlr, 
-      plot=TRUE, print.auc=TRUE, direction = ">",
-      col="green", lwd =4, legacy.axes=TRUE, main="ROC Curves on diagonal and off-diagonal")
-    
-  }
-  
-  # Remove the aggregated llr matrix in favour of the data frame
+  # Remove
   rm(aggregatedLlrMatrix)
   gc()
   
+  # Calculate performance on the scaled matrix if we are not predicting induced mix-ups
+  if (predictingInducedMixUps) {
+    
+    # Correct column names with original genotype names
+    scaledLogLikelihoodMatrix <- scaledLogLikelihoodMatrix[,link[
+      link$pheno == rownames(scaledLogLikelihoodMatrix), "original"
+      ]]
+    
+  }
+  
+  # Calculate performance on matrix
+  matrixWideRocOnScaledLlr <- roc(
+    controls = round(diag(scaledLogLikelihoodMatrix), digits = 3),
+    cases = round(sample(scaledLogLikelihoodMatrix[
+      lower.tri(scaledLogLikelihoodMatrix, diag = FALSE)
+      | upper.tri(scaledLogLikelihoodMatrix, diag = FALSE)], digits = 3), 
+      length(diagValuesScaled) * 100), 
+    plot=TRUE, print.auc=TRUE, direction = ">",
+    col="green", lwd =4, legacy.axes=TRUE, main="ROC Curves on diagonal and off-diagonal")
+  
+  # Remove the aggregated llr matrix in favour of the data frame
   rm(aggregatedNumberOfTraits)
   gc()
   
@@ -1341,12 +1319,12 @@ sampleSwapPrediction <- function(
     ret = c("specificity", "sensitivity"),
     as.list = FALSE, transpose = FALSE)
   
-  results <- cbind(results, matrixWideRocCoords)
+  resultsExtended <- cbind(results, matrixWideRocCoords)
   
   message(paste0("Exporting output matrix: 'idefixPredictions.txt'"))
   
   # Write Idéfix predictions.
-  write.table(results, file.path(out, "idefixPredictions.txt"), row.names = F, col.names = T, quote = F, sep = "\t")
+  write.table(resultsExtended, file.path(out, "idefixPredictions.txt"), row.names = F, col.names = T, quote = F, sep = "\t")
   
   message(paste0("Exporting matrix-wide ROC curve: 'ROCcurve_matrixWide_scaled.pdf'"))
   
@@ -1368,17 +1346,27 @@ sampleSwapPrediction <- function(
   # Calculate performance on the data frame if we are predicting induced mix-ups
   if (predictingInducedMixUps) {
     
-    # Confine ourselves to the diagonal
-    permutationTestDataFrame <- llrDataFrame %>%
-      filter(diag) %>%
+    # Convert matrix to data frame for further processing
+    permutationTestDataFrame <- results %>%
+      inner_join(link, by = c("Var1" = "pheno")) %>%
+      mutate(
+        diag = case_when(
+          geno == Var2 ~ T,
+          geno != Var2 ~ F),
+        correct = case_when(
+          original == Var2 ~ T,
+          original != Var2 ~ F),
+        mixUp = case_when(
+          diag & correct ~ F,
+          diag & !correct ~ T),
+        group = case_when(diag & !correct ~ "inducedMixUp",
+                          diag & correct ~ "provided",
+                          !diag ~ "permuted")) %>%
       inner_join(reportedSexDataSet, by = c("Var1" = "pheno")) %>%
       inner_join(inferredSexDataSet, by = c("Var2" = "geno")) %>%
       mutate(scaledLlrSexCheck = case_when(
         inferredSex == reportedSex ~ scaledLlr,
         TRUE ~ Inf))
-    
-    rm(llrDataFrame)
-    gc()
     
     message(paste0("Exporting output matrix: 'providedSampleDataFrame.tsv'"))
     
