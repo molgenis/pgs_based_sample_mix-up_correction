@@ -223,6 +223,7 @@ residualsFunConstructor <- function(estimate, actual, covariates,
   # If the path to write/read fitted models to already points to an existing file, load this.
   # In this case residual calculation should be performed using the loaded model
   if (!is.null(modelPath) && 0 != length(modelPath) && file.exists(modelPath)) {
+    message(paste0("    Loading model from '", modelPath, "'"))
     load(modelPath)
   }
   
@@ -1307,7 +1308,7 @@ sampleSwapPrediction <- function(
       | upper.tri(scaledLogLikelihoodMatrix, diag = FALSE)], 
       min(length(diagValuesScaled) * length(diagValuesScaled) - length(diagValuesScaled), 
           length(diagValuesScaled) * 100)), digits = 3), 
-    plot=TRUE, print.auc=TRUE, direction = ">",
+    plot=TRUE, print.auc=TRUE, direction = "<",
     col="green", lwd =4, legacy.axes=TRUE, main="ROC Curves on diagonal and off-diagonal")
   
   # Remove the aggregated llr matrix in favour of the data frame
@@ -1379,7 +1380,7 @@ sampleSwapPrediction <- function(
                 sep="\t", col.names = T, row.names = F, quote = F)
     
     confinedRocOnScaledLlr <- roc(
-      permutationTestDataFrame$group ~ permutationTestDataFrame$scaledLlr, direction = ">",
+      permutationTestDataFrame$group ~ permutationTestDataFrame$scaledLlr, direction = "<",
       plot=TRUE, print.auc=TRUE,col="green",lwd =4,legacy.axes=TRUE,main="ROC Curves on scaled LLR")
     
     message(paste0("Confined AUC on scaled log likelihood ratios: ", confinedRocOnScaledLlr$auc))
@@ -1395,7 +1396,7 @@ sampleSwapPrediction <- function(
     dev.off()
     
     confinedRocOnScaledLlrWithSex <- roc(
-      permutationTestDataFrame$group ~ permutationTestDataFrame$scaledLlrSexCheck, direction = ">",
+      permutationTestDataFrame$group ~ permutationTestDataFrame$scaledLlrSexCheck, direction = "<",
       plot=TRUE, print.auc=TRUE,col="green",lwd =4,legacy.axes=TRUE,main="ROC Curves on scaled LLR and sex-check")
     
     message(paste0("Confined AUC on scaled log likelihood ratios: ", confinedRocOnScaledLlrWithSex$auc))
