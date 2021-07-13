@@ -1294,9 +1294,9 @@ sampleSwapPrediction <- function(
   if (predictingInducedMixUps) {
     
     # Correct column names with original genotype names
-    scaledLogLikelihoodMatrix <- scaledLogLikelihoodMatrix[,link[
+    scaledLogLikelihoodMatrix <- scaledLogLikelihoodMatrix[,as.character(link[
       link$pheno == rownames(scaledLogLikelihoodMatrix), "original"
-      ]]
+      , drop = F]$original)]
     
   }
   
