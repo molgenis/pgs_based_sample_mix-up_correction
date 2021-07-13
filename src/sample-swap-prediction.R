@@ -30,12 +30,15 @@ parser$add_argument('--trait-gwas-mapping', required = T,
 
 group <- parser$add_mutually_exclusive_group(required = T)
 group$add_argument('--base-pgs-path',
-                   help="path to a directory containing polygenic scores. Folder structure should be '<base-pgs-path>/<name-of-gwas-summary-statistic>/<pgs-file-name>'")
+                   help=paste("path to a directory containing polygenic scores. Folder structure should be",
+                              "'<base-pgs-path>/<name-of-gwas-summary-statistic>/<pgs-file-name>'"))
 group$add_argument('--pgs-file',
-                   help="path to a tab-delimited file holding all polygenic score data. Columns should represent sample IDs and individual PGSs respectively.")
+                   help=paste("path to a tab-delimited file holding all polygenic score data.",
+                              "Columns should represent sample IDs and individual PGSs respectively."))
 
 parser$add_argument('--pgs-file-name',
-                    help="name of files that hold polygenic scores. ignored when a combined table of polygenic scores is supplied (--pgs-file).", 
+                    help=paste("name of files that hold polygenic scores.",
+                               "ignored when a combined table of polygenic scores is supplied (--pgs-file)."), 
                     default = "full.UGLI.pgs.profile")
 
 parser$add_argument('--no-adults-only', dest="adults_only", action='store_false', default=TRUE,
@@ -1301,8 +1304,9 @@ sampleSwapPrediction <- function(
     controls = round(diag(scaledLogLikelihoodMatrix), digits = 3),
     cases = round(sample(scaledLogLikelihoodMatrix[
       lower.tri(scaledLogLikelihoodMatrix, diag = FALSE)
-      | upper.tri(scaledLogLikelihoodMatrix, diag = FALSE)], digits = 3), 
-      length(diagValuesScaled) * 100), 
+      | upper.tri(scaledLogLikelihoodMatrix, diag = FALSE)], 
+      min(length(diagValuesScaled) * length(diagValuesScaled) - length(diagValuesScaled), 
+          length(diagValuesScaled) * 100)), digits = 3), 
     plot=TRUE, print.auc=TRUE, direction = ">",
     col="green", lwd =4, legacy.axes=TRUE, main="ROC Curves on diagonal and off-diagonal")
   
