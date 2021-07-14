@@ -1386,8 +1386,7 @@ sampleSwapPrediction <- function(
           diag & correct ~ F,
           diag & !correct ~ T),
         group = case_when(diag & !correct ~ "inducedMixUp",
-                          diag & correct ~ "provided",
-                          !diag ~ "permuted")) %>%
+                          diag & correct ~ "provided")) %>%
       inner_join(reportedSexDataSet, by = c("Var1" = "pheno")) %>%
       inner_join(inferredSexDataSet, by = c("Var2" = "geno")) %>%
       mutate(scaledLlrSexCheck = case_when(
@@ -1401,7 +1400,7 @@ sampleSwapPrediction <- function(
                 sep="\t", col.names = T, row.names = F, quote = F)
     
     confinedRocOnScaledLlr <- roc(
-      permutationTestDataFrame$group ~ permutationTestDataFrame$scaledLlr, direction = "<",
+      permutationTestDataFrame$group ~ permutationTestDataFrame$scaledLlr, direction = ">",
       plot=TRUE, print.auc=TRUE,col="green",lwd =4,legacy.axes=TRUE,main="ROC Curves on scaled LLR")
     
     message(paste0("Confined AUC on scaled log likelihood ratios: ", confinedRocOnScaledLlr$auc))
@@ -1417,7 +1416,7 @@ sampleSwapPrediction <- function(
     dev.off()
     
     confinedRocOnScaledLlrWithSex <- roc(
-      permutationTestDataFrame$group ~ permutationTestDataFrame$scaledLlrSexCheck, direction = "<",
+      permutationTestDataFrame$group ~ permutationTestDataFrame$scaledLlrSexCheck, direction = ">",
       plot=TRUE, print.auc=TRUE,col="green",lwd =4,legacy.axes=TRUE,main="ROC Curves on scaled LLR and sex-check")
     
     message(paste0("Confined AUC on scaled log likelihood ratios: ", confinedRocOnScaledLlrWithSex$auc))
