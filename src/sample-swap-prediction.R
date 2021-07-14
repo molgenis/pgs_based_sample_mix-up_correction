@@ -1399,6 +1399,11 @@ sampleSwapPrediction <- function(
     write.table(permutationTestDataFrame, file.path(out, "providedSampleDataFrame.tsv"),
                 sep="\t", col.names = T, row.names = F, quote = F)
     
+    # Get Area under precision recall curve
+    overallOutputStatistics$confinedAucOverPrecisionRecall <- pr_auc(
+      permutationTestDataFrame, truth = factor(group, levels = c("inducedMixUp", "provided")), 
+      estimate = scaledLlr, event_level = "first")
+    
     confinedRocOnScaledLlr <- roc(
       permutationTestDataFrame$group ~ permutationTestDataFrame$scaledLlr, direction = ">",
       plot=TRUE, print.auc=TRUE,col="green",lwd =4,legacy.axes=TRUE,main="ROC Curves on scaled LLR")
@@ -1415,6 +1420,11 @@ sampleSwapPrediction <- function(
     
     dev.off()
     
+    # Get Area under precision recall curve
+    overallOutputStatistics$confinedAucOverPrecisionRecallWithSexCheck <- pr_auc(
+      permutationTestDataFrame, truth = factor(group, levels = c("inducedMixUp", "provided")), 
+      estimate = scaledLlrSexCheck, event_level = "first")
+
     confinedRocOnScaledLlrWithSex <- roc(
       permutationTestDataFrame$group ~ permutationTestDataFrame$scaledLlrSexCheck, direction = ">",
       plot=TRUE, print.auc=TRUE,col="green",lwd =4,legacy.axes=TRUE,main="ROC Curves on scaled LLR and sex-check")
