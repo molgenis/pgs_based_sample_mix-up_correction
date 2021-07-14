@@ -1008,13 +1008,13 @@ sampleSwapPrediction <- function(
       && file.access(file.path(out, "aggregatedNumberOfTraitsMatrix.rds"), 4) == 0) {
     
     message(paste0("Loading raw aggregated log likelihood ratio matrix: 'aggregatedLogLikelihoodRatiosMatrix.rds'"))
-    aggregatedLlrMatrix = loadRDS(file = file.path(out, "aggregatedLogLikelihoodRatiosMatrix.rds"))
+    aggregatedLlrMatrix = readRDS(file = file.path(out, "aggregatedLogLikelihoodRatiosMatrix.rds"))
     
     message(paste0("Loading scaled aggregated log likelihood ratio matrix: 'scaledLogLikelihoodRatiosMatrix.rds'"))
-    scaledLogLikelihoodMatrix = loadRDS(file = file.path(out, "scaledLogLikelihoodRatiosMatrix.rds"))
+    scaledLogLikelihoodMatrix = readRDS(file = file.path(out, "scaledLogLikelihoodRatiosMatrix.rds"))
     
     message(paste0("Loading number of traits for every phenotype-genotype combination: 'aggregatedNumberOfTraitsMatrix.rds'"))
-    aggregatedNumberOfTraits = loadRDS(file = file.path(out, "aggregatedNumberOfTraitsMatrix.rds"))
+    aggregatedNumberOfTraits = readRDS(file = file.path(out, "aggregatedNumberOfTraitsMatrix.rds"))
     
   } else {
   
