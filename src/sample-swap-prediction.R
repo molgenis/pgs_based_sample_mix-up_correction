@@ -1324,6 +1324,8 @@ sampleSwapPrediction <- function(
   diagMask %<>% select(-pheno) %>% as.matrix
   rownames(diagMask) = phenoRowNames
   
+  diagMask <- diagMask[rownames(scaledLogLikelihoodMatrix), colnames(scaledLogLikelihoodMatrix)]
+  
   # Calculate performance on matrix
   matrixWideRocOnScaledLlr <- roc(
     controls = round(scaledLogLikelihoodMatrix[diagMask], digits = 3),
