@@ -12,6 +12,7 @@
 ##############################
 library(MASS)
 library(tidyverse)
+library(yardstick)
 library(argparse)
 library(data.table)
 library(pROC)
