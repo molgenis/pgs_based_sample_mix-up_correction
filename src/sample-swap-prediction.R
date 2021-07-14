@@ -49,8 +49,8 @@ parser$add_argument('--phenotypes-file', required = T,
 parser$add_argument('--sample-coupling-file', required = FALSE,
                     help=paste('file containing genotype sample ids in the first column',
                     'and phenotype sample ids in the second column'))
-parser$add_argument('--split-prediction', required = FALSE, action = 'store_true',
-                    help = paste('receiver operating characteristics using 50/50 split procedure.'))
+parser$add_argument('--split-prediction', required = FALSE, default = NULL, const = 50, nargs = "?",
+                    help = paste('receiver operating characteristics using 50/50 split procedure. '))
 parser$add_argument('--llr-bayes-method', required = FALSE, default = c("NA", "80"), nargs = "+",
                     help = paste('the naive bayes method to use for calculating log likelihood ratios.',
                                   'If NA, the method will be based on the data type for each trait',
@@ -1509,8 +1509,15 @@ main <- function(argv=NULL) {
   # Should files that are already present be recycled?
   shouldRecycle <- TRUE
   
+  # Define default split prediction mix-up percentage of 50%
+  mixUpPercentage <- 50
   # Test if we should employ a split prediction method
-  splitPrediction <- args$split_prediction
+  splitPrediction <- FALSE
+  
+  if (!is.null(args$split_prediction)) {
+    splitPrediction <- TRUE
+    mixUpPercentage <- args$split_prediction
+  }
   
   # Test if we should filter on ages or not
   adultsOnly <- args$adults_only
@@ -1603,9 +1610,6 @@ main <- function(argv=NULL) {
     linkUntouchedSecondHalf <- link %>% anti_join(linkUntouched)
     
     message(paste0("Selected ", nrow(linkUntouchedSecondHalf), " to predict auc in..."))
-    
-    # We should also induce 50% mix-ups in this set of samples.
-    mixUpPercentage <- 50
       
     nMixUpsToIntroduce <- round(
       nrow(linkUntouchedSecondHalf) / 100 * mixUpPercentage);
