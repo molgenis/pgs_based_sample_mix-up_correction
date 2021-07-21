@@ -29,11 +29,11 @@ parser$add_argument('--base-fit-model-path',
 parser$add_argument('--trait-gwas-mapping', required = T,
                     help='path to a tab-delimited file that maps traits to the polygenic scores.')
 
-group <- parser$add_mutually_exclusive_group(required = T)
-group$add_argument('--base-pgs-path',
+pgsPathgroup <- parser$add_mutually_exclusive_group(required = T)
+pgsPathgroup$add_argument('--base-pgs-path',
                    help=paste("path to a directory containing polygenic scores. Folder structure should be",
                               "'<base-pgs-path>/<name-of-gwas-summary-statistic>/<pgs-file-name>'"))
-group$add_argument('--pgs-file',
+pgsPathgroup$add_argument('--pgs-file',
                    help=paste("path to a tab-delimited file holding all polygenic score data.",
                               "Columns should represent sample IDs and individual PGSs respectively."))
 
@@ -45,7 +45,7 @@ parser$add_argument('--pgs-file-name',
 parser$add_argument('--no-adults-only', dest="adults_only", action='store_false', default=TRUE,
                     help = "Turns filtering step (AGE > 18) off")
 parser$add_argument('--phenotypes-file', required = T,
-                    help='path to a tab-delimited file holding all processed phenotype data.')
+                    help='path to a tab-delimited file holding all processed phenotype data')
 parser$add_argument('--sample-coupling-file', required = FALSE,
                     help=paste('file containing genotype sample ids in the first column',
                     'and phenotype sample ids in the second column'))
@@ -56,6 +56,23 @@ parser$add_argument('--llr-bayes-method', required = FALSE, default = c("NA", "8
                                   'If NA, the method will be based on the data type for each trait',
                                   '<ewi-discretization | efi-discretization | gaussian | NA> [(average) number of samples per bin]'))
 
+sexCheckGroup <- parser$add_mutually_exclusive_group(required = T)
+sexCheckGroup$add_argument('--sex-check-table', 
+                           help=paste("Tab-separated file containing genotype ids in the first column",
+                                      "genotype inferred sex in the second column, and reported sex in the third column",
+                                      "This will be used to estimate the number of mix-ups present in the data,",
+                                      "and for a sex correspondence check.",
+                                      "Use --p-expected-mixUps or --calc-p-expected-mixUps if sex correspondence check is already performed"))
+sexCheckGroup$add_argument('--calc-p-expected-mixUps', type="double", nargs=4,
+                           help=paste("Number of samples that are identified in a sex-correspondence check,",
+                                      "The total number of mix-ups that are removed,",
+                                      "The total number of remaining samples",
+                                      "and the frequency of females or males."))
+sexCheckGroup$add_argument('--p-expected-mixUps', type="double",
+                           help=paste("Proportion of expected mix-ups. range between 0 and 1"))
+parser$add_argument('--p-max-mixUps', type="double", default = 1e-04,
+                    help=paste("Maximum proportion of mix-ups. range between 0 and 1. Default is 1e-04"))
+
 parser$add_argument('--bayes-method-sweep-mode', action='store_true', help = paste0(
   'special mode to perform a sweep over a series of naive bayes methods'))
 parser$add_argument('--out',
@@ -65,10 +82,6 @@ parser$add_argument('--likelihood-ratio-alpha', default = 0.05, help=paste(
   'based on the difference in log likelihood ratios between the provided and permuted samples'))
 parser$add_argument('--output-intermediate-statistics', action='store_true', default = F,
                     help = 'Setting this to false will prevent intermediate AUC calculations, requiring less memory.')
-
-# parser$add_argument('--pgx-threshold', default = 0.05, help=paste(
-#   'the threshold that is used to label the samples for which genetics and phenotypes match best.',
-#   'by default this is set to a sensitivity of 0.05'))
 
 ##############################
 # Define functions
@@ -970,11 +983,30 @@ plotResiduals <- function(residualsDataFrame, phenotypeTable, responseDataType) 
   }
 }
 
+sexCheck <- function(
+  sexCheckTable, link
+) {
+  filteredLink <- link %>%
+    filter(geno %in% (sexCheckTable %>% filter(sexCheckTable$genotypeInferredSex == sexCheckTable$reportedSex) %>% pull("ID")))
+  return(filteredLink)
+}
+
+estimateMixUpRate <- function(
+  sexCheckTable
+) {
+  swapsSexCheck <- sum(sexCheckTable$genotypeInferredSex != sexCheckTable$reportedSex)
+  swapsExcluded <- swapsSexCheck
+  nRemaining <- nrow(sexCheckTable) - swapsExcluded
+  fmale <- sum(sexCheckTable$genotypeInferredSex == 1) / nrow(sexCheckTable)
+  estimatedMixUpRate <- (swapsSexCheck / (2*((1-fmale) * fmale)) - swapsExcluded) / nRemaining
+}
+
 sampleSwapPrediction <- function(
   traitDescriptionsTable, polygenicScoresTable, phenotypesTable, link,
   naiveBayesMethod, samplesPerNaiveBayesBin, loopBayesMethods,
   modelBasePath, likelihoodRatioDifferenceAlpha,
-  out, debug, shouldRecycle, outputIntermediateStatistics, writeAsRObject = T) {
+  out, debug, shouldRecycle, outputIntermediateStatistics, 
+  writeAsRObject = T, maxMixUpRate = NULL, estimatedMixUpRate = NULL) {
   
   predictingInducedMixUps <- F
   
@@ -989,8 +1021,8 @@ sampleSwapPrediction <- function(
     rename(pheno = ID) %>%
     inner_join(link, by="pheno")
   
-  reportedSexDataSet <- phenotypesTable %>% select(pheno, SEX) %>% 
-    group_by(pheno) %>% summarise(reportedSex = head(SEX, 1))
+  reportedSexDataSet <- phenotypesTable %>% select(ID, SEX) %>% 
+    group_by(ID) %>% summarise(reportedSex = head(SEX, 1))
   
   inferredSexDataSet <- phenotypesTable %>% select(pheno, SEX) %>% 
     group_by(pheno) %>% summarise(inferredSex = head(SEX, 1)) %>%
@@ -1326,6 +1358,8 @@ sampleSwapPrediction <- function(
   
   diagMask <- diagMask[rownames(scaledLogLikelihoodMatrix), colnames(scaledLogLikelihoodMatrix)]
   
+  #diagMask <- lower.tri(scaledLogLikelihoodMatrix, diag = TRUE) & upper.tri(scaledLogLikelihoodMatrix, diag = TRUE)
+  
   # Calculate performance on matrix
   matrixWideRocOnScaledLlr <- roc(
     controls = round(scaledLogLikelihoodMatrix[diagMask], digits = 3),
@@ -1349,6 +1383,14 @@ sampleSwapPrediction <- function(
     as.list = FALSE, transpose = FALSE)
   
   resultsExtended <- cbind(results, matrixWideRocCoords)
+  
+  if (!is.null(estimatedMixUpRate) && !is.null(maxMixUpRate)) {
+    resultsExtended <- resultsExtended %>% 
+      mutate(expectedMixUpProp = estimatedMixUpRate, targetMixUpProp = maxMixUpRate) %>%
+      mutate(nPass = map_dbl(sensitivity,~sum(sensitivity>=.x)),
+             rPass = expectedMixUpProp * sensitivity * (n() / nPass),
+             pass = targetMixUpProp > propExcludedMixUp)
+  }
   
   message(paste0("Exporting output matrix: 'idefixPredictions.txt'"))
   
@@ -1578,6 +1620,47 @@ main <- function(argv=NULL) {
                     "Generating sample coupling table from phenotypes file."))
   }
   
+  if (!is.null(args$sex_check_table)) {
+    sexCheckTable <- fread(args$sex_check_table, header=T, quote="", sep="\t",
+                             col.names = c("ID", "genotypeInferredSex", "reportedSex")) %>%
+      distinct() %>%
+      mutate(ID = as.character(ID))
+    
+    if(!setequal(sexCheckTable %>% pull(genotypeInferredSex), c("1", "2"))) {
+      stop("Values of genotype inferred sex not strictly 1 or 2")
+    }
+    
+    if(!setequal(sexCheckTable %>% pull(reportedSex), c("1", "2"))) {
+      stop("Values of reported sex not strictly 1 or 2")
+    }
+    
+    estimatedMixUpRate <- estimateMixUpRate(sexCheckTable)
+    nSamplesBeforeSexCheck <- nrow(link)
+    link <- sexCheck(sexCheckTable, link)
+    message(paste("Performed sex-correspondence check and removed ", nSamplesBeforeSexCheck - nrow(link), "samples."))
+    message(paste(nrow(link), "samples remain."))
+    
+  } else if (!is.null(args$calc_p_expected_mixUps)) {
+    swapsSexCheck <- args$calc_p_expected_mixUps[1]
+    swapsExcluded <- args$calc_p_expected_mixUps[2]
+    nRemaining <- args$calc_p_expected_mixUps[3]
+    fmale <- args$calc_p_expected_mixUps[4]
+    estimatedMixUpRate <- (swapsSexCheck / (2*((1-fmale) * fmale)) - swapsExcluded) / nRemaining
+    
+  } else if (!is.null(args$p_expected_mixUps)) {
+    estimatedMixUpRate <- args$p_expected_mixUps
+  
+  } else {
+    estimatedMixUpRate <- NULL
+  }
+  
+  if (!is.null(estimatedMixUpRate)) {
+    message(paste0("Estimated the mix-up rate at ", round(estimatedMixUpRate * nrow(link), 1), " (", round(estimatedMixUpRate * 100, 3),"%)"))
+    
+    pMaxMixUps <- args$p_max_mixUps
+    message(paste0("Maximum allowed mix-up rate set at ", round(pMaxMixUps * 100, 3), "%"))
+  }
+
   # Are we going to do a split prediction or not? If this is the case, run twice
   # If this is not the case, run it as usual.
   
@@ -1586,7 +1669,8 @@ main <- function(argv=NULL) {
     sampleSwapPrediction(traitDescriptionsTable, polygenicScoresTable, phenotypesTable, link,
                          naiveBayesMethod, samplesPerNaiveBayesBin, loopBayesMethods,
                          modelBasePath, likelihoodRatioDifferenceAlpha,
-                         out, debug, shouldRecycle, outputIntermediateStatistics)
+                         out, debug, shouldRecycle, outputIntermediateStatistics, 
+                         maxMixUpRate = pMaxMixUps, estimatedMixUpRate = estimatedMixUpRate)
   } else {
     # Do perform split prediction:
 

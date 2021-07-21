@@ -17,16 +17,17 @@ library(pROC)
 # Define ggplot theme
 ##############################
 
+## Plotting defaults
 old <- theme_set(theme_classic())
 theme_update(line = element_line(
-  colour = "black", size = (0.5 * ggplot2::.pt * 72.27/96), 
+  colour = "black", size = (0.5 / (ggplot2::.pt * 72.27/96)),
   linetype = 1, lineend = "butt", arrow = F, inherit.blank = T),
   strip.background = element_rect(colour = NA, fill = NA),
   axis.line = element_line(
-    colour = "#595A5C", size = (0.5 * ggplot2::.pt * 72.27/96), 
+    colour = "#595A5C", size = (0.5 / (ggplot2::.pt * 72.27/96)),
     linetype = 1, lineend = "butt", arrow = F, inherit.blank = T),
   axis.ticks = element_line(
-    colour = "#595A5C", size = (0.5 * ggplot2::.pt * 72.27/96), 
+    colour = "#595A5C", size = (0.5 / (ggplot2::.pt * 72.27/96)),
     linetype = 1, lineend = "butt", arrow = F, inherit.blank = T)
 )
 
@@ -36,7 +37,7 @@ theme_update(line = element_line(
 
 parser <- ArgumentParser(description='')
 parser$add_argument('--dir',
-                    help='path to directory to recycle results from')
+                    help='path to directory that contains PGS-based sample-swap predictions')
 
 ##############################
 # Run
