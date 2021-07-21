@@ -12,7 +12,6 @@
 ##############################
 library(MASS)
 library(tidyverse)
-library(yardstick)
 library(argparse)
 library(data.table)
 library(pROC)
@@ -1386,10 +1385,9 @@ sampleSwapPrediction <- function(
   
   if (!is.null(estimatedMixUpRate) && !is.null(maxMixUpRate)) {
     resultsExtended <- resultsExtended %>% 
-      mutate(expectedMixUpProp = estimatedMixUpRate, targetMixUpProp = maxMixUpRate) %>%
       mutate(nPass = map_dbl(sensitivity,~sum(sensitivity>=.x)),
-             rPass = expectedMixUpProp * sensitivity * (n() / nPass),
-             pass = targetMixUpProp > propExcludedMixUp)
+             rPass = estimatedMixUpRate * sensitivity * (n() / nPass),
+             pass = maxMixUpRate >= rPass)
   }
   
   message(paste0("Exporting output matrix: 'idefixPredictions.txt'"))
