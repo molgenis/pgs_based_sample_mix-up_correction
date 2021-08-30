@@ -1004,7 +1004,7 @@ sampleSwapPrediction <- function(
   traitDescriptionsTable, polygenicScoresTable, phenotypesTable, link,
   naiveBayesMethod, samplesPerNaiveBayesBin, loopBayesMethods,
   modelBasePath, likelihoodRatioDifferenceAlpha,
-  out, debug, shouldRecycle, outputIntermediateStatistics, 
+  out, shouldDebug, shouldRecycle, outputIntermediateStatistics, 
   writeAsRObject = T, maxMixUpRate = NULL, estimatedMixUpRate = NULL) {
   
   predictingInducedMixUps <- F
@@ -1020,8 +1020,8 @@ sampleSwapPrediction <- function(
     rename(pheno = ID) %>%
     inner_join(link, by="pheno")
   
-  reportedSexDataSet <- phenotypesTable %>% select(ID, SEX) %>% 
-    group_by(ID) %>% summarise(reportedSex = head(SEX, 1))
+  reportedSexDataSet <- phenotypesTable %>% select(pheno, SEX) %>% 
+    group_by(pheno) %>% summarise(reportedSex = head(SEX, 1))
   
   inferredSexDataSet <- phenotypesTable %>% select(pheno, SEX) %>% 
     group_by(pheno) %>% summarise(inferredSex = head(SEX, 1)) %>%
@@ -1062,8 +1062,8 @@ sampleSwapPrediction <- function(
     
     traitDescriptionsTable <- traitDescriptionsTable %>%
       group_by(trait) %>%
-      mutate(naiveBayesMethod = case_when(
-        !is.na(naiveBayesMethod) 
+      mutate(
+        naiveBayesMethod = case_when(!is.na(naiveBayesMethod) 
         & naiveBayesMethod %in% c("gaussian", "efi-discretization", "ewi-discretization") ~ as.character(naiveBayesMethod),
         traitDataType == "continuous" ~ "gaussian",
         traitDataType %in% c("ordinal", "binary") ~ "ewi-discretization"),
@@ -1162,7 +1162,7 @@ sampleSwapPrediction <- function(
       # Calculate residuals matrix
       residualsMatrix <- getResidualsMatrix(
         completeTable, responseDataType, pgsPhenotypeModel, 
-        traitDirectory, recycle = shouldRecycle, write = debug)
+        traitDirectory, recycle = shouldRecycle, write = shouldDebug)
       
       message("    completed calculating scaled residuals")
       
@@ -1188,7 +1188,7 @@ sampleSwapPrediction <- function(
         logLikelihoodRatios <- getLogLikelihoodRatioMatrix(
           residualsMatrix, completeTable, responseDataType, 
           modelPath, naiveBayesMethod, samplesPerNaiveBayesBin,
-          intermediateLogLikelihoodRatioMatrixFileBasePath, recycle = shouldRecycle, write  = debug)
+          intermediateLogLikelihoodRatioMatrixFileBasePath, recycle = shouldRecycle, write  = shouldDebug)
         
         likelihoodRatioDifferenceTest <- t.test(
           diag(logLikelihoodRatios), 
@@ -1223,44 +1223,78 @@ sampleSwapPrediction <- function(
         # If output of intermediate statistics is requested, calculate these.
         if (outputIntermediateStatistics) {
           
-          llrDataFrame <- 
-            as.data.frame.table(logLikelihoodRatios, responseName = "logLikelihoodRatios", stringsAsFactors = FALSE) %>%
-            inner_join(link, by = c("Var1" = "pheno"))
+          # We want to make a mask.
+          # This mask should have all values on false, except for those where the rownames correspond to the colnames
+          diagMask <- link %>% 
+            mutate(bool = case_when(pheno %in% rownames(logLikelihoodRatios) 
+                                    & original %in% colnames(logLikelihoodRatios) ~ T,
+                                    TRUE ~ F)) %>%
+            pivot_wider(id_cols = pheno, names_from = original, values_from = bool, values_fill = F)
           
-          rm(logLikelihoodRatios)
-          gc()
+          phenoRowNames = diagMask$pheno
+          diagMask %<>% select(-pheno) %>% as.matrix
+          rownames(diagMask) = phenoRowNames
           
-          llrDataFrame$group <- "alternative"
-          llrDataFrame$group[llrDataFrame$original == llrDataFrame$Var2] <- "null"
-          llrDataFrame$group <- ordered(llrDataFrame$group, levels = c("null", "alternative"))
+          diagMask <- diagMask[rownames(logLikelihoodRatios), colnames(logLikelihoodRatios)]
           
-          llrDataFrame <- llrDataFrame %>% 
-            group_by(Var1) %>%
-            mutate(scaledLlr = scale(logLikelihoodRatios)[,1])
+          scaledLogLikelihoodRatios <- t(apply(logLikelihoodRatios, 1, function(x) scale(x)))
+          rownames(scaledLogLikelihoodRatios) <- rownames(logLikelihoodRatios)
+          colnames(scaledLogLikelihoodRatios) <- colnames(logLikelihoodRatios)
           
-          matrixWideAucOnScaledLlr <- auc(
-            llrDataFrame$group, llrDataFrame$scaledLlr)
+          # Calculate performance on matrix
+          matrixWideRocOnScaledLlr <- roc(
+            controls = round(scaledLogLikelihoodRatios[diagMask], digits = 3),
+            cases = round(sample(scaledLogLikelihoodRatios[!diagMask], 
+                                 min(sum(diagMask) * sum(diagMask) - sum(diagMask), 
+                                     sum(diagMask) * 100)), digits = 3), 
+            plot=TRUE, print.auc=TRUE, direction = "<",
+            col="green", lwd =4, legacy.axes=TRUE, main="ROC Curves on diagonal and off-diagonal")
           
-          message(paste0("Calculated overall AUC on scaled log likelihood ratios: ", matrixWideAucOnScaledLlr))
-          
-          permutationTestDataFrame <- llrDataFrame %>%
-            filter(geno == Var2)
-          
-          rm(llrDataFrame)
-          gc()
-          
+          message(paste0("Calculated AUC on scaled log likelihood ratios: ", matrixWideRocOnScaledLlr$auc))
+
           traitOutputTable[traitOutputTable$trait == trait & traitOutputTable$naiveBayesParameters == naiveBayesParameters, "matrixWideAucOnScaledLlr"] <- 
-            as.double(matrixWideAucOnScaledLlr)
+            as.double(matrixWideRocOnScaledLlr$auc)
           
-          if (predictingInducedMixUps && "alternative" %in% permutationTestDataFrame$group) {
+          rm(diagMask)
+          rm(matrixWideRocOnScaledLlr)
+          gc()
+          
+          if (predictingInducedMixUps) {
+            
+            # Extract the diagonal values
+            diagIntermediate <- logLikelihoodRatios[lower.tri(logLikelihoodRatios, diag = TRUE)
+                                              & upper.tri(logLikelihoodRatios, diag = TRUE)]
+            
+            # Extract the diagonal values
+            diagScaledIntermediate <- scaledLogLikelihoodRatios[lower.tri(scaledLogLikelihoodRatios, diag = TRUE)
+                                                          & upper.tri(scaledLogLikelihoodRatios, diag = TRUE)]
+            
+            intermediateConfinedResults <- tibble(
+              Var1 = rownames(scaledLogLikelihoodRatios),
+              Var2 = colnames(scaledLogLikelihoodRatios),
+              logLikelihoodRatios = diagIntermediate,
+              scaledLlr = diagScaledIntermediate) %>%
+              inner_join(link, by = c("Var1" = "pheno")) %>%
+              mutate(
+                diag = case_when(
+                  geno == Var2 ~ T,
+                  geno != Var2 ~ F),
+                correct = case_when(
+                  original == Var2 ~ T,
+                  original != Var2 ~ F),
+                mixUp = case_when(
+                  diag & correct ~ F,
+                  diag & !correct ~ T),
+                group = case_when(diag & !correct ~ "inducedMixUp",
+                                  diag & correct ~ "provided"))
             
             confinedAuc <- auc(
-              permutationTestDataFrame$group, 
-              permutationTestDataFrame$logLikelihoodRatios)
+              intermediateConfinedResults$group, 
+              intermediateConfinedResults$logLikelihoodRatios)
             
             confinedAucOnScaledLlr <- auc(
-              permutationTestDataFrame$group, 
-              permutationTestDataFrame$scaledLlr)
+              intermediateConfinedResults$group, 
+              intermediateConfinedResults$scaledLlr)
             
             message(paste0("Confined AUC: ", confinedAuc))
             traitOutputTable[traitOutputTable$trait == trait & traitOutputTable$naiveBayesParameters == naiveBayesParameters, "confinedAuc"] <- 
@@ -1269,9 +1303,13 @@ sampleSwapPrediction <- function(
             message(paste0("Confined AUC on scaled log likelihood ratios: ", confinedAucOnScaledLlr))
             traitOutputTable[traitOutputTable$trait == trait & traitOutputTable$naiveBayesParameters == naiveBayesParameters, "confinedAucOnScaledLlr"] <- 
               as.double(confinedAucOnScaledLlr)
+            
+            rm(intermediateConfinedResults)
+            rm(diagIntermediate)
+            rm(diagScaledIntermediate)
           }
           
-          rm(permutationTestDataFrame)
+          rm(scaledLogLikelihoodRatios)
           gc()
         }
         
@@ -1535,7 +1573,7 @@ main <- function(argv=NULL) {
   out <- args$out
   
   # Should we use debug mode?
-  debug <- args$debug
+  shouldDebug <- args$debug
   
   # Should we perform a sweep over bayes / likelihood methods for all traits?
   loopBayesMethods <- args$bayes_method_sweep_mode
@@ -1667,7 +1705,7 @@ main <- function(argv=NULL) {
     sampleSwapPrediction(traitDescriptionsTable, polygenicScoresTable, phenotypesTable, link,
                          naiveBayesMethod, samplesPerNaiveBayesBin, loopBayesMethods,
                          modelBasePath, likelihoodRatioDifferenceAlpha,
-                         out, debug, shouldRecycle, outputIntermediateStatistics, 
+                         out, shouldDebug, shouldRecycle, outputIntermediateStatistics, 
                          maxMixUpRate = pMaxMixUps, estimatedMixUpRate = estimatedMixUpRate)
   } else {
     # Do perform split prediction:
@@ -1736,7 +1774,7 @@ main <- function(argv=NULL) {
     sampleSwapPrediction(traitDescriptionsTable, polygenicScoresTable, phenotypesTable, linkUntouched,
                          naiveBayesMethod, samplesPerNaiveBayesBin, loopBayesMethods,
                          modelBasePath, likelihoodRatioDifferenceAlpha,
-                         outFit, debug, shouldRecycle, outputIntermediateStatistics)
+                         outFit, shouldDebug, shouldRecycle, outputIntermediateStatistics)
     
     # 2. We now use these fits to do predictions in the remaining samples
     # Make an output path
@@ -1749,7 +1787,7 @@ main <- function(argv=NULL) {
     sampleSwapPrediction(traitDescriptionsTable, polygenicScoresTable, phenotypesTable, permutedLink,
                          naiveBayesMethod, samplesPerNaiveBayesBin, loopBayesMethods,
                          modelBasePath, likelihoodRatioDifferenceAlpha,
-                         outPredict, debug, shouldRecycle, outputIntermediateStatistics)
+                         outPredict, shouldDebug, shouldRecycle, outputIntermediateStatistics)
     
   }
 }
