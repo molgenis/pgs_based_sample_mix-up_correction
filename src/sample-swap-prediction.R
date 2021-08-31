@@ -907,9 +907,12 @@ addBayesParameterSweepRows <- function(traitOutputTable) {
 
 
 # Function for loading polygenic scores
-loadPolygenicScores <- function(basePathWithPolygenicScores = NULL, pgsFileName = NULL, pgsMergedFile = NULL) {
+loadPolygenicScores <- function(traitDescriptionsTable = NULL, basePathWithPolygenicScores = NULL, 
+                                pgsFileName = NULL, pgsMergedFile = NULL) {
   
-  if (!is.null(basePathWithPolygenicScores)) {
+  if (!is.null(traitDescriptionsTable) 
+      && !is.null(basePathWithPolygenicScores) 
+      && !is.null(pgsFileName)) {
     traitDescriptionsTable$polygenicScoreFilePath <- file.path(basePathWithPolygenicScores, 
                                                                traitDescriptionsTable$summaryStatistics, 
                                                                pgsFileName)
@@ -1566,6 +1569,7 @@ main <- function(argv=NULL) {
   
   # Get the paths to the polygenic scores.
   polygenicScoresTable <- loadPolygenicScores(
+    traitDescriptionsTable = traitDescriptionsTable,
     basePathWithPolygenicScores = args$base_pgs_path, pgsFileName = args$pgs_file_name, 
     pgsMergedFile = args$pgs_file)
   
