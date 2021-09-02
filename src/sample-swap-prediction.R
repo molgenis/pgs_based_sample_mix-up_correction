@@ -1699,6 +1699,10 @@ main <- function(argv=NULL) {
     pMaxMixUps <- args$p_max_mixUps
     message(paste0("Maximum allowed mix-up rate set at ", round(pMaxMixUps * 100, 3), "%"))
   }
+  
+  if (!dir.create(out, recursive = T, showWarnings = FALSE)) {
+    warning(paste0("Could not create directory '", out, "'"))
+  }
 
   # Are we going to do a split prediction or not? If this is the case, run twice
   # If this is not the case, run it as usual.
@@ -1722,7 +1726,7 @@ main <- function(argv=NULL) {
     
     message(paste0("Selected ", numberOfSamples, " to fit models on..."))
     
-    outFileSampleCouplingFirstHalf <- paste0(out, ".", numberOfSamples, "samples_.txt")
+    outFileSampleCouplingFirstHalf <- file.path(out, paste0(numberOfSamples, "samples_.txt"))
     
     write.table(linkUntouched, outFileSampleCouplingFirstHalf, 
                 row.names = F, col.names = T, quote = F, sep = "\t")
@@ -1750,14 +1754,16 @@ main <- function(argv=NULL) {
     permutedLink <- rename(permutedLink, original = geno, geno = permuted) %>%
       select(pheno, geno, original)
     
-    outFilePermutedSamples <- paste0(out, ".perm_", numberOfPermutedSamples, "mixUps.txt")
+    outFilePermutedSamples <- file.path(
+      out, paste0("perm_", numberOfPermutedSamples, "mixUps.txt"))
     
     message(paste0("Writing permuted samples to '", outFilePermutedSamples, "'"))
     
     write.table(permutedLink %>% filter(original != geno), outFilePermutedSamples,
                 row.names = F, col.names = T, quote = F, sep = "\t")
     
-    outFilePermutedSampleCoupling <- paste0(out, ".perm_", numberOfSamples, "samples_", numberOfPermutedSamples, "mixUps.txt")
+    outFilePermutedSampleCoupling <- file.path(
+      out, paste0(".perm_", numberOfSamples, "samples_", numberOfPermutedSamples, "mixUps.txt"))
     
     message(paste0("Writing permuted sample couplings to '", outFilePermutedSampleCoupling, "'"))
     
